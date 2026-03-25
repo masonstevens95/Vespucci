@@ -26,9 +26,11 @@ export function findWarSubjects(
   dynStrings: string[],
   countryTags: Record<number, string>,
   overlordSubjects: Record<string, Set<string>>,
-  alreadyMatched?: Set<string>,
 ): void {
   if (T.calledAlly === undefined || T.reason === undefined) return;
+
+  // Track the latest overlord per subject by war join date
+  const latestOverlord = new Map<string, { overlord: string; datePos: number }>();
 
   const view = new DataView(data.buffer, data.byteOffset, data.byteLength);
   const calledAllyLo = T.calledAlly & 0xff;
@@ -90,9 +92,20 @@ export function findWarSubjects(
     const subjectTag = countryTags[subjectId];
     if (overlordTag && subjectTag && overlordTag !== subjectTag &&
         /^[A-Z]/.test(subjectTag) &&
-        !(alreadyMatched?.has(subjectTag))) { // skip if already matched by IO
-      if (!overlordSubjects[overlordTag]) overlordSubjects[overlordTag] = new Set();
-      overlordSubjects[overlordTag].add(subjectTag);
+        true) {
+      // Use the byte position as a proxy for recency — within the same
+      // war entry, later joined records have later dates. Across wars,
+      // we use the position of the reason=Subject match.
+      const existing = latestOverlord.get(subjectTag);
+      if (!existing || i > existing.datePos) {
+        latestOverlord.set(subjectTag, { overlord: overlordTag, datePos: i });
+      }
     }
+  }
+
+  // Apply: only the latest overlord per subject wins
+  for (const [subjectTag, { overlord: overlordTag }] of latestOverlord) {
+    if (!overlordSubjects[overlordTag]) overlordSubjects[overlordTag] = new Set();
+    overlordSubjects[overlordTag].add(subjectTag);
   }
 }

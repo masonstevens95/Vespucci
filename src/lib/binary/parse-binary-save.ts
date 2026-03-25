@@ -14,7 +14,6 @@ import { findSection, findAllMatches, findOwnershipLocations } from "./section-f
 import { readMetadataLocations } from "./sections/metadata";
 import { readCountries } from "./sections/countries";
 import { readLocationOwnership } from "./sections/locations";
-import { readIOManager } from "./sections/io-manager";
 import { readDiplomacy } from "./sections/diplomacy";
 import { readPlayedCountry } from "./sections/players";
 import { findWarSubjects } from "./sections/war-subjects";
@@ -54,7 +53,6 @@ function parseGamestate(data: Uint8Array, dynStrings: string[]): ParsedSave {
   const countryCapitals: Record<number, number> = {};
   const overlordCandidates = new Set<string>();
   const overlordSubjects: Record<string, Set<string>> = {};
-  const ioMatched = new Set<string>();
   const subjectIds = new Set<number>();
   const tagToPlayers: Record<string, string[]> = {};
 
@@ -70,8 +68,8 @@ function parseGamestate(data: Uint8Array, dynStrings: string[]): ParsedSave {
   const locOff = findOwnershipLocations(data, T.locations, T.owner, r);
   if (locOff >= 0) { r.pos = locOff + 6; readLocationOwnership(r, countryTags, locationOwners); }
 
-  const ioOff = findSection(data, T.ioManager, r);
-  if (ioOff >= 0) { r.pos = ioOff + 6; readIOManager(r, countryTags, overlordSubjects, ioMatched); }
+  // IO lordship detection removed — autocephalous_patriarchate IOs contain
+  // stale/incorrect subject data. War-based detection is more reliable.
 
   const dipOff = findSection(data, T.diplomacyMgr, r);
   if (dipOff >= 0) { r.pos = dipOff + 6; readDiplomacy(r, subjectIds); }
@@ -83,7 +81,7 @@ function parseGamestate(data: Uint8Array, dynStrings: string[]): ParsedSave {
     const warStart = r.pos;
     r.skipBlock();
     const warEnd = r.pos;
-    findWarSubjects(data, warStart, warEnd, dynStrings, countryTags, overlordSubjects, ioMatched);
+    findWarSubjects(data, warStart, warEnd, dynStrings, countryTags, overlordSubjects);
   }
 
   for (const off of findAllMatches(data, T.playedCountry)) {
@@ -94,7 +92,7 @@ function parseGamestate(data: Uint8Array, dynStrings: string[]): ParsedSave {
   // Resolve subjects via capital ownership
   for (const subId of subjectIds) {
     const subTag = countryTags[subId];
-    if (!subTag || ioMatched.has(subTag)) continue;
+    if (!subTag) continue;
     const capLoc = countryCapitals[subId];
     if (capLoc === undefined) continue;
     const capOwner = locationOwners[capLoc];
