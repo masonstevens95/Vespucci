@@ -223,11 +223,11 @@ describe("readLocationEntries", () => {
     const r = new TokenReader(data);
     const tags = { 0: "ENG", 1: "SCO" };
     const owners: Record<number, string> = {};
-    const intOwners = new Map<number, Set<number>>();
-    readLocationEntries(r, tags, owners, intOwners);
+    const intPairs = new Map<string, number>();
+    readLocationEntries(r, tags, owners, intPairs);
     expect(owners[1]).toBe("SCO");
-    // ENG (0) should be recorded as overlord of SCO (1)
-    expect(intOwners.get(0)?.has(1)).toBe(true);
+    // ENG (0) integrating SCO (1): key "0:1" should have count >= 1
+    expect(intPairs.get("0:1")).toBe(1);
   });
 
   it("skips entries with unknown owner", () => {

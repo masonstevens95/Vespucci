@@ -7,7 +7,7 @@ export function readLocationOwnership(
   r: TokenReader,
   countryTags: Record<number, string>,
   locationOwners: Record<number, string>,
-  integrationOwners?: Map<number, Set<number>>,
+  integrationPairs?: Map<string, number>,
 ): void {
   let depth = 1;
   while (!r.done && depth > 0) {
@@ -19,7 +19,7 @@ export function readLocationOwnership(
     if (tok === T.locations) {
       r.expectEqual();
       r.expectOpen();
-      readLocationEntries(r, countryTags, locationOwners, integrationOwners);
+      readLocationEntries(r, countryTags, locationOwners, integrationPairs);
       return;
     } else if (r.peekToken() === BinaryToken.EQUAL) {
       r.readToken();
@@ -33,7 +33,7 @@ export function readLocationEntries(
   r: TokenReader,
   countryTags: Record<number, string>,
   locationOwners: Record<number, string>,
-  integrationOwners?: Map<number, Set<number>>,
+  integrationPairs?: Map<string, number>,
 ): void {
   while (!r.done) {
     const tok = r.peekToken();
@@ -44,7 +44,7 @@ export function readLocationEntries(
       const locId = tok === BinaryToken.I32 ? r.readI32() : r.readU32();
       r.expectEqual();
       r.expectOpen();
-      readLocationEntry(r, locId, countryTags, locationOwners, integrationOwners);
+      readLocationEntry(r, locId, countryTags, locationOwners, integrationPairs);
     } else {
       r.readToken();
       if (r.peekToken() === BinaryToken.EQUAL) {
@@ -66,7 +66,7 @@ export function readLocationEntry(
   locId: number,
   countryTags: Record<number, string>,
   locationOwners: Record<number, string>,
-  integrationOwners?: Map<number, Set<number>>,
+  integrationPairs?: Map<string, number>,
 ): void {
   // Read owner (always first field)
   let ownerId: number | null = null;
@@ -80,7 +80,7 @@ export function readLocationEntry(
   }
 
   // Skip the rest but scan for integration_owner if requested
-  if (integrationOwners && ownerId !== null && T.integrationOwner !== undefined) {
+  if (integrationPairs && ownerId !== null && T.integrationOwner !== undefined) {
     const startPos = r.pos;
     r.skipBlock();
     const endPos = r.pos;
@@ -98,10 +98,8 @@ export function readLocationEntry(
           data[i + 4] === 0x14 && data[i + 5] === 0x00) {  // U32
         const intOwner = view.getUint32(i + 6, true);
         if (intOwner !== ownerId) {
-          if (!integrationOwners.has(intOwner)) {
-            integrationOwners.set(intOwner, new Set());
-          }
-          integrationOwners.get(intOwner)!.add(ownerId);
+          const key = `${intOwner}:${ownerId}`;
+          integrationPairs.set(key, (integrationPairs.get(key) ?? 0) + 1);
         }
       }
     }
