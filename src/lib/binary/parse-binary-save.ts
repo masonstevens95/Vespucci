@@ -17,6 +17,7 @@ import { readLocationOwnership } from "./sections/locations";
 import { readIOManager } from "./sections/io-manager";
 import { readDiplomacy } from "./sections/diplomacy";
 import { readPlayedCountry } from "./sections/players";
+import { findWarSubjects } from "./sections/war-subjects";
 import type { ParsedSave, RGB } from "../types";
 
 /**
@@ -75,6 +76,16 @@ function parseGamestate(data: Uint8Array, dynStrings: string[]): ParsedSave {
 
   const dipOff = findSection(data, T.diplomacyMgr, r);
   if (dipOff >= 0) { r.pos = dipOff + 6; readDiplomacy(r, subjectIds); }
+
+  // War manager — subjects called with reason=Subject
+  const warOff = findSection(data, T.warManager, r);
+  if (warOff >= 0) {
+    r.pos = warOff + 6;
+    const warStart = r.pos;
+    r.skipBlock();
+    const warEnd = r.pos;
+    findWarSubjects(data, warStart, warEnd, dynStrings, countryTags, overlordSubjects);
+  }
 
   for (const off of findAllMatches(data, T.playedCountry)) {
     r.pos = off + 6;

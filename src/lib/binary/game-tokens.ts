@@ -30,6 +30,9 @@ export const T = {
   subjectTax:    tokenId("last_months_subject_tax"),
   mapColor:      tokenId("map_color"),
   integrationOwner: tokenId("integration_owner"),
+  warManager:   tokenId("war_manager"),
+  calledAlly:   tokenId("called_ally"),
+  reason:       tokenId("reason"),
 
   // Engine tokens (below 0x0270c) — not in the game token mapping file
   COLOR:         0x0056,  // "color" field
