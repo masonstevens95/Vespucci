@@ -83,7 +83,7 @@ function parseGamestate(data: Uint8Array, dynStrings: string[]): ParsedSave {
     const warStart = r.pos;
     r.skipBlock();
     const warEnd = r.pos;
-    findWarSubjects(data, warStart, warEnd, dynStrings, countryTags, overlordSubjects);
+    findWarSubjects(data, warStart, warEnd, dynStrings, countryTags, overlordSubjects, ioMatched);
   }
 
   for (const off of findAllMatches(data, T.playedCountry)) {

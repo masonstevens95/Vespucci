@@ -26,6 +26,7 @@ export function findWarSubjects(
   dynStrings: string[],
   countryTags: Record<number, string>,
   overlordSubjects: Record<string, Set<string>>,
+  alreadyMatched?: Set<string>,
 ): void {
   if (T.calledAlly === undefined || T.reason === undefined) return;
 
@@ -88,7 +89,8 @@ export function findWarSubjects(
     const overlordTag = countryTags[overlordId];
     const subjectTag = countryTags[subjectId];
     if (overlordTag && subjectTag && overlordTag !== subjectTag &&
-        /^[A-Z]/.test(subjectTag)) { // filter out invalid tags like "---"
+        /^[A-Z]/.test(subjectTag) &&
+        !(alreadyMatched?.has(subjectTag))) { // skip if already matched by IO
       if (!overlordSubjects[overlordTag]) overlordSubjects[overlordTag] = new Set();
       overlordSubjects[overlordTag].add(subjectTag);
     }
