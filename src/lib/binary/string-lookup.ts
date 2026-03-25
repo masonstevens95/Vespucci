@@ -6,20 +6,19 @@ const isValidStringEntry = (len: number, pos: number, dataLength: number): boole
 export const parseStringLookup = (data: Uint8Array): string[] => {
   const view = new DataView(data.buffer, data.byteOffset, data.byteLength);
   const decoder = new TextDecoder("utf-8");
+  const strings: string[] = [];
+  let pos = 5; // skip 5-byte header
 
-  const collect = (pos: number, acc: readonly string[]): string[] => {
-    if (pos + 2 <= data.length) {
-      const len = view.getUint16(pos, true);
-      const nextPos = pos + 2;
-      if (isValidStringEntry(len, nextPos, data.length)) {
-        return collect(nextPos + len, [...acc, decoder.decode(data.subarray(nextPos, nextPos + len))]);
-      } else {
-        return [...acc];
-      }
+  while (pos + 2 <= data.length) {
+    const len = view.getUint16(pos, true);
+    pos += 2;
+    if (isValidStringEntry(len, pos, data.length)) {
+      strings.push(decoder.decode(data.subarray(pos, pos + len)));
+      pos += len;
     } else {
-      return [...acc];
+      break;
     }
-  };
+  }
 
-  return collect(5 /* skip 5-byte header */, []);
+  return strings;
 };

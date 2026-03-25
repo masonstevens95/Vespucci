@@ -11,6 +11,8 @@ import { DropZone } from "./components/DropZone";
 import { ResultsSummary } from "./components/ResultsSummary";
 import { CountryGroups } from "./components/CountryGroups";
 import { DebugPanel } from "./components/DebugPanel";
+import { MapRenderer } from "./components/MapRenderer";
+import { MapLegend } from "./components/MapLegend";
 import "./App.css";
 
 export type Status = "idle" | "reading" | "parsing" | "done" | "error";
@@ -80,7 +82,7 @@ export default function App() {
   const isLoading = status === "reading" || status === "parsing";
 
   return (
-    <div className="app">
+    <div className={status === "done" ? "app app-wide" : "app"}>
       <header className="app-header">
         <h1>EU5 Map Maker</h1>
         <p className="subtitle">
@@ -112,22 +114,34 @@ export default function App() {
         )}
 
         {status === "done" && debug && (
-          <div className="results">
-            <ResultsSummary
-              config={debug.config}
-              fileSizeMb={debug.fileSizeMb}
-              parseTimeMs={debug.parseTimeMs}
-              onDownload={handleDownload}
-              onReset={handleReset}
-            />
-            <CountryGroups groups={debug.config.groups} />
-            <DebugPanel
-              parsed={debug.parsed}
-              locToProvince={debug.locToProvince}
-              config={debug.config}
-              provinceMapping={provinceMapping}
-            />
-          </div>
+          <>
+            <div className="results-bar">
+              <ResultsSummary
+                config={debug.config}
+                fileSizeMb={debug.fileSizeMb}
+                parseTimeMs={debug.parseTimeMs}
+                onDownload={handleDownload}
+                onReset={handleReset}
+              />
+            </div>
+            <div className="map-layout">
+              <div className="map-panel">
+                <MapRenderer config={debug.config} />
+              </div>
+              <div className="legend-panel">
+                <MapLegend config={debug.config} />
+              </div>
+            </div>
+            <div className="details-section">
+              <CountryGroups groups={debug.config.groups} />
+              <DebugPanel
+                parsed={debug.parsed}
+                locToProvince={debug.locToProvince}
+                config={debug.config}
+                provinceMapping={provinceMapping}
+              />
+            </div>
+          </>
         )}
       </main>
     </div>

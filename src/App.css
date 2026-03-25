@@ -8,6 +8,11 @@
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   color: #e0e0e0;
   min-height: 100vh;
+  transition: max-width 0.3s;
+}
+.app-wide {
+  max-width: 100%;
+  padding: 1rem 2rem;
 }
 
 .app-header {
@@ -326,4 +331,128 @@
   color: #aaa;
   white-space: pre-wrap;
   word-break: break-all;
+}
+
+/* Results bar (compact when map is showing) */
+.results-bar {
+  margin-bottom: 1rem;
+}
+
+/* Map layout: map on left, legend on right */
+.map-layout {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+.map-panel {
+  flex: 1;
+  min-width: 0;
+}
+.legend-panel {
+  width: 280px;
+  flex-shrink: 0;
+}
+
+/* Map renderer */
+.map-renderer {
+  background: #fff;
+  border-radius: 8px;
+  overflow: hidden;
+}
+.map-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem 0.75rem;
+  background: #1e1e2e;
+  border-bottom: 1px solid #333;
+}
+.zoom-level {
+  font-size: 0.8rem;
+  color: #888;
+  font-family: monospace;
+}
+.map-viewport {
+  width: 100%;
+  height: 70vh;
+  overflow: hidden;
+  cursor: grab;
+  position: relative;
+  background: #f0f0f0;
+}
+.map-viewport:active {
+  cursor: grabbing;
+}
+.map-transform {
+  will-change: transform;
+}
+.map-svg {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+.map-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 400px;
+  gap: 1rem;
+  background: #1e1e2e;
+  border-radius: 8px;
+  color: #888;
+}
+
+/* Map legend */
+.map-legend {
+  background: #1e1e2e;
+  border-radius: 8px;
+  padding: 1rem;
+  max-height: 70vh;
+  overflow-y: auto;
+}
+.map-legend-title {
+  font-size: 1rem;
+  color: #fff;
+  margin-bottom: 0.75rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid #333;
+}
+.map-legend-entries {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+.map-legend-entry {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.25rem 0;
+}
+.map-legend-swatch {
+  width: 16px;
+  height: 16px;
+  border-radius: 3px;
+  flex-shrink: 0;
+  border: 1px solid #444;
+  display: inline-block;
+}
+.map-legend-label {
+  font-size: 0.8rem;
+  color: #ddd;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.map-legend-count {
+  font-size: 0.7rem;
+  color: #666;
+  font-family: monospace;
+}
+
+/* Details below map */
+.details-section {
+  max-width: 900px;
 }
