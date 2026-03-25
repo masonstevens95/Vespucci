@@ -8,7 +8,7 @@ import { readIOManager, readIOEntry } from "../sections/io-manager";
 import { readDiplomacy, readDiplomacyEntry } from "../sections/diplomacy";
 import { readPlayedCountry } from "../sections/players";
 import { readCountryDatabase } from "../sections/countries";
-import { bytes, u16, eq, open, close, uintVal, intVal, quotedStr } from "./helpers";
+import { bytes, u16, eq, open, close, uintVal,  quotedStr } from "./helpers";
 import type { RGB } from "../../types";
 
 describe("readCountries", () => {
@@ -122,6 +122,35 @@ describe("readCountryEntry", () => {
     const colors: Record<string, RGB> = {};
     readCountryEntry(r, 0, colors, {}, new Set());
     expect(colors["SWE"]).toEqual([10, 20, 30]);
+  });
+
+  it("survives complex nested entries without misalignment", () => {
+    // Simulates a country entry with many nested blocks and value types
+    // that could cause depth tracking issues in a single-pass approach
+    const SCORE = 0x4444;
+    const INNER = 0x5555;
+    const data = bytes(
+      u16(SCORE), eq(), open(), // depth 2
+        u16(INNER), eq(), open(), // depth 3
+          uintVal(42),
+          u16(BinaryToken.LOOKUP_U16), [0x00, 0x00],
+          eq(),
+          u16(0x0d4a), [0x01, 0x02, 0x03], // FIXED5
+        close(), // depth 2
+      close(), // depth 1
+      u16(T.flag!), eq(), quotedStr("TEST"),
+      u16(T.COLOR), eq(), u16(T.RGB), open(),
+        uintVal(100), uintVal(200), uintVal(50),
+      close(),
+      u16(T.capital!), eq(), uintVal(999),
+      close(), // depth 0
+    );
+    const r = new TokenReader(data);
+    const colors: Record<string, RGB> = {};
+    const capitals: Record<number, number> = {};
+    readCountryEntry(r, 7, colors, capitals, new Set());
+    expect(colors["TEST"]).toEqual([100, 200, 50]);
+    expect(capitals[7]).toBe(999);
   });
 
   it("extracts capital", () => {
