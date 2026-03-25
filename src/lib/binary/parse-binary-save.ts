@@ -16,7 +16,7 @@ import { readCountries } from "./sections/countries";
 import { readLocationOwnership } from "./sections/locations";
 import { readDiplomacy } from "./sections/diplomacy";
 import { readPlayedCountry } from "./sections/players";
-import { findWarSubjects } from "./sections/war-subjects";
+import { findDependencies } from "./sections/dependencies";
 import type { ParsedSave, RGB } from "../types";
 
 /**
@@ -68,21 +68,12 @@ function parseGamestate(data: Uint8Array, dynStrings: string[]): ParsedSave {
   const locOff = findOwnershipLocations(data, T.locations, T.owner, r);
   if (locOff >= 0) { r.pos = locOff + 6; readLocationOwnership(r, countryTags, locationOwners); }
 
-  // IO lordship detection removed — autocephalous_patriarchate IOs contain
-  // stale/incorrect subject data. War-based detection is more reliable.
+  // Dependencies: authoritative overlord-subject relationships
+  // stored as dependency = { first=overlord second=subject subject_type=... }
+  findDependencies(data, dynStrings, countryTags, overlordSubjects);
 
   const dipOff = findSection(data, T.diplomacyMgr, r);
   if (dipOff >= 0) { r.pos = dipOff + 6; readDiplomacy(r, subjectIds); }
-
-  // War manager — subjects called with reason=Subject
-  const warOff = findSection(data, T.warManager, r);
-  if (warOff >= 0) {
-    r.pos = warOff + 6;
-    const warStart = r.pos;
-    r.skipBlock();
-    const warEnd = r.pos;
-    findWarSubjects(data, warStart, warEnd, dynStrings, countryTags, overlordSubjects);
-  }
 
   for (const off of findAllMatches(data, T.playedCountry)) {
     r.pos = off + 6;
