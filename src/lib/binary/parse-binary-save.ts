@@ -65,11 +65,10 @@ function parseGamestate(data: Uint8Array, dynStrings: string[]): ParsedSave {
   const countriesOff = findSection(data, T.countries, r);
   if (countriesOff >= 0) { r.pos = countriesOff + 6; readCountries(r, countryTags, countryColors, countryCapitals, overlordCandidates); }
 
-  // integrationPairs: "overlordId:subjectId" -> count of locations being integrated
-  const integrationPairs = new Map<string, number>();
+  // (integration_owner removed — too many false positives from partial conquest)
 
   const locOff = findOwnershipLocations(data, T.locations, T.owner, r);
-  if (locOff >= 0) { r.pos = locOff + 6; readLocationOwnership(r, countryTags, locationOwners, integrationPairs); }
+  if (locOff >= 0) { r.pos = locOff + 6; readLocationOwnership(r, countryTags, locationOwners); }
 
   const ioOff = findSection(data, T.ioManager, r);
   if (ioOff >= 0) { r.pos = ioOff + 6; readIOManager(r, countryTags, overlordSubjects, ioMatched); }
@@ -102,39 +101,6 @@ function parseGamestate(data: Uint8Array, dynStrings: string[]): ParsedSave {
     if (capOwner && capOwner !== subTag) {
       if (!overlordSubjects[capOwner]) overlordSubjects[capOwner] = new Set();
       overlordSubjects[capOwner].add(subTag);
-    }
-  }
-
-  // Add subjects from integration_owner (fiefdoms tracked per-location).
-  // Only count a country as a subject if ≥50% of its locations are
-  // being integrated by the overlord — low ratios indicate partial
-  // conquest, not vassalage.
-  const tagToId = new Map<string, number>();
-  for (const [id, tag] of Object.entries(countryTags)) {
-    tagToId.set(tag, parseInt(id as string));
-  }
-
-  // Count total locations per owner country
-  const ownerLocCounts = new Map<number, number>();
-  for (const ownerTag of Object.values(locationOwners)) {
-    const oid = tagToId.get(ownerTag);
-    if (oid !== undefined) ownerLocCounts.set(oid, (ownerLocCounts.get(oid) ?? 0) + 1);
-  }
-
-  for (const [key, intCount] of integrationPairs) {
-    const sep = key.indexOf(":");
-    const overlordId = parseInt(key.slice(0, sep));
-    const subId = parseInt(key.slice(sep + 1));
-    const overlordTag = countryTags[overlordId];
-    const subTag = countryTags[subId];
-    if (!overlordTag || !subTag) continue;
-
-    const totalLocs = ownerLocCounts.get(subId) ?? 0;
-    if (totalLocs === 0) continue;
-
-    if (intCount / totalLocs >= 0.5) {
-      if (!overlordSubjects[overlordTag]) overlordSubjects[overlordTag] = new Set();
-      overlordSubjects[overlordTag].add(subTag);
     }
   }
 

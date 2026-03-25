@@ -7,7 +7,6 @@ export function readLocationOwnership(
   r: TokenReader,
   countryTags: Record<number, string>,
   locationOwners: Record<number, string>,
-  integrationPairs?: Map<string, number>,
 ): void {
   let depth = 1;
   while (!r.done && depth > 0) {
@@ -19,7 +18,7 @@ export function readLocationOwnership(
     if (tok === T.locations) {
       r.expectEqual();
       r.expectOpen();
-      readLocationEntries(r, countryTags, locationOwners, integrationPairs);
+      readLocationEntries(r, countryTags, locationOwners);
       return;
     } else if (r.peekToken() === BinaryToken.EQUAL) {
       r.readToken();
@@ -33,7 +32,6 @@ export function readLocationEntries(
   r: TokenReader,
   countryTags: Record<number, string>,
   locationOwners: Record<number, string>,
-  integrationPairs?: Map<string, number>,
 ): void {
   while (!r.done) {
     const tok = r.peekToken();
@@ -44,7 +42,7 @@ export function readLocationEntries(
       const locId = tok === BinaryToken.I32 ? r.readI32() : r.readU32();
       r.expectEqual();
       r.expectOpen();
-      readLocationEntry(r, locId, countryTags, locationOwners, integrationPairs);
+      readLocationEntry(r, locId, countryTags, locationOwners);
     } else {
       r.readToken();
       if (r.peekToken() === BinaryToken.EQUAL) {
@@ -55,56 +53,20 @@ export function readLocationEntries(
   }
 }
 
-/**
- * Read owner and integration_owner from a location entry, then skip the rest.
- *
- * integration_owner tracks which country is integrating this location.
- * When integration_owner != owner, the owner is a subject/fiefdom of integration_owner.
- */
+/** Read owner from a single location entry, then skip the rest. */
 export function readLocationEntry(
   r: TokenReader,
   locId: number,
   countryTags: Record<number, string>,
   locationOwners: Record<number, string>,
-  integrationPairs?: Map<string, number>,
 ): void {
-  // Read owner (always first field)
-  let ownerId: number | null = null;
   if (r.peekToken() === T.owner) {
     r.readToken();
     r.expectEqual();
-    ownerId = r.readIntValue();
+    const ownerId = r.readIntValue();
     if (ownerId !== null && countryTags[ownerId]) {
       locationOwners[locId] = countryTags[ownerId];
     }
   }
-
-  // Skip the rest but scan for integration_owner if requested
-  if (integrationPairs && ownerId !== null && T.integrationOwner !== undefined) {
-    const startPos = r.pos;
-    r.skipBlock();
-    const endPos = r.pos;
-
-    // Byte-level search for: integration_owner_token(2) = (2) U32_type(2) value(4)
-    // This avoids alignment issues from the token walker
-    const ioLo = T.integrationOwner & 0xff;
-    const ioHi = (T.integrationOwner >> 8) & 0xff;
-    const data = r.rawData;
-    const view = r.rawView;
-
-    for (let i = startPos; i <= endPos - 10; i++) {
-      if (data[i] === ioLo && data[i + 1] === ioHi &&
-          data[i + 2] === 0x01 && data[i + 3] === 0x00 &&  // =
-          data[i + 4] === 0x14 && data[i + 5] === 0x00) {  // U32
-        const intOwner = view.getUint32(i + 6, true);
-        if (intOwner !== ownerId) {
-          const key = `${intOwner}:${ownerId}`;
-          integrationPairs.set(key, (integrationPairs.get(key) ?? 0) + 1);
-        }
-      }
-    }
-    r.pos = endPos;
-  } else {
-    r.skipBlock();
-  }
+  r.skipBlock();
 }

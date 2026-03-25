@@ -87,7 +87,8 @@ export function findWarSubjects(
 
     const overlordTag = countryTags[overlordId];
     const subjectTag = countryTags[subjectId];
-    if (overlordTag && subjectTag && overlordTag !== subjectTag) {
+    if (overlordTag && subjectTag && overlordTag !== subjectTag &&
+        /^[A-Z]/.test(subjectTag)) { // filter out invalid tags like "---"
       if (!overlordSubjects[overlordTag]) overlordSubjects[overlordTag] = new Set();
       overlordSubjects[overlordTag].add(subjectTag);
     }
