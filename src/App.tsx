@@ -1,5 +1,4 @@
 import { useState, useCallback } from "react";
-import { meltSave } from "./lib/melt";
 import { parseMeltedSave } from "./lib/save-parser";
 import { exportMapChartConfig } from "./lib/export";
 import { buildLocationToProvince } from "./lib/province-mapping";
@@ -39,29 +38,23 @@ export default function App() {
 
         const t0 = performance.now();
 
-        // Check if binary
-        const isBinarySave = bytes[0] === 0x53 && bytes[1] === 0x41 && bytes[2] === 0x56
-          && bytes.length > 7
+        // Check if binary save (SAV header with packed format byte '03')
+        const isBinarySave = bytes.length > 7
+          && bytes[0] === 0x53 && bytes[1] === 0x41 && bytes[2] === 0x56
           && String.fromCharCode(bytes[5]) === "0" && String.fromCharCode(bytes[6]) === "3";
 
-        let text: string;
         if (isBinarySave) {
-          try {
-            const { text: melted } = meltSave(bytes);
-            text = melted;
-          } catch {
-            setError(
-              "Binary save detected but melting failed.\n\n" +
-              "Please melt it manually with rakaly:\n" +
-              "  rakaly melt --format eu5 -u stringify -o melted.txt your_save.eu5\n\n" +
-              "Then upload the melted .txt file.",
-            );
-            setStatus("error");
-            return;
-          }
-        } else {
-          text = new TextDecoder().decode(bytes);
+          setError(
+            "This is a binary .eu5 save file. It needs to be converted to text first.\n\n" +
+            "Run this command, then upload the output .txt file:\n\n" +
+            "  rakaly melt --format eu5 -u stringify -o melted.txt " + file.name + "\n\n" +
+            "Download rakaly from: https://github.com/rakaly/cli/releases",
+          );
+          setStatus("error");
+          return;
         }
+
+        const text = new TextDecoder().decode(bytes);
 
         const parsed = parseMeltedSave(text);
         const locToProvince = buildLocationToProvince(provinceMapping);
