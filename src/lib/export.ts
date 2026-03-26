@@ -75,7 +75,7 @@ export const buildVassalOverlays = (
         locations[vassalKey] = [...vassalLocs];
         labels[vassalKey] = `${overlordTag} - subjects`;
         if (countryColors[overlordTag]) {
-          colors[vassalKey] = lightenColor(countryColors[overlordTag], 2 / 3);
+          colors[vassalKey] = lightenColor(countryColors[overlordTag], 1 / 3);
         } else {
           /* overlord has no color — vassal overlay gets no color either */
         }

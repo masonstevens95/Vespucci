@@ -1,0 +1,191 @@
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import { render, fireEvent, waitFor, within } from "@testing-library/react";
+import { MapRenderer } from "../MapRenderer";
+import type { MapChartConfig } from "../../lib/types";
+
+const baseConfig: MapChartConfig = {
+  groups: {},
+  title: "",
+  hidden: [],
+  background: "#ffffff",
+  borders: "#000",
+  legendFont: "Helvetica",
+  legendFontColor: "#000",
+  legendBorderColor: "#00000000",
+  legendBgColor: "#00000000",
+  legendWidth: 150,
+  legendBoxShape: "square",
+  legendTitleMode: "attached",
+  areBordersShown: true,
+  defaultColor: "#d1dbdd",
+  labelsColor: "#6a0707",
+  labelsFont: "Arial",
+  strokeWidth: "medium",
+  areLabelsShown: false,
+  uncoloredScriptColor: "#ffff33",
+  zoomLevel: "1.00",
+  zoomX: "0.00",
+  zoomY: "0.00",
+  v6: true,
+  mapTitleScale: 1,
+  page: "eu-v-provinces",
+  mapVersion: null,
+  legendPosition: "bottom_left",
+  legendSize: "medium",
+  legendTranslateX: "0.00",
+  legendStatus: "show",
+  scalingPatterns: true,
+  legendRowsSameColor: true,
+  legendColumnCount: 1,
+};
+
+const mockSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100">
+  <path id="Uppland" fill="#d1dbdd" stroke="#000" d="M0,0 L10,10"/>
+  <path id="Middlesex" fill="#d1dbdd" stroke="#000" d="M20,20 L30,30"/>
+</svg>`;
+
+const noop = vi.fn();
+
+beforeEach(() => {
+  vi.spyOn(globalThis, "fetch").mockResolvedValue({
+    text: () => Promise.resolve(mockSvg),
+  } as Response);
+});
+
+describe("MapRenderer", () => {
+  it("shows loading state initially", () => {
+    const { container } = render(<MapRenderer config={baseConfig} mapStyle="parchment" onDownloadMap={noop} />);
+    expect(within(container).getByText("Loading map...")).toBeInTheDocument();
+  });
+
+  it("renders map after SVG loads", async () => {
+    const { container } = render(<MapRenderer config={baseConfig} mapStyle="parchment" onDownloadMap={noop} />);
+    await waitFor(() => {
+      expect(container.querySelector(".map-renderer")).toBeInTheDocument();
+    });
+  });
+
+  it("shows toolbar with Reset View, zoom, and Download Map", async () => {
+    const { container } = render(<MapRenderer config={baseConfig} mapStyle="parchment" onDownloadMap={noop} />);
+    await waitFor(() => {
+      expect(container.querySelector(".map-toolbar")).toBeInTheDocument();
+    });
+    const toolbar = container.querySelector(".map-toolbar")! as HTMLElement;
+    expect(within(toolbar).getByText("Reset View")).toBeInTheDocument();
+    expect(within(toolbar).getByText("100%")).toBeInTheDocument();
+    expect(within(toolbar).getByText("Download Map")).toBeInTheDocument();
+  });
+
+  it("calls onDownloadMap when Download Map clicked", async () => {
+    const onDownload = vi.fn();
+    const { container } = render(<MapRenderer config={baseConfig} mapStyle="parchment" onDownloadMap={onDownload} />);
+    await waitFor(() => {
+      expect(container.querySelector(".map-toolbar")).toBeInTheDocument();
+    });
+    const toolbar = container.querySelector(".map-toolbar")! as HTMLElement;
+    fireEvent.click(within(toolbar).getByText("Download Map"));
+    expect(onDownload).toHaveBeenCalledTimes(1);
+  });
+
+  it("applies province colors from config groups", async () => {
+    const config = {
+      ...baseConfig,
+      groups: { "#ff0000": { label: "ENG", paths: ["Uppland"] } },
+    };
+    const { container } = render(<MapRenderer config={config} mapStyle="parchment" onDownloadMap={noop} />);
+    await waitFor(() => {
+      expect(container.querySelector(".map-renderer")).toBeInTheDocument();
+    });
+    const html = container.querySelector(".map-transform")?.innerHTML ?? "";
+    expect(html).toContain('fill="#ff0000"');
+  });
+
+  it("does not color unmatched provinces", async () => {
+    const config = {
+      ...baseConfig,
+      groups: { "#ff0000": { label: "ENG", paths: ["Uppland"] } },
+    };
+    const { container } = render(<MapRenderer config={config} mapStyle="parchment" onDownloadMap={noop} />);
+    await waitFor(() => {
+      expect(container.querySelector(".map-renderer")).toBeInTheDocument();
+    });
+    const html = container.querySelector(".map-transform")?.innerHTML ?? "";
+    expect(html).toContain('id="Middlesex"');
+    expect(html).not.toContain('id="Middlesex" fill="#ff0000"');
+  });
+
+  // Style-specific tests
+  it("matches stroke to fill in parchment style (no province borders)", async () => {
+    const config = {
+      ...baseConfig,
+      groups: { "#ff0000": { label: "ENG", paths: ["Uppland"] } },
+    };
+    const { container } = render(<MapRenderer config={config} mapStyle="parchment" onDownloadMap={noop} />);
+    await waitFor(() => {
+      expect(container.querySelector(".map-renderer")).toBeInTheDocument();
+    });
+    const html = container.querySelector(".map-transform")?.innerHTML ?? "";
+    // Uppland colored #ff0000 should have stroke matching its fill
+    expect(html).toContain('stroke="#ff0000"');
+    // Middlesex uncolored should have stroke matching default parchment fill
+    expect(html).toContain('stroke="#e8dcc8"');
+  });
+
+  it("matches stroke to fill in modern style (no province borders)", async () => {
+    const { container } = render(<MapRenderer config={baseConfig} mapStyle="modern" onDownloadMap={noop} />);
+    await waitFor(() => {
+      expect(container.querySelector(".map-renderer")).toBeInTheDocument();
+    });
+    const html = container.querySelector(".map-transform")?.innerHTML ?? "";
+    // All paths should have stroke matching default fill
+    expect(html).toContain('stroke="#d1dbdd"');
+  });
+
+  it("applies parchment default fill in parchment style", async () => {
+    const { container } = render(<MapRenderer config={baseConfig} mapStyle="parchment" onDownloadMap={noop} />);
+    await waitFor(() => {
+      expect(container.querySelector(".map-renderer")).toBeInTheDocument();
+    });
+    const html = container.querySelector(".map-transform")?.innerHTML ?? "";
+    expect(html).toContain('fill="#e8dcc8"');
+  });
+
+  it("applies gray default fill in modern style", async () => {
+    const { container } = render(<MapRenderer config={baseConfig} mapStyle="modern" onDownloadMap={noop} />);
+    await waitFor(() => {
+      expect(container.querySelector(".map-renderer")).toBeInTheDocument();
+    });
+    const html = container.querySelector(".map-transform")?.innerHTML ?? "";
+    expect(html).toContain('fill="#d1dbdd"');
+  });
+
+  it("adds style-specific class to renderer", async () => {
+    const { container } = render(<MapRenderer config={baseConfig} mapStyle="modern" onDownloadMap={noop} />);
+    await waitFor(() => {
+      expect(container.querySelector(".map-renderer-modern")).toBeInTheDocument();
+    });
+  });
+
+  it("resets transform on Reset View click", async () => {
+    const { container } = render(<MapRenderer config={baseConfig} mapStyle="parchment" onDownloadMap={noop} />);
+    await waitFor(() => {
+      expect(container.querySelector(".map-toolbar")).toBeInTheDocument();
+    });
+    const toolbar = container.querySelector(".map-toolbar")! as HTMLElement;
+    const viewport = container.querySelector(".map-viewport")!;
+    fireEvent.wheel(viewport, { deltaY: -100 });
+    fireEvent.click(within(toolbar).getByText("Reset View"));
+    expect(within(toolbar).getByText("100%")).toBeInTheDocument();
+  });
+
+  it("removes width/height and adds map-svg class", async () => {
+    const { container } = render(<MapRenderer config={baseConfig} mapStyle="parchment" onDownloadMap={noop} />);
+    await waitFor(() => {
+      expect(container.querySelector(".map-renderer")).toBeInTheDocument();
+    });
+    const svg = container.querySelector(".map-svg");
+    expect(svg).toBeInTheDocument();
+    expect(svg?.getAttribute("width")).toBeNull();
+    expect(svg?.getAttribute("height")).toBeNull();
+  });
+});

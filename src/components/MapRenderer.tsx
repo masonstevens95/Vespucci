@@ -1,15 +1,25 @@
 import { useEffect, useRef, useState, useCallback } from "react";
-import type { MapChartConfig } from "../lib/types";
+import type { MapChartConfig, MapStyle } from "../lib/types";
+import {
+  getStyleConfig,
+  IDENTITY_TRANSFORM,
+  zoomTowardCursor,
+  transformCss,
+  zoomPercent,
+} from "../lib/map-styles";
+import type { Transform } from "../lib/map-styles";
 
 interface Props {
   config: MapChartConfig;
+  mapStyle: MapStyle;
+  onDownloadMap: () => void;
 }
 
-export const MapRenderer = ({ config }: Props) => {
+export const MapRenderer = ({ config, mapStyle, onDownloadMap }: Props) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [svgContent, setSvgContent] = useState("");
   const [loading, setLoading] = useState(true);
-  const [transform, setTransform] = useState({ x: 0, y: 0, scale: 1 });
+  const [transform, setTransform] = useState<Transform>(IDENTITY_TRANSFORM);
   const dragRef = useRef<{ startX: number; startY: number; originX: number; originY: number } | null>(null);
 
   // Fetch and color the SVG
@@ -26,10 +36,18 @@ export const MapRenderer = ({ config }: Props) => {
       const svg = doc.querySelector("svg");
       if (!svg) return;
 
-      // Remove fixed width/height so it scales with CSS
       svg.removeAttribute("width");
       svg.removeAttribute("height");
       svg.setAttribute("class", "map-svg");
+
+      const style = getStyleConfig(mapStyle);
+
+      // Set default fill on all paths
+      const allPaths = svg.querySelectorAll("path");
+      for (const p of allPaths) {
+        p.setAttribute("fill", style.defaultFill);
+        p.setAttribute("stroke-width", style.strokeWidth);
+      }
 
       // Apply colors from config groups
       for (const [hex, group] of Object.entries(config.groups)) {
@@ -41,11 +59,10 @@ export const MapRenderer = ({ config }: Props) => {
         }
       }
 
-      // Set border color
-      const allPaths = svg.querySelectorAll("path");
+      // Set stroke to match fill (removes province borders, keeps country outlines via color contrast)
       for (const p of allPaths) {
-        p.setAttribute("stroke", config.borders);
-        p.setAttribute("stroke-width", config.strokeWidth === "medium" ? "0.1" : "0.05");
+        const fill = p.getAttribute("fill") ?? style.defaultFill;
+        p.setAttribute("stroke", fill);
       }
 
       setSvgContent(new XMLSerializer().serializeToString(svg));
@@ -53,35 +70,22 @@ export const MapRenderer = ({ config }: Props) => {
     };
     loadSvg();
     return () => { cancelled = true; };
-  }, [config]);
+  }, [config, mapStyle]);
 
-  // Mouse wheel zoom
   const handleWheel = useCallback((e: React.WheelEvent) => {
     e.preventDefault();
-    const delta = e.deltaY > 0 ? 0.9 : 1.1;
-    setTransform((prev) => {
-      const newScale = Math.max(0.5, Math.min(20, prev.scale * delta));
-      // Zoom toward cursor position
-      const rect = containerRef.current?.getBoundingClientRect();
-      if (!rect) return { ...prev, scale: newScale };
-      const cx = e.clientX - rect.left;
-      const cy = e.clientY - rect.top;
-      const ratio = newScale / prev.scale;
-      return {
-        scale: newScale,
-        x: cx - (cx - prev.x) * ratio,
-        y: cy - (cy - prev.y) * ratio,
-      };
-    });
+    const rect = containerRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    const cx = e.clientX - rect.left;
+    const cy = e.clientY - rect.top;
+    setTransform((prev) => zoomTowardCursor(prev, e.deltaY, cx, cy));
   }, []);
 
-  // Pan start
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
     if (e.button !== 0) return;
     dragRef.current = { startX: e.clientX, startY: e.clientY, originX: transform.x, originY: transform.y };
   }, [transform.x, transform.y]);
 
-  // Pan move
   const handleMouseMove = useCallback((e: React.MouseEvent) => {
     const drag = dragRef.current;
     if (!drag) return;
@@ -92,15 +96,15 @@ export const MapRenderer = ({ config }: Props) => {
     }));
   }, []);
 
-  // Pan end
   const handleMouseUp = useCallback(() => {
     dragRef.current = null;
   }, []);
 
-  // Reset view
   const handleReset = useCallback(() => {
-    setTransform({ x: 0, y: 0, scale: 1 });
+    setTransform(IDENTITY_TRANSFORM);
   }, []);
+
+  const style = getStyleConfig(mapStyle);
 
   if (loading) {
     return (
@@ -112,14 +116,15 @@ export const MapRenderer = ({ config }: Props) => {
   }
 
   return (
-    <div className="map-renderer">
+    <div className={`map-renderer map-renderer-${mapStyle}`}>
       <div className="map-toolbar">
         <button className="btn secondary" onClick={handleReset}>Reset View</button>
-        <span className="zoom-level">{Math.round(transform.scale * 100)}%</span>
+        <span className="zoom-level">{zoomPercent(transform.scale)}</span>
+        <button className="btn secondary" onClick={onDownloadMap}>Download Map</button>
       </div>
       <div
         ref={containerRef}
-        className="map-viewport"
+        className={style.viewportClass}
         onWheel={handleWheel}
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
@@ -129,7 +134,7 @@ export const MapRenderer = ({ config }: Props) => {
         <div
           className="map-transform"
           style={{
-            transform: `translate(${transform.x}px, ${transform.y}px) scale(${transform.scale})`,
+            transform: transformCss(transform),
             transformOrigin: "0 0",
           }}
           dangerouslySetInnerHTML={{ __html: svgContent }}

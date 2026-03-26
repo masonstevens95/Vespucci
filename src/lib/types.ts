@@ -53,3 +53,5 @@ export interface ExportOptions {
   playersOnly?: boolean;
   provinceMapping?: Record<string, string[]>;
 }
+
+export type MapStyle = "parchment" | "modern";

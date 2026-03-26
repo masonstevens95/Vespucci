@@ -1,10 +1,11 @@
-import type { MapChartConfig } from "../lib/types";
+import type { MapChartConfig, MapStyle } from "../lib/types";
 
 interface Props {
   config: MapChartConfig;
+  mapStyle: MapStyle;
 }
 
-export const MapLegend = ({ config }: Props) => {
+export const MapLegend = ({ config, mapStyle }: Props) => {
   const entries = Object.entries(config.groups);
 
   if (entries.length === 0) {
@@ -12,7 +13,7 @@ export const MapLegend = ({ config }: Props) => {
   }
 
   return (
-    <div className="map-legend">
+    <div className={`map-legend map-legend-${mapStyle}`}>
       <h3 className="map-legend-title">{config.title || "Legend"}</h3>
       <div className="map-legend-entries">
         {entries.map(([hex, group]) => (

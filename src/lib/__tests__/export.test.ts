@@ -91,7 +91,7 @@ describe("buildVassalOverlays", () => {
     );
     expect(overlays.locations["ENG_vassals"]).toEqual(["edinburgh"]);
     expect(overlays.labels["ENG_vassals"]).toBe("ENG - subjects");
-    expect(overlays.colors["ENG_vassals"]).toEqual([255, 170, 170]);
+    expect(overlays.colors["ENG_vassals"]).toEqual([255, 85, 85]);
   });
 
   it("skips overlords with no vassals", () => {
@@ -177,7 +177,7 @@ describe("exportMapChartConfig", () => {
       ([, g]) => g.label === "ENG - subjects",
     );
     expect(vassalGroup).toBeDefined();
-    expect(vassalGroup![0]).toBe("#ffaaaa");
+    expect(vassalGroup![0]).toBe("#ff5555");
   });
 
   it("includes player names in labels for multi-player countries", () => {
