@@ -54,4 +54,4 @@ export interface ExportOptions {
   provinceMapping?: Record<string, string[]>;
 }
 
-export type MapStyle = "parchment" | "modern";
+export type MapStyle = "parchment" | "modern" | "dark" | "satellite" | "pastel";

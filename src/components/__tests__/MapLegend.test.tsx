@@ -41,7 +41,7 @@ const baseConfig: MapChartConfig = {
 
 describe("MapLegend", () => {
   it("renders nothing for empty groups", () => {
-    const { container } = render(<MapLegend config={baseConfig} mapStyle="parchment" styleOverrides={{}} />);
+    const { container } = render(<MapLegend config={baseConfig} mapStyle="parchment" styleOverrides={{}} colorOverrides={{}} onColorChange={() => {}} />);
     expect(container.innerHTML).toBe("");
   });
 
@@ -51,7 +51,7 @@ describe("MapLegend", () => {
       title: "EU5 MP - 1610",
       groups: { "#ff0000": { label: "ENG", paths: ["London"] } },
     };
-    render(<MapLegend config={config} mapStyle="parchment" styleOverrides={{}} />);
+    render(<MapLegend config={config} mapStyle="parchment" styleOverrides={{}} colorOverrides={{}} onColorChange={() => {}} />);
     expect(screen.getByText("EU5 MP - 1610")).toBeInTheDocument();
   });
 
@@ -60,7 +60,7 @@ describe("MapLegend", () => {
       ...baseConfig,
       groups: { "#ff0000": { label: "ENG", paths: ["London"] } },
     };
-    render(<MapLegend config={config} mapStyle="parchment" styleOverrides={{}} />);
+    render(<MapLegend config={config} mapStyle="parchment" styleOverrides={{}} colorOverrides={{}} onColorChange={() => {}} />);
     expect(screen.getByText("Legend")).toBeInTheDocument();
   });
 
@@ -72,7 +72,7 @@ describe("MapLegend", () => {
         "#0000ff": { label: "FRA - Bob", paths: ["Paris"] },
       },
     };
-    const { container } = render(<MapLegend config={config} mapStyle="parchment" styleOverrides={{}} />);
+    const { container } = render(<MapLegend config={config} mapStyle="parchment" styleOverrides={{}} colorOverrides={{}} onColorChange={() => {}} />);
     const entries = container.querySelectorAll(".map-legend-entry");
     expect(entries).toHaveLength(2);
   });
@@ -85,7 +85,7 @@ describe("MapLegend", () => {
         "#00ff00": { label: "FRA", paths: ["Paris"] },
       },
     };
-    const { container } = render(<MapLegend config={config} mapStyle="parchment" styleOverrides={{}} />);
+    const { container } = render(<MapLegend config={config} mapStyle="parchment" styleOverrides={{}} colorOverrides={{}} onColorChange={() => {}} />);
     const swatches = container.querySelectorAll(".map-legend-swatch");
     const colors = Array.from(swatches).map(
       (s) => (s as HTMLElement).style.backgroundColor,
@@ -101,7 +101,7 @@ describe("MapLegend", () => {
         "#ff0000": { label: "ENG - Alice", paths: ["London"] },
       },
     };
-    const { container } = render(<MapLegend config={config} mapStyle="parchment" styleOverrides={{}} />);
+    const { container } = render(<MapLegend config={config} mapStyle="parchment" styleOverrides={{}} colorOverrides={{}} onColorChange={() => {}} />);
     const labels = container.querySelectorAll(".map-legend-label");
     const texts = Array.from(labels).map((l) => l.textContent);
     expect(texts).toContain("ENG - Alice");
@@ -114,7 +114,7 @@ describe("MapLegend", () => {
         "#ff0000": { label: "ENG", paths: ["London", "York", "Bath"] },
       },
     };
-    const { container } = render(<MapLegend config={config} mapStyle="parchment" styleOverrides={{}} />);
+    const { container } = render(<MapLegend config={config} mapStyle="parchment" styleOverrides={{}} colorOverrides={{}} onColorChange={() => {}} />);
     const count = container.querySelector(".map-legend-count");
     expect(count?.textContent).toBe("3");
   });
@@ -124,7 +124,7 @@ describe("MapLegend", () => {
       ...baseConfig,
       groups: { "#ff0000": { label: "ENG", paths: ["London"] } },
     };
-    const { container } = render(<MapLegend config={config} mapStyle="parchment" styleOverrides={{}} />);
+    const { container } = render(<MapLegend config={config} mapStyle="parchment" styleOverrides={{}} colorOverrides={{}} onColorChange={() => {}} />);
     expect(container.querySelector(".map-legend-parchment")).toBeInTheDocument();
   });
 
@@ -133,7 +133,7 @@ describe("MapLegend", () => {
       ...baseConfig,
       groups: { "#ff0000": { label: "ENG", paths: ["London"] } },
     };
-    const { container } = render(<MapLegend config={config} mapStyle="modern" styleOverrides={{}} />);
+    const { container } = render(<MapLegend config={config} mapStyle="modern" styleOverrides={{}} colorOverrides={{}} onColorChange={() => {}} />);
     expect(container.querySelector(".map-legend-modern")).toBeInTheDocument();
   });
 
@@ -144,7 +144,7 @@ describe("MapLegend", () => {
       groups: { "#ff0000": { label: "ENG", paths: ["London"] } },
     };
     const { container } = render(
-      <MapLegend config={config} mapStyle="parchment" styleOverrides={{ legendBg: "#112233" }} />,
+      <MapLegend config={config} mapStyle="parchment" styleOverrides={{ legendBg: "#112233" }} colorOverrides={{}} onColorChange={() => {}} />,
     );
     const legend = container.querySelector(".map-legend") as HTMLElement;
     expect(legend.style.backgroundColor).toBe("rgb(17, 34, 51)");
@@ -156,7 +156,7 @@ describe("MapLegend", () => {
       groups: { "#ff0000": { label: "ENG", paths: ["London"] } },
     };
     const { container } = render(
-      <MapLegend config={config} mapStyle="parchment" styleOverrides={{ legendBorder: "#aabbcc" }} />,
+      <MapLegend config={config} mapStyle="parchment" styleOverrides={{ legendBorder: "#aabbcc" }} colorOverrides={{}} onColorChange={() => {}} />,
     );
     const legend = container.querySelector(".map-legend") as HTMLElement;
     expect(legend.style.borderColor).toBe("rgb(170, 187, 204)");
@@ -168,7 +168,7 @@ describe("MapLegend", () => {
       groups: { "#ff0000": { label: "ENG", paths: ["London"] } },
     };
     const { container } = render(
-      <MapLegend config={config} mapStyle="parchment" styleOverrides={{ titleColor: "#ff0000" }} />,
+      <MapLegend config={config} mapStyle="parchment" styleOverrides={{ titleColor: "#ff0000" }} colorOverrides={{}} onColorChange={() => {}} />,
     );
     const title = container.querySelector(".map-legend-title") as HTMLElement;
     expect(title.style.color).toBe("rgb(255, 0, 0)");
@@ -180,9 +180,46 @@ describe("MapLegend", () => {
       groups: { "#ff0000": { label: "ENG", paths: ["London"] } },
     };
     const { container } = render(
-      <MapLegend config={config} mapStyle="parchment" styleOverrides={{ labelColor: "#00ff00" }} />,
+      <MapLegend config={config} mapStyle="parchment" styleOverrides={{ labelColor: "#00ff00" }} colorOverrides={{}} onColorChange={() => {}} />,
     );
     const label = container.querySelector(".map-legend-label") as HTMLElement;
     expect(label.style.color).toBe("rgb(0, 255, 0)");
+  });
+
+  // Color override tests
+  it("displays overridden color on swatch", () => {
+    const config = {
+      ...baseConfig,
+      groups: { "#ff0000": { label: "ENG", paths: ["London"] } },
+    };
+    const { container } = render(
+      <MapLegend config={config} mapStyle="parchment" styleOverrides={{}} colorOverrides={{ "#ff0000": "#00ff00" }} onColorChange={() => {}} />,
+    );
+    const swatch = container.querySelector(".map-legend-swatch") as HTMLElement;
+    expect(swatch.style.backgroundColor).toBe("rgb(0, 255, 0)");
+  });
+
+  it("renders color input with overridden value", () => {
+    const config = {
+      ...baseConfig,
+      groups: { "#ff0000": { label: "ENG", paths: ["London"] } },
+    };
+    const { container } = render(
+      <MapLegend config={config} mapStyle="parchment" styleOverrides={{}} colorOverrides={{ "#ff0000": "#0000ff" }} onColorChange={() => {}} />,
+    );
+    const input = container.querySelector(".map-legend-color-input") as HTMLInputElement;
+    expect(input.value).toBe("#0000ff");
+  });
+
+  it("uses original color when no override", () => {
+    const config = {
+      ...baseConfig,
+      groups: { "#ff0000": { label: "ENG", paths: ["London"] } },
+    };
+    const { container } = render(
+      <MapLegend config={config} mapStyle="parchment" styleOverrides={{}} colorOverrides={{}} onColorChange={() => {}} />,
+    );
+    const input = container.querySelector(".map-legend-color-input") as HTMLInputElement;
+    expect(input.value).toBe("#ff0000");
   });
 });

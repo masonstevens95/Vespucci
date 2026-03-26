@@ -7,15 +7,17 @@ import {
   transformCss,
   zoomPercent,
 } from "../lib/map-styles";
-import type { Transform, StyleOverrides } from "../lib/map-styles";
+import type { Transform, StyleOverrides, ColorOverrides } from "../lib/map-styles";
+import { applyColorOverrides } from "../lib/map-styles";
 
 interface Props {
   config: MapChartConfig;
   mapStyle: MapStyle;
   styleOverrides: StyleOverrides;
+  colorOverrides: ColorOverrides;
 }
 
-export const MapRenderer = ({ config, mapStyle, styleOverrides }: Props) => {
+export const MapRenderer = ({ config, mapStyle, styleOverrides, colorOverrides }: Props) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [svgContent, setSvgContent] = useState("");
   const [loading, setLoading] = useState(true);
@@ -43,9 +45,12 @@ export const MapRenderer = ({ config, mapStyle, styleOverrides }: Props) => {
       const style = getStyleConfig(mapStyle, styleOverrides);
       const ns = "http://www.w3.org/2000/svg";
 
+      // Apply color overrides to groups
+      const groups = applyColorOverrides(config.groups, colorOverrides);
+
       // Build set of colored path IDs
       const coloredIds = new Set<string>();
-      for (const [, group] of Object.entries(config.groups)) {
+      for (const [, group] of Object.entries(groups)) {
         for (const pathId of group.paths) {
           coloredIds.add(pathId);
         }
@@ -58,7 +63,7 @@ export const MapRenderer = ({ config, mapStyle, styleOverrides }: Props) => {
         p.setAttribute("stroke-width", style.strokeWidth);
       }
 
-      for (const [hex, group] of Object.entries(config.groups)) {
+      for (const [hex, group] of Object.entries(groups)) {
         for (const pathId of group.paths) {
           const el = svg.getElementById(pathId);
           if (el) {
@@ -107,7 +112,7 @@ export const MapRenderer = ({ config, mapStyle, styleOverrides }: Props) => {
     };
     loadSvg();
     return () => { cancelled = true; };
-  }, [config, mapStyle, styleOverrides]);
+  }, [config, mapStyle, styleOverrides, colorOverrides]);
 
   const handleWheel = useCallback((e: React.WheelEvent) => {
     e.preventDefault();
