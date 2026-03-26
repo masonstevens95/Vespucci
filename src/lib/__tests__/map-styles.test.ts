@@ -1,6 +1,12 @@
 import { describe, it, expect } from "vitest";
 import {
   getStyleConfig,
+  getBaseStyleConfig,
+  mergeStyleOverrides,
+  hasCustomOverrides,
+  styleDisplayLabel,
+  EDITABLE_COLOR_KEYS,
+  STYLE_FIELD_LABELS,
   IDENTITY_TRANSFORM,
   clampScale,
   zoomDelta,
@@ -21,17 +27,19 @@ describe("getStyleConfig", () => {
   it("returns parchment config for parchment style", () => {
     const config = getStyleConfig("parchment");
     expect(config.defaultFill).toBe("#e8dcc8");
-    expect(config.stroke).toBe("match-fill");
     expect(config.bgColor).toBe("#b8c8c8");
     expect(config.legendBg).toBe("#f0e0c0");
+    expect(config.outlineColor).toBe("#000000");
+    expect(config.outlineWidth).toBe("0");
   });
 
   it("returns modern config for modern style", () => {
     const config = getStyleConfig("modern");
     expect(config.defaultFill).toBe("#d1dbdd");
-    expect(config.stroke).toBe("match-fill");
     expect(config.bgColor).toBe("#a8c4d4");
     expect(config.legendBg).toBe("#1e1e2e");
+    expect(config.outlineColor).toBe("#000000");
+    expect(config.outlineWidth).toBe("0");
   });
 
   it("includes viewport class for parchment", () => {
@@ -40,6 +48,140 @@ describe("getStyleConfig", () => {
 
   it("includes viewport class for modern", () => {
     expect(getStyleConfig("modern").viewportClass).toContain("modern");
+  });
+
+  it("applies overrides when provided", () => {
+    const config = getStyleConfig("parchment", { bgColor: "#ff0000" });
+    expect(config.bgColor).toBe("#ff0000");
+    expect(config.defaultFill).toBe("#e8dcc8"); // unchanged
+  });
+
+  it("returns base config when overrides is undefined", () => {
+    const config = getStyleConfig("parchment", undefined);
+    expect(config.bgColor).toBe("#b8c8c8");
+  });
+
+  it("returns base config when overrides is empty", () => {
+    const config = getStyleConfig("parchment", {});
+    expect(config.bgColor).toBe("#b8c8c8");
+  });
+});
+
+describe("getBaseStyleConfig", () => {
+  it("returns parchment base", () => {
+    expect(getBaseStyleConfig("parchment").bgColor).toBe("#b8c8c8");
+  });
+
+  it("returns modern base", () => {
+    expect(getBaseStyleConfig("modern").bgColor).toBe("#a8c4d4");
+  });
+});
+
+describe("mergeStyleOverrides", () => {
+  it("applies overrides to base", () => {
+    const base = getBaseStyleConfig("parchment");
+    const merged = mergeStyleOverrides(base, { bgColor: "#aabbcc" });
+    expect(merged.bgColor).toBe("#aabbcc");
+    expect(merged.defaultFill).toBe("#e8dcc8");
+  });
+
+  it("preserves non-editable fields", () => {
+    const base = getBaseStyleConfig("parchment");
+    const merged = mergeStyleOverrides(base, { bgColor: "#aabbcc" });
+    expect(merged.stroke).toBe(base.stroke);
+    expect(merged.strokeWidth).toBe(base.strokeWidth);
+    expect(merged.viewportClass).toBe(base.viewportClass);
+    expect(merged.countColor).toBe(base.countColor);
+  });
+
+  it("handles empty overrides", () => {
+    const base = getBaseStyleConfig("modern");
+    const merged = mergeStyleOverrides(base, {});
+    expect(merged).toEqual(base);
+  });
+});
+
+describe("hasCustomOverrides", () => {
+  it("returns false for empty overrides", () => {
+    const base = getBaseStyleConfig("parchment");
+    expect(hasCustomOverrides(base, {})).toBe(false);
+  });
+
+  it("returns false when override matches base", () => {
+    const base = getBaseStyleConfig("parchment");
+    expect(hasCustomOverrides(base, { bgColor: base.bgColor })).toBe(false);
+  });
+
+  it("returns true when override differs from base", () => {
+    const base = getBaseStyleConfig("parchment");
+    expect(hasCustomOverrides(base, { bgColor: "#ff0000" })).toBe(true);
+  });
+
+  it("returns true when any one field differs", () => {
+    const base = getBaseStyleConfig("parchment");
+    expect(hasCustomOverrides(base, {
+      bgColor: base.bgColor,
+      legendBorder: "#ffffff",
+    })).toBe(true);
+  });
+
+});
+
+describe("styleDisplayLabel", () => {
+  it("returns Parchment for unmodified parchment", () => {
+    expect(styleDisplayLabel("parchment", {})).toBe("Parchment");
+  });
+
+  it("returns Modern for unmodified modern", () => {
+    expect(styleDisplayLabel("modern", {})).toBe("Modern");
+  });
+
+  it("returns Custom when overrides differ", () => {
+    expect(styleDisplayLabel("parchment", { bgColor: "#000000" })).toBe("Custom");
+  });
+
+  it("returns Parchment when overrides match base", () => {
+    expect(styleDisplayLabel("parchment", { bgColor: "#b8c8c8" })).toBe("Parchment");
+  });
+});
+
+describe("hasCustomOverrides with outline", () => {
+  it("detects custom outlineColor", () => {
+    const base = getBaseStyleConfig("parchment");
+    expect(hasCustomOverrides(base, { outlineColor: "#ff0000" })).toBe(true);
+  });
+
+  it("detects custom outlineWidth", () => {
+    const base = getBaseStyleConfig("parchment");
+    expect(hasCustomOverrides(base, { outlineWidth: "1.5" })).toBe(true);
+  });
+
+  it("returns false when outlineWidth matches base", () => {
+    const base = getBaseStyleConfig("parchment");
+    expect(hasCustomOverrides(base, { outlineWidth: "0" })).toBe(false);
+  });
+
+
+});
+
+describe("EDITABLE_COLOR_KEYS", () => {
+  it("contains expected keys", () => {
+    expect(EDITABLE_COLOR_KEYS).toContain("bgColor");
+    expect(EDITABLE_COLOR_KEYS).toContain("defaultFill");
+    expect(EDITABLE_COLOR_KEYS).toContain("legendBg");
+    expect(EDITABLE_COLOR_KEYS).toContain("legendBorder");
+    expect(EDITABLE_COLOR_KEYS).toContain("titleColor");
+    expect(EDITABLE_COLOR_KEYS).toContain("labelColor");
+    expect(EDITABLE_COLOR_KEYS).toContain("outlineColor");
+  });
+});
+
+describe("STYLE_FIELD_LABELS", () => {
+  it("has a label for every editable key", () => {
+    for (const key of EDITABLE_COLOR_KEYS) {
+      expect(STYLE_FIELD_LABELS[key]).toBeDefined();
+      expect(typeof STYLE_FIELD_LABELS[key]).toBe("string");
+    }
   });
 });
 

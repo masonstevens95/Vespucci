@@ -9,8 +9,6 @@ function renderBar(overrides = {}) {
     onPlayersOnlyChange: vi.fn(),
     title: "EU5 Map",
     onTitleChange: vi.fn(),
-    mapStyle: "parchment" as const,
-    onMapStyleChange: vi.fn(),
     disabled: false,
     ...overrides,
   };
@@ -53,30 +51,11 @@ describe("OptionsBar", () => {
     const { view } = renderBar({ disabled: true });
     expect(view.getByRole("checkbox")).toBeDisabled();
     expect(view.getByRole("textbox")).toBeDisabled();
-    expect(view.getByRole("combobox")).toBeDisabled();
   });
 
   it("enables inputs when disabled=false", () => {
     const { view } = renderBar({ disabled: false });
     expect(view.getByRole("checkbox")).not.toBeDisabled();
     expect(view.getByRole("textbox")).not.toBeDisabled();
-    expect(view.getByRole("combobox")).not.toBeDisabled();
-  });
-
-  it("renders style dropdown with parchment selected", () => {
-    const { view } = renderBar({ mapStyle: "parchment" });
-    expect(view.getByRole("combobox")).toHaveValue("parchment");
-  });
-
-  it("renders style dropdown with modern selected", () => {
-    const { view } = renderBar({ mapStyle: "modern" });
-    expect(view.getByRole("combobox")).toHaveValue("modern");
-  });
-
-  it("calls onMapStyleChange when style changed", async () => {
-    const fn = vi.fn();
-    const { view } = renderBar({ mapStyle: "parchment", onMapStyleChange: fn });
-    await userEvent.selectOptions(view.getByRole("combobox"), "modern");
-    expect(fn).toHaveBeenCalledWith("modern");
   });
 });

@@ -1,5 +1,39 @@
 import { describe, it, expect, vi } from "vitest";
 
+describe("Header links", () => {
+  it("renders Buy Me a Coffee link with correct href", async () => {
+    const { render } = await import("@testing-library/react");
+    const App = (await import("../../App")).default;
+    const { container } = render(<App />);
+    const bmcLink = container.querySelector(".bmc-link") as HTMLAnchorElement;
+    expect(bmcLink).toBeInTheDocument();
+    expect(bmcLink.href).toBe("https://www.buymeacoffee.com/masoncstevg");
+    expect(bmcLink.target).toBe("_blank");
+    expect(bmcLink.rel).toContain("noopener");
+  });
+
+  it("renders Buy Me a Coffee image", async () => {
+    const { render } = await import("@testing-library/react");
+    const App = (await import("../../App")).default;
+    const { container } = render(<App />);
+    const img = container.querySelector(".bmc-img") as HTMLImageElement;
+    expect(img).toBeInTheDocument();
+    expect(img.alt).toBe("Buy Me A Coffee");
+  });
+
+  it("renders GitHub link with correct href", async () => {
+    const { render } = await import("@testing-library/react");
+    const App = (await import("../../App")).default;
+    const { container } = render(<App />);
+    const ghLink = container.querySelector(".github-link") as HTMLAnchorElement;
+    expect(ghLink).toBeInTheDocument();
+    expect(ghLink.href).toBe("https://github.com/masonstevens95/eu5-map-maker");
+    expect(ghLink.target).toBe("_blank");
+    expect(ghLink.rel).toContain("noopener");
+    expect(ghLink.textContent).toContain("GitHub");
+  });
+});
+
 describe("App debug visibility", () => {
   it("SHOW_DEBUG is true in test/dev environment", async () => {
     const { SHOW_DEBUG } = await import("../../App");

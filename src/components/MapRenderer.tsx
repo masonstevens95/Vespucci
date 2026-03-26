@@ -7,15 +7,16 @@ import {
   transformCss,
   zoomPercent,
 } from "../lib/map-styles";
-import type { Transform } from "../lib/map-styles";
+import type { Transform, StyleOverrides } from "../lib/map-styles";
 
 interface Props {
   config: MapChartConfig;
   mapStyle: MapStyle;
+  styleOverrides: StyleOverrides;
   onDownloadMap: () => void;
 }
 
-export const MapRenderer = ({ config, mapStyle, onDownloadMap }: Props) => {
+export const MapRenderer = ({ config, mapStyle, styleOverrides, onDownloadMap }: Props) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [svgContent, setSvgContent] = useState("");
   const [loading, setLoading] = useState(true);
@@ -40,16 +41,24 @@ export const MapRenderer = ({ config, mapStyle, onDownloadMap }: Props) => {
       svg.removeAttribute("height");
       svg.setAttribute("class", "map-svg");
 
-      const style = getStyleConfig(mapStyle);
+      const style = getStyleConfig(mapStyle, styleOverrides);
+      const ns = "http://www.w3.org/2000/svg";
 
-      // Set default fill on all paths
+      // Build set of colored path IDs
+      const coloredIds = new Set<string>();
+      for (const [, group] of Object.entries(config.groups)) {
+        for (const pathId of group.paths) {
+          coloredIds.add(pathId);
+        }
+      }
+
+      // Fill layer: set fills and match-fill strokes (invisible province borders)
       const allPaths = svg.querySelectorAll("path");
       for (const p of allPaths) {
         p.setAttribute("fill", style.defaultFill);
         p.setAttribute("stroke-width", style.strokeWidth);
       }
 
-      // Apply colors from config groups
       for (const [hex, group] of Object.entries(config.groups)) {
         for (const pathId of group.paths) {
           const el = svg.getElementById(pathId);
@@ -59,10 +68,39 @@ export const MapRenderer = ({ config, mapStyle, onDownloadMap }: Props) => {
         }
       }
 
-      // Set stroke to match fill (removes province borders, keeps country outlines via color contrast)
       for (const p of allPaths) {
         const fill = p.getAttribute("fill") ?? style.defaultFill;
         p.setAttribute("stroke", fill);
+      }
+
+      // Outline layer BEHIND fills: thick stroke on cloned paths.
+      // Fill paths are slightly scaled down (transform-box: fill-box)
+      // so the outline peeks through at all edges.
+      if (parseFloat(style.outlineWidth) > 0) {
+        const outlineGroup = svg.ownerDocument.createElementNS(ns, "g");
+        outlineGroup.setAttribute("class", "outline-layer");
+        for (const p of allPaths) {
+          const pathId = p.getAttribute("id") ?? "";
+          if (coloredIds.has(pathId)) {
+            const outline = p.cloneNode(false) as SVGPathElement;
+            outline.removeAttribute("id");
+            outline.setAttribute("fill", "none");
+            outline.setAttribute("stroke", style.outlineColor);
+            outline.setAttribute("stroke-width", style.outlineWidth);
+            outline.setAttribute("stroke-linejoin", "round");
+            outlineGroup.appendChild(outline);
+          }
+        }
+        svg.insertBefore(outlineGroup, svg.firstChild);
+
+        // Shrink colored fill paths slightly so outline peeks through
+        for (const p of allPaths) {
+          const pathId = p.getAttribute("id") ?? "";
+          if (coloredIds.has(pathId)) {
+            p.setAttribute("style",
+              "transform-box: fill-box; transform-origin: center; transform: scale(0.995);");
+          }
+        }
       }
 
       setSvgContent(new XMLSerializer().serializeToString(svg));
@@ -70,7 +108,7 @@ export const MapRenderer = ({ config, mapStyle, onDownloadMap }: Props) => {
     };
     loadSvg();
     return () => { cancelled = true; };
-  }, [config, mapStyle]);
+  }, [config, mapStyle, styleOverrides]);
 
   const handleWheel = useCallback((e: React.WheelEvent) => {
     e.preventDefault();
@@ -104,7 +142,7 @@ export const MapRenderer = ({ config, mapStyle, onDownloadMap }: Props) => {
     setTransform(IDENTITY_TRANSFORM);
   }, []);
 
-  const style = getStyleConfig(mapStyle);
+  const style = getStyleConfig(mapStyle, styleOverrides);
 
   if (loading) {
     return (
@@ -120,11 +158,11 @@ export const MapRenderer = ({ config, mapStyle, onDownloadMap }: Props) => {
       <div className="map-toolbar">
         <button className="btn secondary" onClick={handleReset}>Reset View</button>
         <span className="zoom-level">{zoomPercent(transform.scale)}</span>
-        <button className="btn secondary" onClick={onDownloadMap}>Download Map</button>
       </div>
       <div
         ref={containerRef}
         className={style.viewportClass}
+        style={{ backgroundColor: style.bgColor }}
         onWheel={handleWheel}
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
