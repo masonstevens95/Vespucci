@@ -13,10 +13,9 @@ interface Props {
   config: MapChartConfig;
   mapStyle: MapStyle;
   styleOverrides: StyleOverrides;
-  onDownloadMap: () => void;
 }
 
-export const MapRenderer = ({ config, mapStyle, styleOverrides, onDownloadMap }: Props) => {
+export const MapRenderer = ({ config, mapStyle, styleOverrides }: Props) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [svgContent, setSvgContent] = useState("");
   const [loading, setLoading] = useState(true);

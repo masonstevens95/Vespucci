@@ -331,7 +331,6 @@ export default function App() {
                   config={debug.config}
                   mapStyle={mapStyle}
                   styleOverrides={styleOverrides}
-                  onDownloadMap={handleDownloadMap}
                 />
               </div>
               <div className="legend-panel">

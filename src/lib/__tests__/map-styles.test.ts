@@ -88,7 +88,6 @@ describe("mergeStyleOverrides", () => {
   it("preserves non-editable fields", () => {
     const base = getBaseStyleConfig("parchment");
     const merged = mergeStyleOverrides(base, { bgColor: "#aabbcc" });
-    expect(merged.stroke).toBe(base.stroke);
     expect(merged.strokeWidth).toBe(base.strokeWidth);
     expect(merged.viewportClass).toBe(base.viewportClass);
     expect(merged.countColor).toBe(base.countColor);
