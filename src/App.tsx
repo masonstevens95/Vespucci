@@ -297,7 +297,7 @@ export default function App() {
               <div className="toolbar-style-row">
                 {EDITABLE_COLOR_KEYS.map((key) => {
                   const base = getBaseStyleConfig(mapStyle);
-                  const current = styleOverrides[key] ?? base[key];
+                  const current = (styleOverrides[key] ?? base[key]) as string;
                   return (
                     <label key={key} className="style-field">
                       <span className="style-field-label">{STYLE_FIELD_LABELS[key]}</span>
@@ -310,6 +310,18 @@ export default function App() {
                     </label>
                   );
                 })}
+                <label className="style-field">
+                  <span className="style-field-label">{STYLE_FIELD_LABELS.outlineWidth}</span>
+                  <input
+                    type="range"
+                    min="0"
+                    max="2"
+                    step="0.1"
+                    value={styleOverrides.outlineWidth ?? getBaseStyleConfig(mapStyle).outlineWidth}
+                    onChange={(e) => handleOverrideChange("outlineWidth", e.target.value)}
+                    className="style-range-input"
+                  />
+                </label>
               </div>
             </div>
 

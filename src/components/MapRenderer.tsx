@@ -42,15 +42,43 @@ export const MapRenderer = ({ config, mapStyle, styleOverrides, onDownloadMap }:
       svg.setAttribute("class", "map-svg");
 
       const style = getStyleConfig(mapStyle, styleOverrides);
+      const ns = "http://www.w3.org/2000/svg";
 
-      // Set default fill on all paths
+      // Build set of colored path IDs
+      const coloredIds = new Set<string>();
+      for (const [, group] of Object.entries(config.groups)) {
+        for (const pathId of group.paths) {
+          coloredIds.add(pathId);
+        }
+      }
+
+      // Outline layer: duplicate colored paths with thick stroke, no fill.
+      // Inserted BEFORE originals so fills render on top, covering internal strokes.
       const allPaths = svg.querySelectorAll("path");
+      if (parseFloat(style.outlineWidth) > 0) {
+        const outlineGroup = svg.ownerDocument.createElementNS(ns, "g");
+        outlineGroup.setAttribute("class", "outline-layer");
+        for (const p of allPaths) {
+          const pathId = p.getAttribute("id") ?? "";
+          if (coloredIds.has(pathId)) {
+            const outline = p.cloneNode(false) as SVGPathElement;
+            outline.removeAttribute("id");
+            outline.setAttribute("fill", "none");
+            outline.setAttribute("stroke", style.outlineColor);
+            outline.setAttribute("stroke-width", style.outlineWidth);
+            outline.setAttribute("stroke-linejoin", "round");
+            outlineGroup.appendChild(outline);
+          }
+        }
+        svg.insertBefore(outlineGroup, svg.firstChild);
+      }
+
+      // Fill layer: set fills and match-fill strokes (invisible province borders)
       for (const p of allPaths) {
         p.setAttribute("fill", style.defaultFill);
         p.setAttribute("stroke-width", style.strokeWidth);
       }
 
-      // Apply colors from config groups
       for (const [hex, group] of Object.entries(config.groups)) {
         for (const pathId of group.paths) {
           const el = svg.getElementById(pathId);
@@ -60,8 +88,7 @@ export const MapRenderer = ({ config, mapStyle, styleOverrides, onDownloadMap }:
         }
       }
 
-      // Set stroke to match fill — province borders invisible,
-      // country outlines visible via color contrast between neighbors
+      // Match stroke to fill — invisible province borders
       for (const p of allPaths) {
         const fill = p.getAttribute("fill") ?? style.defaultFill;
         p.setAttribute("stroke", fill);

@@ -29,6 +29,8 @@ describe("getStyleConfig", () => {
     expect(config.defaultFill).toBe("#e8dcc8");
     expect(config.bgColor).toBe("#b8c8c8");
     expect(config.legendBg).toBe("#f0e0c0");
+    expect(config.outlineColor).toBe("#000000");
+    expect(config.outlineWidth).toBe("0.6");
   });
 
   it("returns modern config for modern style", () => {
@@ -36,6 +38,8 @@ describe("getStyleConfig", () => {
     expect(config.defaultFill).toBe("#d1dbdd");
     expect(config.bgColor).toBe("#a8c4d4");
     expect(config.legendBg).toBe("#1e1e2e");
+    expect(config.outlineColor).toBe("#000000");
+    expect(config.outlineWidth).toBe("0.6");
   });
 
   it("includes viewport class for parchment", () => {
@@ -141,6 +145,25 @@ describe("styleDisplayLabel", () => {
   });
 });
 
+describe("hasCustomOverrides with outline", () => {
+  it("detects custom outlineColor", () => {
+    const base = getBaseStyleConfig("parchment");
+    expect(hasCustomOverrides(base, { outlineColor: "#ff0000" })).toBe(true);
+  });
+
+  it("detects custom outlineWidth", () => {
+    const base = getBaseStyleConfig("parchment");
+    expect(hasCustomOverrides(base, { outlineWidth: "1.5" })).toBe(true);
+  });
+
+  it("returns false when outlineWidth matches base", () => {
+    const base = getBaseStyleConfig("parchment");
+    expect(hasCustomOverrides(base, { outlineWidth: "0.6" })).toBe(false);
+  });
+
+
+});
+
 describe("EDITABLE_COLOR_KEYS", () => {
   it("contains expected keys", () => {
     expect(EDITABLE_COLOR_KEYS).toContain("bgColor");
@@ -149,6 +172,7 @@ describe("EDITABLE_COLOR_KEYS", () => {
     expect(EDITABLE_COLOR_KEYS).toContain("legendBorder");
     expect(EDITABLE_COLOR_KEYS).toContain("titleColor");
     expect(EDITABLE_COLOR_KEYS).toContain("labelColor");
+    expect(EDITABLE_COLOR_KEYS).toContain("outlineColor");
   });
 });
 

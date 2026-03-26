@@ -14,6 +14,8 @@ import type { MapStyle } from "./types";
 export interface StyleConfig {
   readonly defaultFill: string;
   readonly strokeWidth: string;
+  readonly outlineColor: string;
+  readonly outlineWidth: string;
   readonly viewportClass: string;
   readonly bgColor: string;
   readonly legendBg: string;
@@ -26,6 +28,8 @@ export interface StyleConfig {
 const PARCHMENT: StyleConfig = {
   defaultFill: "#e8dcc8",
   strokeWidth: "0.15",
+  outlineColor: "#000000",
+  outlineWidth: "0.6",
   viewportClass: "map-viewport map-viewport-parchment",
   bgColor: "#b8c8c8",
   legendBg: "#f0e0c0",
@@ -38,6 +42,8 @@ const PARCHMENT: StyleConfig = {
 const MODERN: StyleConfig = {
   defaultFill: "#d1dbdd",
   strokeWidth: "0.15",
+  outlineColor: "#000000",
+  outlineWidth: "0.6",
   viewportClass: "map-viewport map-viewport-modern",
   bgColor: "#a8c4d4",
   legendBg: "#1e1e2e",
@@ -47,29 +53,44 @@ const MODERN: StyleConfig = {
   countColor: "#888888",
 };
 
-/** The editable fields users can customize. */
-export type StyleOverrides = Partial<Pick<StyleConfig,
-  "defaultFill" | "bgColor" | "legendBg" | "legendBorder" | "titleColor" | "labelColor"
+/** Color fields that get color pickers. */
+export type StyleColorOverrides = Partial<Pick<StyleConfig,
+  "defaultFill" | "bgColor" | "legendBg" | "legendBorder" | "titleColor" | "labelColor" | "outlineColor"
 >>;
 
-/** The keys that are user-editable. */
-export const EDITABLE_COLOR_KEYS: readonly (keyof StyleOverrides)[] = [
-  "bgColor", "defaultFill", "legendBg", "legendBorder", "titleColor", "labelColor",
+/** Non-color overrides (sliders). */
+export type StyleMiscOverrides = {
+  outlineWidth?: string;
+};
+
+/** All style overrides combined. */
+export type StyleOverrides = StyleColorOverrides & StyleMiscOverrides;
+
+/** The color fields that get color pickers. */
+export const EDITABLE_COLOR_KEYS: readonly (keyof StyleColorOverrides)[] = [
+  "bgColor", "defaultFill", "outlineColor", "legendBg", "legendBorder", "titleColor", "labelColor",
 ] as const;
 
-/** Human-readable labels for editable style fields. */
-export const STYLE_FIELD_LABELS: Readonly<Record<keyof StyleOverrides, string>> = {
+/** Human-readable labels for all editable style fields. */
+export const STYLE_FIELD_LABELS: Readonly<Record<keyof StyleColorOverrides | keyof StyleMiscOverrides, string>> = {
   bgColor: "Ocean",
   defaultFill: "Unowned Land",
+  outlineColor: "Outline",
   legendBg: "Legend Bg",
   legendBorder: "Legend Border",
   titleColor: "Title Text",
   labelColor: "Label Text",
+  outlineWidth: "Outline Width",
 };
 
 /** Get the base (unmodified) style config for a preset. */
 export const getBaseStyleConfig = (style: MapStyle): StyleConfig =>
   style === "parchment" ? PARCHMENT : MODERN;
+
+/** All keys that can be overridden. */
+const ALL_OVERRIDE_KEYS: readonly (keyof StyleOverrides)[] = [
+  ...EDITABLE_COLOR_KEYS, "outlineWidth",
+] as const;
 
 /** Merge user overrides onto a base style config. */
 export const mergeStyleOverrides = (
@@ -89,9 +110,11 @@ export const hasCustomOverrides = (
   base: StyleConfig,
   overrides: StyleOverrides,
 ): boolean =>
-  EDITABLE_COLOR_KEYS.some((key) =>
-    overrides[key] !== undefined && overrides[key] !== base[key]
-  );
+  ALL_OVERRIDE_KEYS.some((key) => {
+    const val = overrides[key as keyof StyleOverrides];
+    const baseVal = base[key as keyof StyleConfig];
+    return val !== undefined && String(val) !== String(baseVal);
+  });
 
 /** Resolve the effective style config from a preset + overrides. */
 export const getStyleConfig = (style: MapStyle, overrides?: StyleOverrides): StyleConfig => {
