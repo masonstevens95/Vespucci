@@ -12,6 +12,7 @@ import {
   hasCustomOverrides,
   EDITABLE_COLOR_KEYS,
   STYLE_FIELD_LABELS,
+  MAP_STYLE_OPTIONS,
 } from "./lib/map-styles";
 import type { StyleOverrides } from "./lib/map-styles";
 import provinceMapping from "./lib/mapchart_province_mapping.json";
@@ -43,6 +44,7 @@ export default function App() {
   const [title, setTitle] = useState("EU5 Map");
   const [mapStyle, setMapStyle] = useState<MapStyle>("parchment");
   const [styleOverrides, setStyleOverrides] = useState<StyleOverrides>({});
+  const [colorOverrides, setColorOverrides] = useState<Record<string, string>>({});
   const [debug, setDebug] = useState<DebugData | null>(null);
   const mapLayoutRef = useRef<HTMLDivElement>(null);
 
@@ -86,7 +88,12 @@ export default function App() {
     if (debug) downloadConfig(debug.config);
   }, [debug]);
 
+  const handleColorChange = useCallback((originalHex: string, newHex: string) => {
+    setColorOverrides((prev) => ({ ...prev, [originalHex]: newHex }));
+  }, []);
+
   const handleReset = useCallback(() => {
+    setColorOverrides({});
     setDebug(null);
     setStatus("idle");
     setError(null);
@@ -280,8 +287,9 @@ export default function App() {
                       }}
                       className="style-select"
                     >
-                      <option value="parchment">Parchment</option>
-                      <option value="modern">Modern</option>
+                      {MAP_STYLE_OPTIONS.map((opt) => (
+                        <option key={opt.value} value={opt.value}>{opt.label}</option>
+                      ))}
                       {isCustom && <option value="__custom" disabled>Custom</option>}
                     </select>
                   </label>
@@ -331,10 +339,17 @@ export default function App() {
                   config={debug.config}
                   mapStyle={mapStyle}
                   styleOverrides={styleOverrides}
+                  colorOverrides={colorOverrides}
                 />
               </div>
               <div className="legend-panel">
-                <MapLegend config={debug.config} mapStyle={mapStyle} styleOverrides={styleOverrides} />
+                <MapLegend
+                  config={debug.config}
+                  mapStyle={mapStyle}
+                  styleOverrides={styleOverrides}
+                  colorOverrides={colorOverrides}
+                  onColorChange={handleColorChange}
+                />
               </div>
             </div>
 

@@ -52,19 +52,19 @@ beforeEach(() => {
 
 describe("MapRenderer", () => {
   it("shows loading state initially", () => {
-    const { container } = render(<MapRenderer config={baseConfig} mapStyle="parchment" styleOverrides={{}} />);
+    const { container } = render(<MapRenderer config={baseConfig} mapStyle="parchment" styleOverrides={{}} colorOverrides={{}} />);
     expect(within(container).getByText("Loading map...")).toBeInTheDocument();
   });
 
   it("renders map after SVG loads", async () => {
-    const { container } = render(<MapRenderer config={baseConfig} mapStyle="parchment" styleOverrides={{}} />);
+    const { container } = render(<MapRenderer config={baseConfig} mapStyle="parchment" styleOverrides={{}} colorOverrides={{}} />);
     await waitFor(() => {
       expect(container.querySelector(".map-renderer")).toBeInTheDocument();
     });
   });
 
   it("shows toolbar with Reset View and zoom", async () => {
-    const { container } = render(<MapRenderer config={baseConfig} mapStyle="parchment" styleOverrides={{}} />);
+    const { container } = render(<MapRenderer config={baseConfig} mapStyle="parchment" styleOverrides={{}} colorOverrides={{}} />);
     await waitFor(() => {
       expect(container.querySelector(".map-toolbar")).toBeInTheDocument();
     });
@@ -78,7 +78,7 @@ describe("MapRenderer", () => {
       ...baseConfig,
       groups: { "#ff0000": { label: "ENG", paths: ["Uppland"] } },
     };
-    const { container } = render(<MapRenderer config={config} mapStyle="parchment" styleOverrides={{}} />);
+    const { container } = render(<MapRenderer config={config} mapStyle="parchment" styleOverrides={{}} colorOverrides={{}} />);
     await waitFor(() => {
       expect(container.querySelector(".map-renderer")).toBeInTheDocument();
     });
@@ -91,7 +91,7 @@ describe("MapRenderer", () => {
       ...baseConfig,
       groups: { "#ff0000": { label: "ENG", paths: ["Uppland"] } },
     };
-    const { container } = render(<MapRenderer config={config} mapStyle="parchment" styleOverrides={{}} />);
+    const { container } = render(<MapRenderer config={config} mapStyle="parchment" styleOverrides={{}} colorOverrides={{}} />);
     await waitFor(() => {
       expect(container.querySelector(".map-renderer")).toBeInTheDocument();
     });
@@ -106,7 +106,7 @@ describe("MapRenderer", () => {
       ...baseConfig,
       groups: { "#ff0000": { label: "ENG", paths: ["Uppland"] } },
     };
-    const { container } = render(<MapRenderer config={config} mapStyle="parchment" styleOverrides={{}} />);
+    const { container } = render(<MapRenderer config={config} mapStyle="parchment" styleOverrides={{}} colorOverrides={{}} />);
     await waitFor(() => {
       expect(container.querySelector(".map-renderer")).toBeInTheDocument();
     });
@@ -121,7 +121,7 @@ describe("MapRenderer", () => {
       ...baseConfig,
       groups: { "#ff0000": { label: "ENG", paths: ["Uppland"] } },
     };
-    const { container } = render(<MapRenderer config={config} mapStyle="parchment" styleOverrides={{ outlineWidth: "0.6" }} />);
+    const { container } = render(<MapRenderer config={config} mapStyle="parchment" styleOverrides={{ outlineWidth: "0.6" }} colorOverrides={{}} />);
     await waitFor(() => {
       expect(container.querySelector(".map-renderer")).toBeInTheDocument();
     });
@@ -137,7 +137,7 @@ describe("MapRenderer", () => {
       ...baseConfig,
       groups: { "#ff0000": { label: "ENG", paths: ["Uppland"] } },
     };
-    const { container } = render(<MapRenderer config={config} mapStyle="parchment" styleOverrides={{}} />);
+    const { container } = render(<MapRenderer config={config} mapStyle="parchment" styleOverrides={{}} colorOverrides={{}} />);
     await waitFor(() => {
       expect(container.querySelector(".map-renderer")).toBeInTheDocument();
     });
@@ -147,7 +147,7 @@ describe("MapRenderer", () => {
 
   it("does not create outline layer when width is 0", async () => {
     const { container } = render(
-      <MapRenderer config={baseConfig} mapStyle="parchment" styleOverrides={{ outlineWidth: "0" }} />,
+      <MapRenderer config={baseConfig} mapStyle="parchment" styleOverrides={{ outlineWidth: "0" }} colorOverrides={{}} />,
     );
     await waitFor(() => {
       expect(container.querySelector(".map-renderer")).toBeInTheDocument();
@@ -162,7 +162,7 @@ describe("MapRenderer", () => {
       groups: { "#ff0000": { label: "ENG", paths: ["Uppland"] } },
     };
     const { container } = render(
-      <MapRenderer config={config} mapStyle="parchment" styleOverrides={{ outlineColor: "#ff00ff", outlineWidth: "0.6" }} />,
+      <MapRenderer config={config} mapStyle="parchment" styleOverrides={{ outlineColor: "#ff00ff", outlineWidth: "0.6" }} colorOverrides={{}} />,
     );
     await waitFor(() => {
       expect(container.querySelector(".map-renderer")).toBeInTheDocument();
@@ -172,7 +172,7 @@ describe("MapRenderer", () => {
   });
 
   it("applies parchment default fill in parchment style", async () => {
-    const { container } = render(<MapRenderer config={baseConfig} mapStyle="parchment" styleOverrides={{}} />);
+    const { container } = render(<MapRenderer config={baseConfig} mapStyle="parchment" styleOverrides={{}} colorOverrides={{}} />);
     await waitFor(() => {
       expect(container.querySelector(".map-renderer")).toBeInTheDocument();
     });
@@ -181,7 +181,7 @@ describe("MapRenderer", () => {
   });
 
   it("applies gray default fill in modern style", async () => {
-    const { container } = render(<MapRenderer config={baseConfig} mapStyle="modern" styleOverrides={{}} />);
+    const { container } = render(<MapRenderer config={baseConfig} mapStyle="modern" styleOverrides={{}} colorOverrides={{}} />);
     await waitFor(() => {
       expect(container.querySelector(".map-renderer")).toBeInTheDocument();
     });
@@ -190,14 +190,14 @@ describe("MapRenderer", () => {
   });
 
   it("adds style-specific class to renderer", async () => {
-    const { container } = render(<MapRenderer config={baseConfig} mapStyle="modern" styleOverrides={{}} />);
+    const { container } = render(<MapRenderer config={baseConfig} mapStyle="modern" styleOverrides={{}} colorOverrides={{}} />);
     await waitFor(() => {
       expect(container.querySelector(".map-renderer-modern")).toBeInTheDocument();
     });
   });
 
   it("resets transform on Reset View click", async () => {
-    const { container } = render(<MapRenderer config={baseConfig} mapStyle="parchment" styleOverrides={{}} />);
+    const { container } = render(<MapRenderer config={baseConfig} mapStyle="parchment" styleOverrides={{}} colorOverrides={{}} />);
     await waitFor(() => {
       expect(container.querySelector(".map-toolbar")).toBeInTheDocument();
     });
@@ -209,7 +209,7 @@ describe("MapRenderer", () => {
   });
 
   it("removes width/height and adds map-svg class", async () => {
-    const { container } = render(<MapRenderer config={baseConfig} mapStyle="parchment" styleOverrides={{}} />);
+    const { container } = render(<MapRenderer config={baseConfig} mapStyle="parchment" styleOverrides={{}} colorOverrides={{}} />);
     await waitFor(() => {
       expect(container.querySelector(".map-renderer")).toBeInTheDocument();
     });
@@ -222,7 +222,7 @@ describe("MapRenderer", () => {
   // Style override tests
   it("applies custom defaultFill from overrides", async () => {
     const { container } = render(
-      <MapRenderer config={baseConfig} mapStyle="parchment" styleOverrides={{ defaultFill: "#aabbcc" }} />,
+      <MapRenderer config={baseConfig} mapStyle="parchment" styleOverrides={{ defaultFill: "#aabbcc" }} colorOverrides={{}} />,
     );
     await waitFor(() => {
       expect(container.querySelector(".map-renderer")).toBeInTheDocument();
@@ -233,7 +233,7 @@ describe("MapRenderer", () => {
 
   it("applies custom bgColor to viewport inline style", async () => {
     const { container } = render(
-      <MapRenderer config={baseConfig} mapStyle="parchment" styleOverrides={{ bgColor: "#112233" }} />,
+      <MapRenderer config={baseConfig} mapStyle="parchment" styleOverrides={{ bgColor: "#112233" }} colorOverrides={{}} />,
     );
     await waitFor(() => {
       expect(container.querySelector(".map-viewport")).toBeInTheDocument();

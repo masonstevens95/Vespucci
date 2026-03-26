@@ -5,6 +5,8 @@ import {
   mergeStyleOverrides,
   hasCustomOverrides,
   styleDisplayLabel,
+  applyColorOverrides,
+  MAP_STYLE_OPTIONS,
   EDITABLE_COLOR_KEYS,
   STYLE_FIELD_LABELS,
   IDENTITY_TRANSFORM,
@@ -48,6 +50,24 @@ describe("getStyleConfig", () => {
 
   it("includes viewport class for modern", () => {
     expect(getStyleConfig("modern").viewportClass).toContain("modern");
+  });
+
+  it("returns dark config", () => {
+    const config = getStyleConfig("dark");
+    expect(config.defaultFill).toBe("#2a2a3e");
+    expect(config.bgColor).toBe("#0e0e1a");
+  });
+
+  it("returns satellite config", () => {
+    const config = getStyleConfig("satellite");
+    expect(config.defaultFill).toBe("#3a5a3a");
+    expect(config.bgColor).toBe("#1a3050");
+  });
+
+  it("returns pastel config", () => {
+    const config = getStyleConfig("pastel");
+    expect(config.defaultFill).toBe("#f5f0eb");
+    expect(config.bgColor).toBe("#d4e6f1");
   });
 
   it("applies overrides when provided", () => {
@@ -135,6 +155,12 @@ describe("styleDisplayLabel", () => {
     expect(styleDisplayLabel("modern", {})).toBe("Modern");
   });
 
+  it("returns correct labels for all presets", () => {
+    expect(styleDisplayLabel("dark", {})).toBe("Dark");
+    expect(styleDisplayLabel("satellite", {})).toBe("Satellite");
+    expect(styleDisplayLabel("pastel", {})).toBe("Pastel");
+  });
+
   it("returns Custom when overrides differ", () => {
     expect(styleDisplayLabel("parchment", { bgColor: "#000000" })).toBe("Custom");
   });
@@ -161,6 +187,47 @@ describe("hasCustomOverrides with outline", () => {
   });
 
 
+});
+
+describe("applyColorOverrides", () => {
+  it("remaps group hex keys", () => {
+    const groups = {
+      "#ff0000": { label: "ENG", paths: ["London"] },
+      "#0000ff": { label: "FRA", paths: ["Paris"] },
+    };
+    const result = applyColorOverrides(groups, { "#ff0000": "#00ff00" });
+    expect(result["#00ff00"]).toEqual({ label: "ENG", paths: ["London"] });
+    expect(result["#0000ff"]).toEqual({ label: "FRA", paths: ["Paris"] });
+    expect(result["#ff0000"]).toBeUndefined();
+  });
+
+  it("returns unchanged groups when no overrides", () => {
+    const groups = { "#ff0000": { label: "ENG", paths: ["London"] } };
+    const result = applyColorOverrides(groups, {});
+    expect(result["#ff0000"]).toEqual({ label: "ENG", paths: ["London"] });
+  });
+
+  it("handles empty groups", () => {
+    expect(applyColorOverrides({}, { "#ff0000": "#00ff00" })).toEqual({});
+  });
+});
+
+describe("MAP_STYLE_OPTIONS", () => {
+  it("contains all 5 presets", () => {
+    expect(MAP_STYLE_OPTIONS).toHaveLength(5);
+    const values = MAP_STYLE_OPTIONS.map((o) => o.value);
+    expect(values).toContain("parchment");
+    expect(values).toContain("modern");
+    expect(values).toContain("dark");
+    expect(values).toContain("satellite");
+    expect(values).toContain("pastel");
+  });
+
+  it("has labels for all options", () => {
+    for (const opt of MAP_STYLE_OPTIONS) {
+      expect(opt.label.length).toBeGreaterThan(0);
+    }
+  });
 });
 
 describe("EDITABLE_COLOR_KEYS", () => {

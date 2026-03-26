@@ -53,6 +53,48 @@ const MODERN: StyleConfig = {
   countColor: "#888888",
 };
 
+const DARK: StyleConfig = {
+  defaultFill: "#2a2a3e",
+  strokeWidth: "0.15",
+  outlineColor: "#888888",
+  outlineWidth: "0",
+  viewportClass: "map-viewport map-viewport-dark",
+  bgColor: "#0e0e1a",
+  legendBg: "#161622",
+  legendBorder: "#333350",
+  titleColor: "#e0e0e0",
+  labelColor: "#cccccc",
+  countColor: "#666680",
+};
+
+const SATELLITE: StyleConfig = {
+  defaultFill: "#3a5a3a",
+  strokeWidth: "0.15",
+  outlineColor: "#ffffff",
+  outlineWidth: "0",
+  viewportClass: "map-viewport map-viewport-satellite",
+  bgColor: "#1a3050",
+  legendBg: "#1a2a1a",
+  legendBorder: "#3a5a3a",
+  titleColor: "#d0e0d0",
+  labelColor: "#c0d0c0",
+  countColor: "#6a8a6a",
+};
+
+const PASTEL: StyleConfig = {
+  defaultFill: "#f5f0eb",
+  strokeWidth: "0.15",
+  outlineColor: "#999999",
+  outlineWidth: "0",
+  viewportClass: "map-viewport map-viewport-pastel",
+  bgColor: "#d4e6f1",
+  legendBg: "#faf5f0",
+  legendBorder: "#d5c4a1",
+  titleColor: "#5a4a3a",
+  labelColor: "#5a4a3a",
+  countColor: "#a09080",
+};
+
 /** Color fields that get color pickers. */
 export type StyleColorOverrides = Partial<Pick<StyleConfig,
   "defaultFill" | "bgColor" | "legendBg" | "legendBorder" | "titleColor" | "labelColor" | "outlineColor"
@@ -83,9 +125,18 @@ export const STYLE_FIELD_LABELS: Readonly<Record<keyof StyleColorOverrides | key
   outlineWidth: "Outline Width",
 };
 
+/** Style preset lookup. */
+const STYLE_PRESETS: Readonly<Record<MapStyle, StyleConfig>> = {
+  parchment: PARCHMENT,
+  modern: MODERN,
+  dark: DARK,
+  satellite: SATELLITE,
+  pastel: PASTEL,
+};
+
 /** Get the base (unmodified) style config for a preset. */
 export const getBaseStyleConfig = (style: MapStyle): StyleConfig =>
-  style === "parchment" ? PARCHMENT : MODERN;
+  STYLE_PRESETS[style] ?? PARCHMENT;
 
 /** All keys that can be overridden. */
 const ALL_OVERRIDE_KEYS: readonly (keyof StyleOverrides)[] = [
@@ -124,11 +175,29 @@ export const getStyleConfig = (style: MapStyle, overrides?: StyleOverrides): Sty
     : base;
 };
 
+/** Display labels for each preset. */
+const PRESET_LABELS: Readonly<Record<MapStyle, string>> = {
+  parchment: "Parchment",
+  modern: "Modern",
+  dark: "Dark",
+  satellite: "Satellite",
+  pastel: "Pastel",
+};
+
+/** All available style presets for dropdowns. */
+export const MAP_STYLE_OPTIONS: readonly { value: MapStyle; label: string }[] = [
+  { value: "parchment", label: "Parchment" },
+  { value: "modern", label: "Modern" },
+  { value: "dark", label: "Dark" },
+  { value: "satellite", label: "Satellite" },
+  { value: "pastel", label: "Pastel" },
+];
+
 /** Determine the display label for the style dropdown. */
 export const styleDisplayLabel = (style: MapStyle, overrides: StyleOverrides): string =>
   hasCustomOverrides(getBaseStyleConfig(style), overrides)
     ? "Custom"
-    : style === "parchment" ? "Parchment" : "Modern";
+    : PRESET_LABELS[style] ?? style;
 
 // =============================================================================
 // Zoom / transform helpers
@@ -224,6 +293,26 @@ export const parseViewBox = (viewBox: string): ViewBoxDimensions => {
   return w > 0 && h > 0
     ? { width: w, height: h }
     : DEFAULT_DIMENSIONS;
+};
+
+// =============================================================================
+// Color override helpers
+// =============================================================================
+
+/** A map from original hex color to user-chosen replacement hex. */
+export type ColorOverrides = Readonly<Record<string, string>>;
+
+/** Apply color overrides to a config's groups, returning new groups keyed by the new hex. */
+export const applyColorOverrides = (
+  groups: Readonly<Record<string, { label: string; paths: string[] }>>,
+  overrides: ColorOverrides,
+): Record<string, { label: string; paths: string[] }> => {
+  const result: Record<string, { label: string; paths: string[] }> = {};
+  for (const [originalHex, group] of Object.entries(groups)) {
+    const newHex = overrides[originalHex] ?? originalHex;
+    result[newHex] = group;
+  }
+  return result;
 };
 
 /** Get map dimensions from a viewBox string, with fallback. */
