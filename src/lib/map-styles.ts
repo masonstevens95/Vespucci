@@ -50,9 +50,66 @@ const MODERN: StyleConfig = {
   countColor: "#888888",
 };
 
-/** Look up the full style config for a given map style. */
-export const getStyleConfig = (style: MapStyle): StyleConfig =>
+/** The editable fields users can customize. */
+export type StyleOverrides = Partial<Pick<StyleConfig,
+  "defaultFill" | "bgColor" | "legendBg" | "legendBorder" | "titleColor" | "labelColor"
+>>;
+
+/** The keys that are user-editable. */
+export const EDITABLE_STYLE_KEYS: readonly (keyof StyleOverrides)[] = [
+  "bgColor", "defaultFill", "legendBg", "legendBorder", "titleColor", "labelColor",
+] as const;
+
+/** Human-readable labels for editable style fields. */
+export const STYLE_FIELD_LABELS: Readonly<Record<keyof StyleOverrides, string>> = {
+  bgColor: "Ocean",
+  defaultFill: "Unowned Land",
+  legendBg: "Legend Background",
+  legendBorder: "Legend Border",
+  titleColor: "Title Text",
+  labelColor: "Label Text",
+};
+
+/** Get the base (unmodified) style config for a preset. */
+export const getBaseStyleConfig = (style: MapStyle): StyleConfig =>
   style === "parchment" ? PARCHMENT : MODERN;
+
+/** Merge user overrides onto a base style config. */
+export const mergeStyleOverrides = (
+  base: StyleConfig,
+  overrides: StyleOverrides,
+): StyleConfig => ({
+  ...base,
+  ...overrides,
+  // Preserve non-editable fields from base
+  stroke: base.stroke,
+  strokeWidth: base.strokeWidth,
+  viewportClass: base.viewportClass,
+  countColor: base.countColor,
+});
+
+/** Check whether any overrides differ from the base style. */
+export const hasCustomOverrides = (
+  base: StyleConfig,
+  overrides: StyleOverrides,
+): boolean =>
+  EDITABLE_STYLE_KEYS.some((key) =>
+    overrides[key] !== undefined && overrides[key] !== base[key]
+  );
+
+/** Resolve the effective style config from a preset + overrides. */
+export const getStyleConfig = (style: MapStyle, overrides?: StyleOverrides): StyleConfig => {
+  const base = getBaseStyleConfig(style);
+  return overrides !== undefined
+    ? mergeStyleOverrides(base, overrides)
+    : base;
+};
+
+/** Determine the display label for the style dropdown. */
+export const styleDisplayLabel = (style: MapStyle, overrides: StyleOverrides): string =>
+  hasCustomOverrides(getBaseStyleConfig(style), overrides)
+    ? "Custom"
+    : style === "parchment" ? "Parchment" : "Modern";
 
 // =============================================================================
 // Zoom / transform helpers

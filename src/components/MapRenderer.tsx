@@ -7,15 +7,16 @@ import {
   transformCss,
   zoomPercent,
 } from "../lib/map-styles";
-import type { Transform } from "../lib/map-styles";
+import type { Transform, StyleOverrides } from "../lib/map-styles";
 
 interface Props {
   config: MapChartConfig;
   mapStyle: MapStyle;
+  styleOverrides: StyleOverrides;
   onDownloadMap: () => void;
 }
 
-export const MapRenderer = ({ config, mapStyle, onDownloadMap }: Props) => {
+export const MapRenderer = ({ config, mapStyle, styleOverrides, onDownloadMap }: Props) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [svgContent, setSvgContent] = useState("");
   const [loading, setLoading] = useState(true);
@@ -40,7 +41,7 @@ export const MapRenderer = ({ config, mapStyle, onDownloadMap }: Props) => {
       svg.removeAttribute("height");
       svg.setAttribute("class", "map-svg");
 
-      const style = getStyleConfig(mapStyle);
+      const style = getStyleConfig(mapStyle, styleOverrides);
 
       // Set default fill on all paths
       const allPaths = svg.querySelectorAll("path");
@@ -70,7 +71,7 @@ export const MapRenderer = ({ config, mapStyle, onDownloadMap }: Props) => {
     };
     loadSvg();
     return () => { cancelled = true; };
-  }, [config, mapStyle]);
+  }, [config, mapStyle, styleOverrides]);
 
   const handleWheel = useCallback((e: React.WheelEvent) => {
     e.preventDefault();
@@ -104,7 +105,7 @@ export const MapRenderer = ({ config, mapStyle, onDownloadMap }: Props) => {
     setTransform(IDENTITY_TRANSFORM);
   }, []);
 
-  const style = getStyleConfig(mapStyle);
+  const style = getStyleConfig(mapStyle, styleOverrides);
 
   if (loading) {
     return (
@@ -120,11 +121,11 @@ export const MapRenderer = ({ config, mapStyle, onDownloadMap }: Props) => {
       <div className="map-toolbar">
         <button className="btn secondary" onClick={handleReset}>Reset View</button>
         <span className="zoom-level">{zoomPercent(transform.scale)}</span>
-        <button className="btn secondary" onClick={onDownloadMap}>Download Map</button>
       </div>
       <div
         ref={containerRef}
         className={style.viewportClass}
+        style={{ backgroundColor: style.bgColor }}
         onWheel={handleWheel}
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}

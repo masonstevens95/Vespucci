@@ -54,37 +54,25 @@ beforeEach(() => {
 
 describe("MapRenderer", () => {
   it("shows loading state initially", () => {
-    const { container } = render(<MapRenderer config={baseConfig} mapStyle="parchment" onDownloadMap={noop} />);
+    const { container } = render(<MapRenderer config={baseConfig} mapStyle="parchment" styleOverrides={{}} onDownloadMap={noop} />);
     expect(within(container).getByText("Loading map...")).toBeInTheDocument();
   });
 
   it("renders map after SVG loads", async () => {
-    const { container } = render(<MapRenderer config={baseConfig} mapStyle="parchment" onDownloadMap={noop} />);
+    const { container } = render(<MapRenderer config={baseConfig} mapStyle="parchment" styleOverrides={{}} onDownloadMap={noop} />);
     await waitFor(() => {
       expect(container.querySelector(".map-renderer")).toBeInTheDocument();
     });
   });
 
-  it("shows toolbar with Reset View, zoom, and Download Map", async () => {
-    const { container } = render(<MapRenderer config={baseConfig} mapStyle="parchment" onDownloadMap={noop} />);
+  it("shows toolbar with Reset View and zoom", async () => {
+    const { container } = render(<MapRenderer config={baseConfig} mapStyle="parchment" styleOverrides={{}} onDownloadMap={noop} />);
     await waitFor(() => {
       expect(container.querySelector(".map-toolbar")).toBeInTheDocument();
     });
     const toolbar = container.querySelector(".map-toolbar")! as HTMLElement;
     expect(within(toolbar).getByText("Reset View")).toBeInTheDocument();
     expect(within(toolbar).getByText("100%")).toBeInTheDocument();
-    expect(within(toolbar).getByText("Download Map")).toBeInTheDocument();
-  });
-
-  it("calls onDownloadMap when Download Map clicked", async () => {
-    const onDownload = vi.fn();
-    const { container } = render(<MapRenderer config={baseConfig} mapStyle="parchment" onDownloadMap={onDownload} />);
-    await waitFor(() => {
-      expect(container.querySelector(".map-toolbar")).toBeInTheDocument();
-    });
-    const toolbar = container.querySelector(".map-toolbar")! as HTMLElement;
-    fireEvent.click(within(toolbar).getByText("Download Map"));
-    expect(onDownload).toHaveBeenCalledTimes(1);
   });
 
   it("applies province colors from config groups", async () => {
@@ -92,7 +80,7 @@ describe("MapRenderer", () => {
       ...baseConfig,
       groups: { "#ff0000": { label: "ENG", paths: ["Uppland"] } },
     };
-    const { container } = render(<MapRenderer config={config} mapStyle="parchment" onDownloadMap={noop} />);
+    const { container } = render(<MapRenderer config={config} mapStyle="parchment" styleOverrides={{}} onDownloadMap={noop} />);
     await waitFor(() => {
       expect(container.querySelector(".map-renderer")).toBeInTheDocument();
     });
@@ -105,7 +93,7 @@ describe("MapRenderer", () => {
       ...baseConfig,
       groups: { "#ff0000": { label: "ENG", paths: ["Uppland"] } },
     };
-    const { container } = render(<MapRenderer config={config} mapStyle="parchment" onDownloadMap={noop} />);
+    const { container } = render(<MapRenderer config={config} mapStyle="parchment" styleOverrides={{}} onDownloadMap={noop} />);
     await waitFor(() => {
       expect(container.querySelector(".map-renderer")).toBeInTheDocument();
     });
@@ -120,7 +108,7 @@ describe("MapRenderer", () => {
       ...baseConfig,
       groups: { "#ff0000": { label: "ENG", paths: ["Uppland"] } },
     };
-    const { container } = render(<MapRenderer config={config} mapStyle="parchment" onDownloadMap={noop} />);
+    const { container } = render(<MapRenderer config={config} mapStyle="parchment" styleOverrides={{}} onDownloadMap={noop} />);
     await waitFor(() => {
       expect(container.querySelector(".map-renderer")).toBeInTheDocument();
     });
@@ -132,7 +120,7 @@ describe("MapRenderer", () => {
   });
 
   it("matches stroke to fill in modern style (no province borders)", async () => {
-    const { container } = render(<MapRenderer config={baseConfig} mapStyle="modern" onDownloadMap={noop} />);
+    const { container } = render(<MapRenderer config={baseConfig} mapStyle="modern" styleOverrides={{}} onDownloadMap={noop} />);
     await waitFor(() => {
       expect(container.querySelector(".map-renderer")).toBeInTheDocument();
     });
@@ -142,7 +130,7 @@ describe("MapRenderer", () => {
   });
 
   it("applies parchment default fill in parchment style", async () => {
-    const { container } = render(<MapRenderer config={baseConfig} mapStyle="parchment" onDownloadMap={noop} />);
+    const { container } = render(<MapRenderer config={baseConfig} mapStyle="parchment" styleOverrides={{}} onDownloadMap={noop} />);
     await waitFor(() => {
       expect(container.querySelector(".map-renderer")).toBeInTheDocument();
     });
@@ -151,7 +139,7 @@ describe("MapRenderer", () => {
   });
 
   it("applies gray default fill in modern style", async () => {
-    const { container } = render(<MapRenderer config={baseConfig} mapStyle="modern" onDownloadMap={noop} />);
+    const { container } = render(<MapRenderer config={baseConfig} mapStyle="modern" styleOverrides={{}} onDownloadMap={noop} />);
     await waitFor(() => {
       expect(container.querySelector(".map-renderer")).toBeInTheDocument();
     });
@@ -160,14 +148,14 @@ describe("MapRenderer", () => {
   });
 
   it("adds style-specific class to renderer", async () => {
-    const { container } = render(<MapRenderer config={baseConfig} mapStyle="modern" onDownloadMap={noop} />);
+    const { container } = render(<MapRenderer config={baseConfig} mapStyle="modern" styleOverrides={{}} onDownloadMap={noop} />);
     await waitFor(() => {
       expect(container.querySelector(".map-renderer-modern")).toBeInTheDocument();
     });
   });
 
   it("resets transform on Reset View click", async () => {
-    const { container } = render(<MapRenderer config={baseConfig} mapStyle="parchment" onDownloadMap={noop} />);
+    const { container } = render(<MapRenderer config={baseConfig} mapStyle="parchment" styleOverrides={{}} onDownloadMap={noop} />);
     await waitFor(() => {
       expect(container.querySelector(".map-toolbar")).toBeInTheDocument();
     });
@@ -179,7 +167,7 @@ describe("MapRenderer", () => {
   });
 
   it("removes width/height and adds map-svg class", async () => {
-    const { container } = render(<MapRenderer config={baseConfig} mapStyle="parchment" onDownloadMap={noop} />);
+    const { container } = render(<MapRenderer config={baseConfig} mapStyle="parchment" styleOverrides={{}} onDownloadMap={noop} />);
     await waitFor(() => {
       expect(container.querySelector(".map-renderer")).toBeInTheDocument();
     });
@@ -187,5 +175,28 @@ describe("MapRenderer", () => {
     expect(svg).toBeInTheDocument();
     expect(svg?.getAttribute("width")).toBeNull();
     expect(svg?.getAttribute("height")).toBeNull();
+  });
+
+  // Style override tests
+  it("applies custom defaultFill from overrides", async () => {
+    const { container } = render(
+      <MapRenderer config={baseConfig} mapStyle="parchment" styleOverrides={{ defaultFill: "#aabbcc" }} onDownloadMap={noop} />,
+    );
+    await waitFor(() => {
+      expect(container.querySelector(".map-renderer")).toBeInTheDocument();
+    });
+    const html = container.querySelector(".map-transform")?.innerHTML ?? "";
+    expect(html).toContain('fill="#aabbcc"');
+  });
+
+  it("applies custom bgColor to viewport inline style", async () => {
+    const { container } = render(
+      <MapRenderer config={baseConfig} mapStyle="parchment" styleOverrides={{ bgColor: "#112233" }} onDownloadMap={noop} />,
+    );
+    await waitFor(() => {
+      expect(container.querySelector(".map-viewport")).toBeInTheDocument();
+    });
+    const viewport = container.querySelector(".map-viewport") as HTMLElement;
+    expect(viewport.style.backgroundColor).toBe("rgb(17, 34, 51)");
   });
 });

@@ -1,12 +1,8 @@
-import type { MapStyle } from "../lib/types";
-
 interface OptionsBarProps {
   playersOnly: boolean;
   onPlayersOnlyChange: (value: boolean) => void;
   title: string;
   onTitleChange: (value: string) => void;
-  mapStyle: MapStyle;
-  onMapStyleChange: (value: MapStyle) => void;
   disabled: boolean;
 }
 
@@ -15,8 +11,6 @@ export function OptionsBar({
   onPlayersOnlyChange,
   title,
   onTitleChange,
-  mapStyle,
-  onMapStyleChange,
   disabled,
 }: OptionsBarProps) {
   return (
@@ -39,18 +33,6 @@ export function OptionsBar({
           disabled={disabled}
           className="title-input"
         />
-      </label>
-      <label className="option">
-        Style:
-        <select
-          value={mapStyle}
-          onChange={(e) => onMapStyleChange(e.target.value as MapStyle)}
-          disabled={disabled}
-          className="style-select"
-        >
-          <option value="parchment">Parchment</option>
-          <option value="modern">Modern</option>
-        </select>
       </label>
     </div>
   );

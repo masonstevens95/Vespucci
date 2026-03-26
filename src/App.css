@@ -341,9 +341,87 @@
   word-break: break-all;
 }
 
-/* Results bar (compact when map is showing) */
-.results-bar {
+/* Unified toolbar */
+.toolbar {
+  background: #1a1a2a;
+  border: 1px solid #333;
+  border-radius: 8px;
   margin-bottom: 1rem;
+  overflow: hidden;
+}
+.toolbar-row {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.5rem 1rem;
+  flex-wrap: wrap;
+}
+.toolbar-stats {
+  display: flex;
+  gap: 0.75rem;
+}
+.toolbar-stats .stat {
+  padding: 0.3rem 0.75rem;
+  min-width: auto;
+  background: transparent;
+}
+.toolbar-stats .stat-value {
+  font-size: 1rem;
+}
+.toolbar-stats .stat-label {
+  font-size: 0.65rem;
+}
+.toolbar-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+.toolbar-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-left: auto;
+}
+.toolbar-actions .btn {
+  padding: 0.4rem 0.9rem;
+  font-size: 0.8rem;
+}
+
+/* Style customization row */
+.toolbar-style-row {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.4rem 1rem;
+  border-top: 1px solid #2a2a3e;
+  background: #161622;
+  flex-wrap: wrap;
+}
+.style-field {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.75rem;
+  color: #888;
+  cursor: pointer;
+}
+.style-field-label {
+  white-space: nowrap;
+}
+.style-color-input {
+  width: 24px;
+  height: 20px;
+  border: 1px solid #444;
+  border-radius: 3px;
+  background: none;
+  padding: 0;
+  cursor: pointer;
+}
+.style-color-input::-webkit-color-swatch-wrapper {
+  padding: 1px;
+}
+.style-color-input::-webkit-color-swatch {
+  border: none;
+  border-radius: 2px;
 }
 
 /* Map layout: map on left, legend on right */
