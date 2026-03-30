@@ -57,8 +57,11 @@ export const MapRenderer = ({ config, mapStyle, styleOverrides, colorOverrides }
       }
 
       // Fill layer: set fills and match-fill strokes (invisible province borders)
+      // Remove inline styles first — some SVG paths have style="fill:..." which
+      // overrides the fill attribute.
       const allPaths = svg.querySelectorAll("path");
       for (const p of allPaths) {
+        p.removeAttribute("style");
         p.setAttribute("fill", style.defaultFill);
         p.setAttribute("stroke-width", style.strokeWidth);
       }

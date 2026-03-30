@@ -16,6 +16,7 @@ import { mapToProvinces } from "./province-mapping";
 export interface ConfigOptions {
   readonly title?: string;
   readonly tagLabels?: Record<string, string>;
+  readonly allowedTags?: ReadonlySet<string>;
 }
 
 // =============================================================================
@@ -145,7 +146,13 @@ export const generateMapChartConfig = (
   locToProvince: Record<string, string>,
   options: ConfigOptions = {},
 ): MapChartConfig => {
-  const countryProvinces = mapToProvinces(countryLocations, locToProvince);
+  const allCountryProvinces = mapToProvinces(countryLocations, locToProvince);
+  // Filter to allowed tags after province majority voting
+  const countryProvinces = options.allowedTags !== undefined
+    ? Object.fromEntries(
+        Object.entries(allCountryProvinces).filter(([tag]) => options.allowedTags!.has(tag)),
+      )
+    : allCountryProvinces;
   const tagLabels = options.tagLabels ?? {};
   const tags = sortTagsByLabel(Object.keys(countryProvinces), tagLabels);
   const colors = fillMissingColors(tags, countryColors);

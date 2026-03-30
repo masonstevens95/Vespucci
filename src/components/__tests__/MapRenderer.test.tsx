@@ -42,6 +42,7 @@ const baseConfig: MapChartConfig = {
 const mockSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100">
   <path id="Uppland" fill="#d1dbdd" stroke="#000" d="M0,0 L10,10"/>
   <path id="Middlesex" fill="#d1dbdd" stroke="#000" d="M20,20 L30,30"/>
+  <path id="Red_Sea_Coast" fill="#d1dbdd" stroke="#000" style="fill:#d1dbdd;stroke:#000" d="M40,40 L50,50"/>
 </svg>`;
 
 beforeEach(() => {
@@ -240,5 +241,22 @@ describe("MapRenderer", () => {
     });
     const viewport = container.querySelector(".map-viewport") as HTMLElement;
     expect(viewport.style.backgroundColor).toBe("rgb(17, 34, 51)");
+  });
+
+  // Inline style override fix
+  it("strips inline style so fill attribute takes effect", async () => {
+    const config = {
+      ...baseConfig,
+      groups: { "#ff0000": { label: "TUR", paths: ["Red_Sea_Coast"] } },
+    };
+    const { container } = render(<MapRenderer config={config} mapStyle="parchment" styleOverrides={{}} colorOverrides={{}} />);
+    await waitFor(() => {
+      expect(container.querySelector(".map-renderer")).toBeInTheDocument();
+    });
+    const html = container.querySelector(".map-transform")?.innerHTML ?? "";
+    // The path had style="fill:#d1dbdd" which would override the fill attribute.
+    // After stripping, fill="#ff0000" should take effect.
+    expect(html).not.toContain('style=');
+    expect(html).toContain('id="Red_Sea_Coast" fill="#ff0000"');
   });
 });

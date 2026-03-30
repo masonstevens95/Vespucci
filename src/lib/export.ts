@@ -125,20 +125,43 @@ export const exportMapChartConfig = (
   const hasPlayers = Object.keys(tagToPlayers).length > 0;
   const shouldFilterPlayers = options.playersOnly === true && hasPlayers;
 
-  const filteredLocations = shouldFilterPlayers
-    ? filterToPlayers(allCountryLocations, tagToPlayers)
-    : allCountryLocations;
-
+  // Province majority voting ALWAYS uses all countries so non-player
+  // countries that own most of a province prevent player minorities
+  // from claiming it. Filtering happens AFTER province assignment.
   const vassalOverlays = shouldFilterPlayers
     ? buildVassalOverlays(tagToPlayers, overlordSubjects, allCountryLocations, countryColors)
     : { locations: {}, labels: {}, colors: {} };
 
-  const finalLocations = { ...filteredLocations, ...vassalOverlays.locations };
+  // Collect all vassal subject tags whose locations are now under overlay keys
+  const vassalSubjectTags = shouldFilterPlayers
+    ? new Set(
+        Object.keys(tagToPlayers).flatMap((overlordTag) =>
+          [...(overlordSubjects[overlordTag] ?? [])],
+        ),
+      )
+    : new Set<string>();
+
+  // Remove subject tag locations (they're represented by overlay keys now)
+  // then merge overlay locations into the voting pool
+  const baseLocations = Object.fromEntries(
+    Object.entries(allCountryLocations).filter(([tag]) => !vassalSubjectTags.has(tag)),
+  );
+  const locationsForVoting = { ...baseLocations, ...vassalOverlays.locations };
+
   const finalLabels = { ...baseLabels, ...vassalOverlays.labels };
   const finalColors = { ...countryColors, ...vassalOverlays.colors };
 
-  return generateMapChartConfig(finalLocations, finalColors, locToProvince, {
+  // Filter province results after voting if playersOnly
+  const allowedTags = shouldFilterPlayers
+    ? new Set([
+        ...Object.keys(tagToPlayers),
+        ...Object.keys(vassalOverlays.locations),
+      ])
+    : undefined;
+
+  return generateMapChartConfig(locationsForVoting, finalColors, locToProvince, {
     ...options,
     tagLabels: finalLabels,
+    allowedTags,
   });
 };
