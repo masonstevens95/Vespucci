@@ -7,7 +7,28 @@ interface Props {
   onClose: () => void;
 }
 
+/** Format a number with K/M suffix. */
+const fmtNum = (n: number): string =>
+  n >= 1_000_000 ? (n / 1_000_000).toFixed(1) + "M"
+    : n >= 1_000 ? (n / 1_000).toFixed(1) + "K"
+    : n > 0 ? n.toFixed(0)
+    : "—";
+
+/** Format court language for display. */
+const fmtLang = (lang: string): string =>
+  lang !== ""
+    ? lang.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())
+    : "";
+
+/** Format government type for display. */
+const fmtGov = (gov: string): string =>
+  gov !== ""
+    ? gov.charAt(0).toUpperCase() + gov.slice(1)
+    : "";
+
 export const CountryModal = ({ info, countryNames, onClose }: Props) => {
+  const { stats } = info;
+
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div
@@ -26,6 +47,7 @@ export const CountryModal = ({ info, countryNames, onClose }: Props) => {
         </div>
 
         <div className="modal-body">
+          {/* Identity */}
           {info.players.length > 0 ? (
             <div className="modal-field">
               <span className="modal-label">Player{info.players.length > 1 ? "s" : ""}</span>
@@ -38,20 +60,27 @@ export const CountryModal = ({ info, countryNames, onClose }: Props) => {
             </div>
           )}
 
-          <div className="modal-field">
-            <span className="modal-label">Provinces</span>
-            <span className="modal-value">{info.provinceCount}</span>
-          </div>
+          {stats.govType !== "" ? (
+            <div className="modal-field">
+              <span className="modal-label">Government</span>
+              <span className="modal-value">{fmtGov(stats.govType)}</span>
+            </div>
+          ) : (<></>)}
 
+          {stats.courtLanguage !== "" ? (
+            <div className="modal-field">
+              <span className="modal-label">Language</span>
+              <span className="modal-value">{fmtLang(stats.courtLanguage)}</span>
+            </div>
+          ) : (<></>)}
+
+          {/* Diplomacy */}
           {info.overlord !== "" ? (
             <div className="modal-field">
               <span className="modal-label">Overlord</span>
               <span className="modal-value">{resolveDisplayName(info.overlord, countryNames)} ({info.overlord})</span>
             </div>
-          ) : (
-            /* no overlord — independent */
-            <></>
-          )}
+          ) : (<></>)}
 
           {info.subjects.length > 0 ? (
             <div className="modal-field">
@@ -64,10 +93,55 @@ export const CountryModal = ({ info, countryNames, onClose }: Props) => {
                 ))}
               </div>
             </div>
-          ) : (
-            /* no subjects */
-            <></>
-          )}
+          ) : (<></>)}
+
+          {/* Divider */}
+          <div className="modal-divider" />
+
+          {/* Economy */}
+          <div className="modal-stats-grid">
+            <div className="modal-stat">
+              <span className="modal-stat-value">{fmtNum(stats.gold)}</span>
+              <span className="modal-stat-label">Treasury</span>
+            </div>
+            <div className="modal-stat">
+              <span className="modal-stat-value">{fmtNum(stats.monthlyIncome)}</span>
+              <span className="modal-stat-label">Monthly Income</span>
+            </div>
+            <div className="modal-stat">
+              <span className="modal-stat-value">{fmtNum(stats.monthlyTradeValue)}</span>
+              <span className="modal-stat-label">Trade Value</span>
+            </div>
+            <div className="modal-stat">
+              <span className="modal-stat-value">{fmtNum(stats.population)}</span>
+              <span className="modal-stat-label">Population</span>
+            </div>
+          </div>
+
+          {/* Military */}
+          <div className="modal-stats-grid">
+            <div className="modal-stat">
+              <span className="modal-stat-value">{fmtNum(stats.maxManpower)}</span>
+              <span className="modal-stat-label">Max Manpower</span>
+            </div>
+            <div className="modal-stat">
+              <span className="modal-stat-value">{fmtNum(stats.maxSailors)}</span>
+              <span className="modal-stat-label">Max Sailors</span>
+            </div>
+            <div className="modal-stat">
+              <span className="modal-stat-value">{fmtNum(stats.expectedArmySize)}</span>
+              <span className="modal-stat-label">Expected Army</span>
+            </div>
+            <div className="modal-stat">
+              <span className="modal-stat-value">{fmtNum(stats.expectedNavySize)}</span>
+              <span className="modal-stat-label">Expected Navy</span>
+            </div>
+          </div>
+
+          <div className="modal-field">
+            <span className="modal-label">Provinces</span>
+            <span className="modal-value">{info.provinceCount}</span>
+          </div>
         </div>
       </div>
     </div>

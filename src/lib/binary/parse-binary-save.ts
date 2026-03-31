@@ -39,6 +39,7 @@ const emptyParsedSave = (): ParsedSave => ({
   countryColors: {},
   overlordSubjects: {},
   countryNames: {},
+  countryStats: {},
 });
 
 /**
@@ -141,6 +142,7 @@ const parseGamestate = (data: Uint8Array, dynStrings: string[]): ParsedSave => {
 
   const countriesOff = findSection(data, T.countries, r);
   const countryNames: Record<string, string> = {};
+  let economies: Record<string, import("./sections/economy").CountryEconomy> = {};
   if (countriesOff >= 0) {
     r.pos = countriesOff + 6;
     readCountries(r, countryTags, countryColors, countryCapitals, overlordCandidates);
@@ -156,7 +158,7 @@ const parseGamestate = (data: Uint8Array, dynStrings: string[]): ParsedSave => {
       else if (tok === T.database) {
         r.expectEqual();
         r.expectOpen();
-        const economies = readCountryEconomies(r, data, countryTags);
+        economies = readCountryEconomies(r, data, countryTags);
         for (const [tag, eco] of Object.entries(economies)) {
           const displayName = buildDisplayName(tag, eco.countryName, eco.level, eco.govType);
           if (displayName !== tag) {
@@ -206,7 +208,24 @@ const parseGamestate = (data: Uint8Array, dynStrings: string[]): ParsedSave => {
 
   const countryLocations = buildCountryLocations(locationOwners, locationNames);
 
-  return { countryLocations, tagToPlayers, countryColors, overlordSubjects, countryNames };
+  // Build countryStats from economies
+  const countryStats: Record<string, import("../types").CountryEconomyStats> = {};
+  for (const [tag, eco] of Object.entries(economies)) {
+    countryStats[tag] = {
+      gold: eco.gold,
+      monthlyIncome: eco.monthlyIncome,
+      monthlyTradeValue: eco.monthlyTradeValue,
+      population: eco.population,
+      maxManpower: eco.maxManpower,
+      maxSailors: eco.maxSailors,
+      expectedArmySize: eco.expectedArmySize,
+      expectedNavySize: eco.expectedNavySize,
+      courtLanguage: eco.courtLanguage,
+      govType: eco.govType,
+    };
+  }
+
+  return { countryLocations, tagToPlayers, countryColors, overlordSubjects, countryNames, countryStats };
 };
 
 // ---------------------------------------------------------------------------

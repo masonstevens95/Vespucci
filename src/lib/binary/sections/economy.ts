@@ -26,6 +26,17 @@ export interface CountryEconomy {
   readonly score: number;
   readonly level: number;
   readonly govType: string;
+  readonly monthlyIncome: number;
+  readonly monthlyTradeValue: number;
+  readonly monthlyTaxIncome: number;
+  readonly maxManpower: number;
+  readonly maxSailors: number;
+  readonly population: number;
+  readonly armyMaintenance: number;
+  readonly navyMaintenance: number;
+  readonly expectedArmySize: number;
+  readonly expectedNavySize: number;
+  readonly courtLanguage: string;
 }
 
 // =============================================================================
@@ -43,6 +54,17 @@ const COUNTRY_NAME = tokenId("country_name") ?? -1;
 const LEVEL = tokenId("level") ?? -1;
 const GOVERNMENT = tokenId("government") ?? -1;
 const TYPE_ENGINE = 0x00e1; // "type" engine token
+const EST_MONTHLY_INCOME = tokenId("estimated_monthly_income") ?? -1;
+const MONTHLY_TRADE_VALUE = tokenId("monthly_trade_value") ?? -1;
+const LAST_MONTHS_TAX = tokenId("last_months_tax_income") ?? -1;
+const MAX_MANPOWER = tokenId("max_manpower") ?? -1;
+const MAX_SAILORS = tokenId("max_sailors") ?? -1;
+const LAST_MONTHS_POP = tokenId("last_months_population") ?? -1;
+const ARMY_MAINT = tokenId("last_months_army_maintenance") ?? -1;
+const NAVY_MAINT = tokenId("last_months_navy_maintenance") ?? -1;
+const EXPECTED_ARMY = tokenId("expected_army_size") ?? -1;
+const EXPECTED_NAVY = tokenId("expected_navy_size") ?? -1;
+const COURT_LANG = tokenId("court_language") ?? -1;
 const SCORE = tokenId("score") ?? -1;
 const SCORE_PLACE = tokenId("score_place") ?? -1;
 const GREAT_POWER_RANK = tokenId("great_power_rank") ?? -1;
@@ -78,6 +100,17 @@ export const emptyEconomy = (): CountryEconomy => ({
   score: 0,
   level: -1,
   govType: "",
+  monthlyIncome: 0,
+  monthlyTradeValue: 0,
+  monthlyTaxIncome: 0,
+  maxManpower: 0,
+  maxSailors: 0,
+  population: 0,
+  armyMaintenance: 0,
+  navyMaintenance: 0,
+  expectedArmySize: 0,
+  expectedNavySize: 0,
+  courtLanguage: "",
 });
 
 // =============================================================================
@@ -182,6 +215,17 @@ export const readCountryEconomies = (
       let gpRankOffset = -1;
       let levelOffset = -1;
       let govOffset = -1;
+      let incomeOffset = -1;
+      let tradeOffset = -1;
+      let taxOffset = -1;
+      let maxMpOffset = -1;
+      let maxSailOffset = -1;
+      let popOffset = -1;
+      let armyMaintOffset = -1;
+      let navyMaintOffset = -1;
+      let expArmyOffset = -1;
+      let expNavyOffset = -1;
+      let courtLangOffset = -1;
 
       while (r.pos < entryEnd && depth > 0) {
         const fp = r.pos;
@@ -201,6 +245,17 @@ export const readCountryEconomies = (
           else if (ft === GREAT_POWER_RANK) { gpRankOffset = fp; }
           else if (ft === LEVEL) { levelOffset = fp; }
           else if (ft === GOVERNMENT) { govOffset = fp; }
+          else if (ft === EST_MONTHLY_INCOME) { incomeOffset = fp; }
+          else if (ft === MONTHLY_TRADE_VALUE) { tradeOffset = fp; }
+          else if (ft === LAST_MONTHS_TAX) { taxOffset = fp; }
+          else if (ft === MAX_MANPOWER) { maxMpOffset = fp; }
+          else if (ft === MAX_SAILORS) { maxSailOffset = fp; }
+          else if (ft === LAST_MONTHS_POP) { popOffset = fp; }
+          else if (ft === ARMY_MAINT) { armyMaintOffset = fp; }
+          else if (ft === NAVY_MAINT) { navyMaintOffset = fp; }
+          else if (ft === EXPECTED_ARMY) { expArmyOffset = fp; }
+          else if (ft === EXPECTED_NAVY) { expNavyOffset = fp; }
+          else if (ft === COURT_LANG) { courtLangOffset = fp; }
           else { /* other field */ }
           r.readToken();
           r.skipValue();
@@ -294,6 +349,43 @@ export const readCountryEconomies = (
             }
           }
         }
+      }
+
+      // Read FIXED5 fields at their offsets
+      const readFixed5Field = (offset: number): number => {
+        if (offset < 0) return 0;
+        r.pos = offset;
+        r.readToken(); r.expectEqual();
+        const valTok = r.readToken();
+        if (isFixed5(valTok)) {
+          const size = valuePayloadSize(valTok, data, r.pos);
+          const val = readFixed5(data, r.pos, valTok);
+          r.pos += size;
+          return val;
+        }
+        return 0;
+      };
+
+      economy = {
+        ...economy,
+        monthlyIncome: readFixed5Field(incomeOffset),
+        monthlyTradeValue: readFixed5Field(tradeOffset),
+        monthlyTaxIncome: readFixed5Field(taxOffset),
+        maxManpower: readFixed5Field(maxMpOffset),
+        maxSailors: readFixed5Field(maxSailOffset),
+        population: readFixed5Field(popOffset),
+        armyMaintenance: readFixed5Field(armyMaintOffset),
+        navyMaintenance: readFixed5Field(navyMaintOffset),
+        expectedArmySize: readFixed5Field(expArmyOffset),
+        expectedNavySize: readFixed5Field(expNavyOffset),
+      };
+
+      // Read court language (string field)
+      if (courtLangOffset >= 0) {
+        r.pos = courtLangOffset;
+        r.readToken(); r.expectEqual();
+        const lang = r.readStringValue() ?? "";
+        economy = { ...economy, courtLanguage: lang };
       }
 
       result[tag] = economy;

@@ -581,5 +581,5 @@ export const parseMeltedSave = (text: string): ParsedSave => {
   const countryLocations = buildCountryLocations(locationOwners, locationNames);
   const tagToPlayers = buildTagToPlayers(playerCountries);
 
-  return { countryLocations, tagToPlayers, countryColors, overlordSubjects, countryNames: {} };
+  return { countryLocations, tagToPlayers, countryColors, overlordSubjects, countryNames: {}, countryStats: {} };
 };
