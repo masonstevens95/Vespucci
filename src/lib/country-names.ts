@@ -11,6 +11,7 @@
  */
 
 import { KNOWN_NAMES } from "./country-names-data";
+import { wikiName } from "./country-defs";
 
 // =============================================================================
 // Rank labels
@@ -35,9 +36,9 @@ export const rankPrefix = (level: number, govType: string): string => {
 // Known country names (common EU5 tags → proper names)
 // =============================================================================
 
-/** Look up a known country name for a tag. */
+/** Look up a known country name for a tag. Wiki data (2,296 tags) is primary, KNOWN_NAMES is fallback. */
 export const knownName = (tag: string): string =>
-  KNOWN_NAMES[tag] ?? "";
+  wikiName(tag) || KNOWN_NAMES[tag] || "";
 
 // =============================================================================
 // Full display name
