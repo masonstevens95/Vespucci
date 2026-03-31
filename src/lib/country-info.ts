@@ -5,12 +5,25 @@
  * No null, no exceptions, every if has an else.
  */
 
-import type { ParsedSave, RGB } from "./types";
+import type { ParsedSave, RGB, CountryEconomyStats } from "./types";
 import { rgbToHex } from "./colors";
 
 // =============================================================================
 // Types
 // =============================================================================
+
+export interface CountryStats {
+  readonly gold: number;
+  readonly monthlyIncome: number;
+  readonly monthlyTradeValue: number;
+  readonly population: number;
+  readonly maxManpower: number;
+  readonly maxSailors: number;
+  readonly expectedArmySize: number;
+  readonly expectedNavySize: number;
+  readonly courtLanguage: string;
+  readonly govType: string;
+}
 
 export interface CountryInfo {
   readonly tag: string;
@@ -20,6 +33,7 @@ export interface CountryInfo {
   readonly provinceCount: number;
   readonly overlord: string;
   readonly subjects: readonly string[];
+  readonly stats: CountryStats;
 }
 
 // =============================================================================
@@ -54,6 +68,12 @@ export const getSubjects = (
     ? [...overlordSubjects[tag]]
     : [];
 
+const EMPTY_STATS: CountryStats = {
+  gold: 0, monthlyIncome: 0, monthlyTradeValue: 0, population: 0,
+  maxManpower: 0, maxSailors: 0, expectedArmySize: 0, expectedNavySize: 0,
+  courtLanguage: "", govType: "",
+};
+
 /** Build a CountryInfo from parsed save data for a given tag. */
 export const buildCountryInfo = (
   tag: string,
@@ -66,6 +86,7 @@ export const buildCountryInfo = (
   const color = rgbToHex(rgb[0], rgb[1], rgb[2]);
   const overlord = findOverlord(tag, parsed.overlordSubjects);
   const subjects = getSubjects(tag, parsed.overlordSubjects);
+  const stats: CountryStats = parsed.countryStats[tag] ?? EMPTY_STATS;
 
   return {
     tag,
@@ -75,6 +96,7 @@ export const buildCountryInfo = (
     provinceCount,
     overlord,
     subjects,
+    stats,
   };
 };
 

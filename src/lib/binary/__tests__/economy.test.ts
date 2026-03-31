@@ -47,6 +47,17 @@ describe("emptyEconomy", () => {
     expect(e.score).toBe(0);
     expect(e.level).toBe(-1);
     expect(e.govType).toBe("");
+    expect(e.monthlyIncome).toBe(0);
+    expect(e.monthlyTradeValue).toBe(0);
+    expect(e.monthlyTaxIncome).toBe(0);
+    expect(e.maxManpower).toBe(0);
+    expect(e.maxSailors).toBe(0);
+    expect(e.population).toBe(0);
+    expect(e.armyMaintenance).toBe(0);
+    expect(e.navyMaintenance).toBe(0);
+    expect(e.expectedArmySize).toBe(0);
+    expect(e.expectedNavySize).toBe(0);
+    expect(e.courtLanguage).toBe("");
   });
 
   it("returns a new object each time", () => {

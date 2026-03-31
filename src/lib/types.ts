@@ -1,11 +1,26 @@
 export type RGB = [number, number, number];
 
+/** Economy stats per country (optional, populated by binary parser). */
+export interface CountryEconomyStats {
+  readonly gold: number;
+  readonly monthlyIncome: number;
+  readonly monthlyTradeValue: number;
+  readonly population: number;
+  readonly maxManpower: number;
+  readonly maxSailors: number;
+  readonly expectedArmySize: number;
+  readonly expectedNavySize: number;
+  readonly courtLanguage: string;
+  readonly govType: string;
+}
+
 export interface ParsedSave {
   countryLocations: Record<string, string[]>;
   tagToPlayers: Record<string, string[]>;
   countryColors: Record<string, RGB>;
   overlordSubjects: Record<string, Set<string>>;
   countryNames: Record<string, string>;
+  countryStats: Record<string, CountryEconomyStats>;
 }
 
 export interface MapChartGroup {
