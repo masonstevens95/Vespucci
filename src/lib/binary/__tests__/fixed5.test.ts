@@ -48,6 +48,23 @@ describe("readFixed5", () => {
     const data = new Uint8Array([0x00, 0x00, 0xe8, 0x03]);
     expect(readFixed5(data, 2, 0x0d49)).toBeCloseTo(1.0, 2);
   });
+
+  it("handles large 4-byte values without signed overflow", () => {
+    // Byte 3 has high bit set (0xBA >= 0x80) — previously overflowed
+    // to negative via JS << operator treating as signed 32-bit
+    const data = new Uint8Array([0x45, 0x5d, 0x1a, 0xba]);
+    const val = readFixed5(data, 0, 0x0d4b);
+    expect(val).toBeGreaterThan(0);
+    // val = (0xba * 256^3 + 0x1a * 256^2 + 0x5d * 256 + 0x45) / 1000
+    expect(val).toBeCloseTo(3122289.989, 0);
+  });
+
+  it("handles 5-byte values correctly", () => {
+    const data = new Uint8Array([0x03, 0x64, 0xc4, 0x63, 0x02]);
+    const val = readFixed5(data, 0, 0x0d4c);
+    expect(val).toBeGreaterThan(0);
+    expect(val).toBeCloseTo(10263749.635, 0);
+  });
 });
 
 describe("readFixed5AtOffset", () => {

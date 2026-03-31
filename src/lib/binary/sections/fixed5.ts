@@ -11,7 +11,9 @@ import { valuePayloadSize } from "../tokens";
 export const isFixed5 = (tok: number): boolean =>
   (tok >= 0x0d48 && tok <= 0x0d4e) || (tok >= 0x0d4f && tok <= 0x0d55);
 
-/** Read a FIXED5 value from the data buffer. Returns value / 1000. */
+/** Read a FIXED5 value from the data buffer. Returns value / 1000.
+ *  Uses multiplication instead of bit-shifting to avoid JavaScript's
+ *  signed 32-bit integer overflow with the << operator on 4+ byte values. */
 export const readFixed5 = (
   data: Uint8Array,
   pos: number,
@@ -21,8 +23,8 @@ export const readFixed5 = (
     ? tok - 0x0d48 + 1
     : tok - 0x0d4f + 1;
   let val = 0;
-  for (let i = 0; i < size; i++) {
-    val |= data[pos + i] << (i * 8);
+  for (let i = size - 1; i >= 0; i--) {
+    val = val * 256 + data[pos + i];
   }
   return val / 1000;
 };
