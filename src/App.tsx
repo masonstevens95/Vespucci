@@ -26,6 +26,8 @@ import { CountryModal } from "./components/CountryModal";
 import { buildCountryInfo } from "./lib/country-info";
 import type { CountryInfo } from "./lib/country-info";
 import { Stat } from "./components/Stat";
+import { buildRankingEntries, sortRankings, filterPlayersOnly, isGreatPower } from "./lib/ranking-sort";
+import type { RankingSortMode } from "./lib/ranking-sort";
 import "./App.css";
 
 export type Status = "idle" | "reading" | "parsing" | "done" | "error";
@@ -52,6 +54,9 @@ export default function App() {
   const [debug, setDebug] = useState<DebugData | null>(null);
   const [selectedCountry, setSelectedCountry] = useState<CountryInfo | undefined>(undefined);
   const [activeTab, setActiveTab] = useState<AppTab>("map");
+  const [rankSort, setRankSort] = useState<RankingSortMode>("rank");
+  const [rankPlayersOnly, setRankPlayersOnly] = useState(false);
+  const [rankHighlightGP, setRankHighlightGP] = useState(true);
   const mapLayoutRef = useRef<HTMLDivElement>(null);
 
   const handleFile = useCallback(
@@ -426,60 +431,83 @@ export default function App() {
               </div>
             )}
 
-            {activeTab === "rankings" && (
-              <div className="rankings-tab">
-                <h2>Rankings</h2>
-                <div className="rankings-grid">
-                  {Object.entries(debug.parsed.countryStats)
-                    .filter(([, s]) => s.population > 0)
-                    .sort((a, b) => b[1].population - a[1].population)
-                    .slice(0, 30)
-                    .map(([tag, stats], i) => {
-                      const name = debug.parsed.countryNames[tag] ?? tag;
-                      const players = debug.parsed.tagToPlayers[tag];
-                      const isPlayer = players !== undefined && players.length > 0;
-                      const rgb = debug.parsed.countryColors[tag];
-                      const colorHex = rgb ? `rgb(${rgb[0]},${rgb[1]},${rgb[2]})` : "#666";
-                      return (
-                        <div
-                          key={tag}
-                          className={`ranking-row ${isPlayer ? "ranking-player" : ""}`}
-                          style={{ borderLeftColor: colorHex }}
-                          onClick={() => handleCountryClick(tag)}
-                        >
-                          <span className="ranking-pos">{i + 1}</span>
-                          <div className="ranking-info">
-                            <span className="ranking-name">{name}</span>
-                            {isPlayer ? (
-                              <span className="ranking-player-name">{players.join(", ")}</span>
-                            ) : (
-                              <span className="ranking-ai">AI</span>
-                            )}
+            {activeTab === "rankings" && (() => {
+              const allEntries = buildRankingEntries(
+                debug.parsed.countryStats,
+                debug.parsed.countryNames,
+                debug.parsed.tagToPlayers,
+                debug.parsed.countryColors,
+              );
+              const filtered = filterPlayersOnly(allEntries, rankPlayersOnly);
+              const sorted = sortRankings(filtered, rankSort);
+              const fmtN = (n: number): string =>
+                n >= 1_000_000 ? (n / 1_000_000).toFixed(1) + "M"
+                : n >= 1_000 ? (n / 1_000).toFixed(1) + "K"
+                : n > 0 ? n.toFixed(0) : "—";
+
+              return (
+                <div className="rankings-tab">
+                  <div className="rankings-controls">
+                    <label className="option">
+                      Sort:
+                      <select value={rankSort} onChange={(e) => setRankSort(e.target.value as RankingSortMode)} className="style-select">
+                        <option value="rank">Rank</option>
+                        <option value="country">Country Name</option>
+                        <option value="player">Player Name</option>
+                        <option value="population">Population</option>
+                        <option value="income">Income</option>
+                      </select>
+                    </label>
+                    <label className="option">
+                      <input type="checkbox" checked={rankPlayersOnly} onChange={(e) => setRankPlayersOnly(e.target.checked)} />
+                      Players only
+                    </label>
+                    <label className="option">
+                      <input type="checkbox" checked={rankHighlightGP} onChange={(e) => setRankHighlightGP(e.target.checked)} />
+                      Highlight Great Powers
+                    </label>
+                  </div>
+                  <div className="rankings-grid">
+                    {sorted.map((entry, i) => (
+                      <div
+                        key={entry.tag}
+                        className={`ranking-row${entry.players.length > 0 ? " ranking-player" : ""}${rankHighlightGP && isGreatPower(entry.stats.score) ? " ranking-gp" : ""}`}
+                        style={{ borderLeftColor: entry.color }}
+                        onClick={() => handleCountryClick(entry.tag)}
+                      >
+                        <span className="ranking-pos">{i + 1}</span>
+                        <div className="ranking-info">
+                          <span className="ranking-name">{entry.name}</span>
+                          {entry.players.length > 0 ? (
+                            <span className="ranking-player-name">{entry.players.join(", ")}</span>
+                          ) : (
+                            <span className="ranking-ai">AI</span>
+                          )}
+                        </div>
+                        <div className="ranking-stats">
+                          <div className="ranking-stat">
+                            <span className="ranking-stat-val">{entry.stats.score > 0 ? `#${entry.stats.score}` : "—"}</span>
+                            <span className="ranking-stat-lbl">Rank</span>
                           </div>
-                          <div className="ranking-stats">
-                            <div className="ranking-stat">
-                              <span className="ranking-stat-val">{stats.score > 0 ? `#${stats.score}` : "—"}</span>
-                              <span className="ranking-stat-lbl">Rank</span>
-                            </div>
-                            <div className="ranking-stat">
-                              <span className="ranking-stat-val">{stats.population >= 1000 ? (stats.population / 1000).toFixed(0) + "K" : stats.population.toFixed(0)}</span>
-                              <span className="ranking-stat-lbl">Pop</span>
-                            </div>
-                            <div className="ranking-stat">
-                              <span className="ranking-stat-val">{stats.monthlyIncome >= 1000 ? (stats.monthlyIncome / 1000).toFixed(1) + "K" : stats.monthlyIncome.toFixed(0)}</span>
-                              <span className="ranking-stat-lbl">Income</span>
-                            </div>
-                            <div className="ranking-stat">
-                              <span className="ranking-stat-val">{stats.maxManpower >= 1000 ? (stats.maxManpower / 1000).toFixed(1) + "K" : stats.maxManpower.toFixed(0)}</span>
-                              <span className="ranking-stat-lbl">Manpower</span>
-                            </div>
+                          <div className="ranking-stat">
+                            <span className="ranking-stat-val">{fmtN(entry.stats.population)}</span>
+                            <span className="ranking-stat-lbl">Pop</span>
+                          </div>
+                          <div className="ranking-stat">
+                            <span className="ranking-stat-val">{fmtN(entry.stats.monthlyIncome)}</span>
+                            <span className="ranking-stat-lbl">Income</span>
+                          </div>
+                          <div className="ranking-stat">
+                            <span className="ranking-stat-val">{fmtN(entry.stats.maxManpower)}</span>
+                            <span className="ranking-stat-lbl">Manpower</span>
                           </div>
                         </div>
-                      );
-                    })}
+                      </div>
+                    ))}
+                  </div>
                 </div>
-              </div>
-            )}
+              );
+            })()}
           </>
         )}
 
