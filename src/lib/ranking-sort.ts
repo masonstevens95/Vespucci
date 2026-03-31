@@ -20,6 +20,21 @@ export interface RankingEntry {
 export const isGreatPower = (score: number): boolean =>
   score >= 1 && score <= 8;
 
+/** Build a set of scores that appear more than once (tied ranks). */
+export const findTiedScores = (entries: readonly RankingEntry[]): ReadonlySet<number> => {
+  const counts: Record<number, number> = {};
+  for (const e of entries) {
+    if (e.stats.score > 0) {
+      counts[e.stats.score] = (counts[e.stats.score] ?? 0) + 1;
+    }
+  }
+  return new Set(
+    Object.entries(counts)
+      .filter(([, count]) => count > 1)
+      .map(([score]) => Number(score)),
+  );
+};
+
 /** Sort ranking entries by the chosen mode. */
 export const sortRankings = (
   entries: readonly RankingEntry[],

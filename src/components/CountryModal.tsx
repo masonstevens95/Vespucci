@@ -1,6 +1,8 @@
+import { useState } from "react";
 import type { CountryInfo } from "../lib/country-info";
 import { resolveDisplayName } from "../lib/country-info";
 import { fmtNum, fmtLanguage, fmtGovType } from "../lib/format";
+import { isGreatPower } from "../lib/ranking-sort";
 
 interface Props {
   info: CountryInfo;
@@ -10,6 +12,7 @@ interface Props {
 
 export const CountryModal = ({ info, countryNames, onClose }: Props) => {
   const { stats } = info;
+  const [subjectsOpen, setSubjectsOpen] = useState(false);
 
   return (
     <div className="modal-overlay" onClick={onClose}>
@@ -56,6 +59,15 @@ export const CountryModal = ({ info, countryNames, onClose }: Props) => {
             </div>
           ) : (<></>)}
 
+          {stats.score > 0 ? (
+            <div className="modal-field">
+              <span className="modal-label">Rank</span>
+              <span className="modal-value">
+                #{stats.score}{isGreatPower(stats.score) ? " (Great Power)" : ""}
+              </span>
+            </div>
+          ) : (<></>)}
+
           {/* Diplomacy */}
           {info.overlord !== "" ? (
             <div className="modal-field">
@@ -66,14 +78,21 @@ export const CountryModal = ({ info, countryNames, onClose }: Props) => {
 
           {info.subjects.length > 0 ? (
             <div className="modal-field">
-              <span className="modal-label">Subjects</span>
-              <div className="modal-subject-list">
-                {info.subjects.map((sub) => (
-                  <span key={sub} className="modal-subject-tag">
-                    {resolveDisplayName(sub, countryNames)} ({sub})
-                  </span>
-                ))}
-              </div>
+              <span
+                className="modal-label modal-collapsible"
+                onClick={() => setSubjectsOpen(!subjectsOpen)}
+              >
+                {subjectsOpen ? "▾" : "▸"} Subjects ({info.subjects.length})
+              </span>
+              {subjectsOpen ? (
+                <div className="modal-subject-list">
+                  {info.subjects.map((sub) => (
+                    <span key={sub} className="modal-subject-tag">
+                      {resolveDisplayName(sub, countryNames)} ({sub})
+                    </span>
+                  ))}
+                </div>
+              ) : (<></>)}
             </div>
           ) : (<></>)}
 

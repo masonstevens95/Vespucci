@@ -59,6 +59,7 @@ File Upload (.eu5 or .txt)
 
 ## Conventions
 
+- **Never commit or push without explicit user approval** — always wait for the user to say so
 - All `function` declarations converted to `const arrow =` expressions
 - Sentinel values instead of null: `-1` for missing numbers, `""` for missing strings
 - `else` branches on every `if` (even if just `{ /* comment */ }`)

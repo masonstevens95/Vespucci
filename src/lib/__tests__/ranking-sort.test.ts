@@ -4,6 +4,7 @@ import {
   sortRankings,
   filterPlayersOnly,
   buildRankingEntries,
+  findTiedScores,
 } from "../ranking-sort";
 import type { RankingEntry } from "../ranking-sort";
 import type { CountryEconomyStats } from "../types";
@@ -113,5 +114,31 @@ describe("buildRankingEntries", () => {
       {}, {}, {},
     );
     expect(entries).toHaveLength(0);
+  });
+});
+
+describe("findTiedScores", () => {
+  it("returns scores that appear more than once", () => {
+    const entries = [
+      mkEntry("A", "A", [], 3),
+      mkEntry("B", "B", [], 3),
+      mkEntry("C", "C", [], 4),
+      mkEntry("D", "D", [], 4),
+      mkEntry("E", "E", [], 5),
+    ];
+    const tied = findTiedScores(entries);
+    expect(tied.has(3)).toBe(true);
+    expect(tied.has(4)).toBe(true);
+    expect(tied.has(5)).toBe(false);
+  });
+
+  it("ignores score 0 (unranked)", () => {
+    const entries = [mkEntry("A", "A", [], 0), mkEntry("B", "B", [], 0)];
+    expect(findTiedScores(entries).has(0)).toBe(false);
+  });
+
+  it("returns empty set when no ties", () => {
+    const entries = [mkEntry("A", "A", [], 1), mkEntry("B", "B", [], 2)];
+    expect(findTiedScores(entries).size).toBe(0);
   });
 });

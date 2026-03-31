@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { ParsedSave } from "../lib/types";
-import { buildRankingEntries, sortRankings, filterPlayersOnly, isGreatPower } from "../lib/ranking-sort";
+import { buildRankingEntries, sortRankings, filterPlayersOnly, isGreatPower, findTiedScores } from "../lib/ranking-sort";
 import type { RankingSortMode } from "../lib/ranking-sort";
 import { fmtNum } from "../lib/format";
 
@@ -22,6 +22,7 @@ export const RankingsTab = ({ parsed, onCountryClick }: Props) => {
   );
   const filtered = filterPlayersOnly(allEntries, playersOnly);
   const sorted = sortRankings(filtered, sortMode);
+  const tiedScores = findTiedScores(allEntries);
 
   return (
     <div className="rankings-tab">
@@ -80,7 +81,11 @@ export const RankingsTab = ({ parsed, onCountryClick }: Props) => {
             </div>
             <div className="ranking-stats">
               <div className="ranking-stat">
-                <span className="ranking-stat-val">{entry.stats.score > 0 ? `#${entry.stats.score}` : "—"}</span>
+                <span className="ranking-stat-val">
+                  {entry.stats.score > 0
+                    ? `#${entry.stats.score}${tiedScores.has(entry.stats.score) ? " (tied)" : ""}`
+                    : "—"}
+                </span>
                 <span className="ranking-stat-lbl">Rank</span>
               </div>
               <div className="ranking-stat">
