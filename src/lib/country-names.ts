@@ -4,8 +4,13 @@
  * Combines government type, rank level, and tag/country_name to produce
  * display names like "Kingdom of Bohemia" or "Ottoman Empire".
  *
+ * Static country names come from country-names-data.ts (localization fallback).
+ * Dynamic countries (AAA/ABA/etc.) get names from the save's country_name field.
+ *
  * All functions are pure. No null, no exceptions, every if has an else.
  */
+
+import { KNOWN_NAMES } from "./country-names-data";
 
 // =============================================================================
 // Rank labels
@@ -29,33 +34,6 @@ export const rankPrefix = (level: number, govType: string): string => {
 // =============================================================================
 // Known country names (common EU5 tags → proper names)
 // =============================================================================
-
-const KNOWN_NAMES: Readonly<Record<string, string>> = {
-  GBR: "Great Britain", ENG: "England", SCO: "Scotland", FRA: "France",
-  CAS: "Castile", ARA: "Aragon", POR: "Portugal", SPA: "Spain",
-  HAB: "Austria", BOH: "Bohemia", HUN: "Hungary", POL: "Poland",
-  LIT: "Lithuania", SWE: "Sweden", DEN: "Denmark", NOR: "Norway",
-  SCA: "Scandinavia", RUS: "Russia", MOS: "Muscovy", TUR: "Ottomans",
-  BYZ: "Byzantium", VEN: "Venice", GEN: "Genoa", MIL: "Milan",
-  NAP: "Naples", PAP: "Papal States", TUS: "Tuscany", SIC: "Sicily",
-  TWS: "Two Sicilies", HOL: "Holland", BUR: "Burgundy", SAV: "Savoy",
-  PRU: "Prussia", BAV: "Bavaria", SAX: "Saxony", BRA: "Brandenburg",
-  HES: "Hesse", MAI: "Mainz", TRE: "Trier", COL: "Cologne",
-  MAM: "Mamluks", TIM: "Timurids", PER: "Persia", MUG: "Mughals",
-  QAR: "Qara Qoyunlu", AQQ: "Aq Qoyunlu", ETH: "Ethiopia",
-  MAL: "Mali", SON: "Songhai", KON: "Kongo", ZIM: "Zimbabwe",
-  CHI: "China", MNG: "Mongolia", JAP: "Japan", KOR: "Korea",
-  VIJ: "Vijayanagar", DEL: "Delhi", BEN: "Bengal", AYU: "Ayutthaya",
-  MAJ: "Majapahit", AZT: "Aztec", INC: "Inca", BRI: "Brittany",
-  WLS: "Wales", IRL: "Ireland", FLA: "Flanders", BUL: "Bulgaria",
-  SER: "Serbia", WAL: "Wallachia", MOL: "Moldavia", GEO: "Georgia",
-  ARM: "Armenia", CRO: "Croatia", BOS: "Bosnia", ALB: "Albania",
-  KIE: "Kiev", NOV: "Novgorod", PSK: "Pskov", TVE: "Tver",
-  RYA: "Ryazan", YAR: "Yaroslavl", ROS: "Rostov", SMO: "Smolensk",
-  TEU: "Teutonic Order", LIV: "Livonian Order", YEM: "Yemen",
-  OMA: "Oman", HED: "Hejaz", SFC: "Swiss Confederation",
-  PAL: "Palatinate", SOI: "Siam", AQN: "Aquileia",
-};
 
 /** Look up a known country name for a tag. */
 export const knownName = (tag: string): string =>
