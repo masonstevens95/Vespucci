@@ -17,12 +17,31 @@ export interface CountryStats {
   readonly monthlyIncome: number;
   readonly monthlyTradeValue: number;
   readonly population: number;
+  readonly infantry: number;
+  readonly cavalry: number;
+  readonly artillery: number;
+  readonly infantryStr: number;
+  readonly cavalryStr: number;
+  readonly artilleryStr: number;
+  readonly levyInfantry: number;
+  readonly levyCavalry: number;
+  readonly levyInfantryStr: number;
+  readonly levyCavalryStr: number;
+  readonly heavyShips: number;
+  readonly lightShips: number;
+  readonly galleys: number;
+  readonly transports: number;
   readonly maxManpower: number;
   readonly maxSailors: number;
+  readonly monthlyManpower: number;
+  readonly monthlySailors: number;
+  readonly armyMaintenance: number;
+  readonly navyMaintenance: number;
   readonly expectedArmySize: number;
   readonly expectedNavySize: number;
   readonly courtLanguage: string;
   readonly govType: string;
+  readonly score: number;
 }
 
 export interface CountryInfo {
@@ -70,8 +89,15 @@ export const getSubjects = (
 
 const EMPTY_STATS: CountryStats = {
   gold: 0, monthlyIncome: 0, monthlyTradeValue: 0, population: 0,
-  maxManpower: 0, maxSailors: 0, expectedArmySize: 0, expectedNavySize: 0,
-  courtLanguage: "", govType: "",
+  infantry: 0, cavalry: 0, artillery: 0,
+  infantryStr: 0, cavalryStr: 0, artilleryStr: 0,
+  levyInfantry: 0, levyCavalry: 0,
+  levyInfantryStr: 0, levyCavalryStr: 0,
+  heavyShips: 0, lightShips: 0, galleys: 0, transports: 0,
+  maxManpower: 0, maxSailors: 0, monthlyManpower: 0, monthlySailors: 0,
+  armyMaintenance: 0, navyMaintenance: 0,
+  expectedArmySize: 0, expectedNavySize: 0,
+  courtLanguage: "", govType: "", score: 0,
 };
 
 /** Build a CountryInfo from parsed save data for a given tag. */

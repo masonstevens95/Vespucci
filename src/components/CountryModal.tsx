@@ -1,5 +1,8 @@
+import { useState } from "react";
 import type { CountryInfo } from "../lib/country-info";
 import { resolveDisplayName } from "../lib/country-info";
+import { fmtNum, fmtLanguage, fmtGovType } from "../lib/format";
+import { isGreatPower } from "../lib/ranking-sort";
 
 interface Props {
   info: CountryInfo;
@@ -7,27 +10,9 @@ interface Props {
   onClose: () => void;
 }
 
-/** Format a number with K/M suffix. */
-const fmtNum = (n: number): string =>
-  n >= 1_000_000 ? (n / 1_000_000).toFixed(1) + "M"
-    : n >= 1_000 ? (n / 1_000).toFixed(1) + "K"
-    : n > 0 ? n.toFixed(0)
-    : "—";
-
-/** Format court language for display. */
-const fmtLang = (lang: string): string =>
-  lang !== ""
-    ? lang.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())
-    : "";
-
-/** Format government type for display. */
-const fmtGov = (gov: string): string =>
-  gov !== ""
-    ? gov.charAt(0).toUpperCase() + gov.slice(1)
-    : "";
-
 export const CountryModal = ({ info, countryNames, onClose }: Props) => {
   const { stats } = info;
+  const [subjectsOpen, setSubjectsOpen] = useState(false);
 
   return (
     <div className="modal-overlay" onClick={onClose}>
@@ -63,14 +48,23 @@ export const CountryModal = ({ info, countryNames, onClose }: Props) => {
           {stats.govType !== "" ? (
             <div className="modal-field">
               <span className="modal-label">Government</span>
-              <span className="modal-value">{fmtGov(stats.govType)}</span>
+              <span className="modal-value">{fmtGovType(stats.govType)}</span>
             </div>
           ) : (<></>)}
 
           {stats.courtLanguage !== "" ? (
             <div className="modal-field">
               <span className="modal-label">Language</span>
-              <span className="modal-value">{fmtLang(stats.courtLanguage)}</span>
+              <span className="modal-value">{fmtLanguage(stats.courtLanguage)}</span>
+            </div>
+          ) : (<></>)}
+
+          {stats.score > 0 ? (
+            <div className="modal-field">
+              <span className="modal-label">Rank</span>
+              <span className="modal-value">
+                #{stats.score}{isGreatPower(stats.score) ? " (Great Power)" : ""}
+              </span>
             </div>
           ) : (<></>)}
 
@@ -84,14 +78,21 @@ export const CountryModal = ({ info, countryNames, onClose }: Props) => {
 
           {info.subjects.length > 0 ? (
             <div className="modal-field">
-              <span className="modal-label">Subjects</span>
-              <div className="modal-subject-list">
-                {info.subjects.map((sub) => (
-                  <span key={sub} className="modal-subject-tag">
-                    {resolveDisplayName(sub, countryNames)} ({sub})
-                  </span>
-                ))}
-              </div>
+              <span
+                className="modal-label modal-collapsible"
+                onClick={() => setSubjectsOpen(!subjectsOpen)}
+              >
+                {subjectsOpen ? "▾" : "▸"} Subjects ({info.subjects.length})
+              </span>
+              {subjectsOpen ? (
+                <div className="modal-subject-list">
+                  {info.subjects.map((sub) => (
+                    <span key={sub} className="modal-subject-tag">
+                      {resolveDisplayName(sub, countryNames)} ({sub})
+                    </span>
+                  ))}
+                </div>
+              ) : (<></>)}
             </div>
           ) : (<></>)}
 
@@ -118,23 +119,43 @@ export const CountryModal = ({ info, countryNames, onClose }: Props) => {
             </div>
           </div>
 
-          {/* Military */}
+          {/* Military — Regulars (strength = men) */}
           <div className="modal-stats-grid">
             <div className="modal-stat">
-              <span className="modal-stat-value">{fmtNum(stats.maxManpower)}</span>
-              <span className="modal-stat-label">Max Manpower</span>
+              <span className="modal-stat-value">{fmtNum(stats.infantryStr)}</span>
+              <span className="modal-stat-label">Infantry</span>
             </div>
             <div className="modal-stat">
-              <span className="modal-stat-value">{fmtNum(stats.maxSailors)}</span>
-              <span className="modal-stat-label">Max Sailors</span>
+              <span className="modal-stat-value">{fmtNum(stats.cavalryStr)}</span>
+              <span className="modal-stat-label">Cavalry</span>
             </div>
             <div className="modal-stat">
-              <span className="modal-stat-value">{fmtNum(stats.expectedArmySize)}</span>
-              <span className="modal-stat-label">Expected Army</span>
+              <span className="modal-stat-value">{fmtNum(stats.artilleryStr)}</span>
+              <span className="modal-stat-label">Artillery</span>
             </div>
             <div className="modal-stat">
-              <span className="modal-stat-value">{fmtNum(stats.expectedNavySize)}</span>
-              <span className="modal-stat-label">Expected Navy</span>
+              <span className="modal-stat-value">{fmtNum(stats.levyInfantryStr + stats.levyCavalryStr)}</span>
+              <span className="modal-stat-label">Levies</span>
+            </div>
+          </div>
+
+          {/* Military — Navy */}
+          <div className="modal-stats-grid">
+            <div className="modal-stat">
+              <span className="modal-stat-value">{fmtNum(stats.heavyShips)}</span>
+              <span className="modal-stat-label">Heavy Ships</span>
+            </div>
+            <div className="modal-stat">
+              <span className="modal-stat-value">{fmtNum(stats.lightShips)}</span>
+              <span className="modal-stat-label">Light Ships</span>
+            </div>
+            <div className="modal-stat">
+              <span className="modal-stat-value">{fmtNum(stats.galleys)}</span>
+              <span className="modal-stat-label">Galleys</span>
+            </div>
+            <div className="modal-stat">
+              <span className="modal-stat-value">{fmtNum(stats.transports)}</span>
+              <span className="modal-stat-label">Transports</span>
             </div>
           </div>
 

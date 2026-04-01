@@ -25,4 +25,7 @@ dist-ssr
 
 coverage/
 *.eu5
+*_melted.txt
+*_melted.json
+melted/
 .env

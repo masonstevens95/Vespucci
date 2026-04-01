@@ -20,7 +20,9 @@ import { readLocationOwnership } from "./sections/locations";
 import { readDiplomacy } from "./sections/diplomacy";
 import { readPlayedCountry } from "./sections/players";
 import { findDependencies } from "./sections/dependencies";
-import { readCountryEconomies } from "./sections/economy";
+import { readCountryDatabase } from "./sections/country-stats";
+import type { CountryData } from "./sections/country-stats";
+import { readCountryForces } from "./sections/units";
 import { BinaryToken } from "./tokens";
 import { buildDisplayName } from "../country-names";
 import type { ParsedSave, RGB } from "../types";
@@ -142,12 +144,12 @@ const parseGamestate = (data: Uint8Array, dynStrings: string[]): ParsedSave => {
 
   const countriesOff = findSection(data, T.countries, r);
   const countryNames: Record<string, string> = {};
-  let economies: Record<string, import("./sections/economy").CountryEconomy> = {};
+  let countryDb: Record<string, CountryData> = {};
   if (countriesOff >= 0) {
     r.pos = countriesOff + 6;
     readCountries(r, countryTags, countryColors, countryCapitals, overlordCandidates);
 
-    // Second pass on database for country names
+    // Second pass on database for country stats + names
     r.pos = countriesOff + 6;
     let d = 1;
     while (!r.done && d > 0) {
@@ -158,9 +160,9 @@ const parseGamestate = (data: Uint8Array, dynStrings: string[]): ParsedSave => {
       else if (tok === T.database) {
         r.expectEqual();
         r.expectOpen();
-        economies = readCountryEconomies(r, data, countryTags);
-        for (const [tag, eco] of Object.entries(economies)) {
-          const displayName = buildDisplayName(tag, eco.countryName, eco.level, eco.govType);
+        countryDb = readCountryDatabase(r, data, countryTags);
+        for (const [tag, cd] of Object.entries(countryDb)) {
+          const displayName = buildDisplayName(tag, cd.identity.countryName, cd.identity.level, cd.identity.govType);
           if (displayName !== tag) {
             countryNames[tag] = displayName;
           }
@@ -208,20 +210,43 @@ const parseGamestate = (data: Uint8Array, dynStrings: string[]): ParsedSave => {
 
   const countryLocations = buildCountryLocations(locationOwners, locationNames);
 
-  // Build countryStats from economies
+  // Read actual forces from unit_manager + subunit_manager
+  const forces = readCountryForces(data, dynStrings, countryTags);
+
+  // Build countryStats from country database + forces
   const countryStats: Record<string, import("../types").CountryEconomyStats> = {};
-  for (const [tag, eco] of Object.entries(economies)) {
+  for (const [tag, cd] of Object.entries(countryDb)) {
+    const f = forces[tag];
     countryStats[tag] = {
-      gold: eco.gold,
-      monthlyIncome: eco.monthlyIncome,
-      monthlyTradeValue: eco.monthlyTradeValue,
-      population: eco.population,
-      maxManpower: eco.maxManpower,
-      maxSailors: eco.maxSailors,
-      expectedArmySize: eco.expectedArmySize,
-      expectedNavySize: eco.expectedNavySize,
-      courtLanguage: eco.courtLanguage,
-      govType: eco.govType,
+      gold: cd.economy.gold,
+      monthlyIncome: cd.economy.monthlyIncome,
+      monthlyTradeValue: cd.economy.monthlyTradeValue,
+      population: cd.economy.population,
+      infantry: f?.infantry ?? 0,
+      cavalry: f?.cavalry ?? 0,
+      artillery: f?.artillery ?? 0,
+      infantryStr: f?.infantryStr ?? 0,
+      cavalryStr: f?.cavalryStr ?? 0,
+      artilleryStr: f?.artilleryStr ?? 0,
+      levyInfantry: f?.levyInfantry ?? 0,
+      levyCavalry: f?.levyCavalry ?? 0,
+      levyInfantryStr: f?.levyInfantryStr ?? 0,
+      levyCavalryStr: f?.levyCavalryStr ?? 0,
+      heavyShips: f?.heavyShips ?? 0,
+      lightShips: f?.lightShips ?? 0,
+      galleys: f?.galleys ?? 0,
+      transports: f?.transports ?? 0,
+      maxManpower: cd.military.maxManpower,
+      maxSailors: cd.military.maxSailors,
+      monthlyManpower: cd.military.monthlyManpower,
+      monthlySailors: cd.military.monthlySailors,
+      armyMaintenance: cd.military.armyMaintenance,
+      navyMaintenance: cd.military.navyMaintenance,
+      expectedArmySize: cd.military.expectedArmySize,
+      expectedNavySize: cd.military.expectedNavySize,
+      courtLanguage: cd.identity.courtLanguage,
+      govType: cd.identity.govType,
+      score: cd.identity.score,
     };
   }
 

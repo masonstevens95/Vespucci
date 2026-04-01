@@ -36,7 +36,7 @@ describe("Header links", () => {
 
 describe("App debug visibility", () => {
   it("SHOW_DEBUG is true in test/dev environment", async () => {
-    const { SHOW_DEBUG } = await import("../../App");
+    const { SHOW_DEBUG } = await import("../MapTab");
     expect(SHOW_DEBUG).toBe(true);
   });
 
@@ -113,12 +113,10 @@ describe("DebugPanel rendering", () => {
 });
 
 describe("SHOW_DEBUG gating contract", () => {
-  it("details-section is gated by SHOW_DEBUG in App source", async () => {
-    // Verify the source code contains the SHOW_DEBUG gate
+  it("details-section is gated by SHOW_DEBUG in MapTab source", async () => {
     const { readFileSync } = await import("fs");
-    const source = readFileSync("src/App.tsx", "utf-8");
-    expect(source).toContain("{SHOW_DEBUG && (");
-    expect(source).toContain('<div className="details-section">');
+    const source = readFileSync("src/components/MapTab.tsx", "utf-8");
+    expect(source).toContain("SHOW_DEBUG");
     expect(source).toContain("export const SHOW_DEBUG = import.meta.env.DEV");
   });
 

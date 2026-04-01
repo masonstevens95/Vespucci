@@ -16,23 +16,64 @@
 }
 
 .app-header {
-  text-align: center;
-  margin-bottom: 2rem;
+  margin-bottom: 1rem;
+}
+.header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
 }
 .app-header h1 {
-  font-size: 2rem;
+  font-size: 1.6rem;
   color: #fff;
-}
-.subtitle {
-  color: #888;
-  margin-top: 0.25rem;
+  margin: 0;
 }
 .header-links {
   display: flex;
   align-items: center;
-  justify-content: center;
   gap: 1rem;
+}
+
+/* Tabs */
+.app-tabs {
+  display: flex;
+  gap: 0;
   margin-top: 0.75rem;
+  border-bottom: 2px solid #333;
+}
+.app-tab {
+  padding: 0.5rem 1.2rem;
+  background: none;
+  border: none;
+  color: #888;
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -2px;
+  transition: color 0.15s, border-color 0.15s;
+}
+.app-tab:hover {
+  color: #ccc;
+}
+.app-tab.active {
+  color: #fff;
+  border-bottom-color: #4a6fa5;
+}
+
+/* Tab placeholder */
+.tab-placeholder {
+  padding: 3rem 2rem;
+  text-align: center;
+  color: #666;
+}
+.tab-placeholder h2 {
+  color: #aaa;
+  font-size: 1.4rem;
+  margin-bottom: 0.5rem;
+}
+.tab-placeholder p {
+  font-size: 0.9rem;
 }
 .bmc-link {
   display: inline-flex;
@@ -846,6 +887,10 @@
   min-width: 100px;
   flex-shrink: 0;
 }
+.modal-collapsible {
+  cursor: pointer;
+  user-select: none;
+}
 .modal-value {
   font-size: 1rem;
   color: #e0e0e0;
@@ -894,6 +939,97 @@
   font-size: 0.7rem;
   color: #666;
   margin-top: 0.15rem;
+}
+
+/* Rankings tab */
+.rankings-tab {
+  max-width: 900px;
+}
+.rankings-controls {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+}
+.rankings-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+.ranking-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  background: #1e1e2e;
+  border-radius: 6px;
+  padding: 0.6rem 1rem;
+  border-left: 4px solid #666;
+  cursor: pointer;
+  transition: background 0.1s;
+}
+.ranking-row:hover {
+  background: #2a2a3e;
+}
+.ranking-player {
+  background: #1a2030;
+}
+.ranking-player:hover {
+  background: #253040;
+}
+.ranking-gp {
+  outline: 2px solid rgba(218, 165, 32, 0.6);
+  outline-offset: -1px;
+  box-shadow: 0 0 6px rgba(218, 165, 32, 0.3);
+}
+.ranking-pos {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #666;
+  min-width: 28px;
+  text-align: center;
+}
+.ranking-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.ranking-name {
+  font-size: 0.9rem;
+  color: #e0e0e0;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ranking-player-name {
+  font-size: 0.7rem;
+  color: #4a6fa5;
+}
+.ranking-ai {
+  font-size: 0.7rem;
+  color: #555;
+  font-style: italic;
+}
+.ranking-stats {
+  display: flex;
+  gap: 1rem;
+}
+.ranking-stat {
+  text-align: right;
+  min-width: 60px;
+}
+.ranking-stat-val {
+  display: block;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #fff;
+}
+.ranking-stat-lbl {
+  display: block;
+  font-size: 0.6rem;
+  color: #666;
 }
 
 /* Details below map */
