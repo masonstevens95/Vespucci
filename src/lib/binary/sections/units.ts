@@ -47,10 +47,10 @@ export interface CountryForces {
 
 type ForceCategory = keyof CountryForces;
 
-/** Classify a subunit type string into a force category.
+/** Classify a subunit by its type string and whether it has a levies field.
  *  Type names use a_ prefix for army, n_ prefix for navy.
- *  Levy units have "_levy" in the name. */
-const classifyType = (type: string): ForceCategory => {
+ *  The levies field on a subunit is the authoritative levy indicator. */
+const classifyType = (type: string, hasLeviesField: boolean): ForceCategory => {
   // Navy types
   if (type.startsWith("n_")) {
     if (/carrack|galleon|war_galleon|atakebune|hulk/i.test(type)) { return "heavyShips"; }
@@ -59,13 +59,11 @@ const classifyType = (type: string): ForceCategory => {
     else { return "lightShips"; } // brig, caravel, pinnace, barque, etc.
   }
 
-  const isLevy = /_levy/i.test(type);
-
-  // Army types
+  // Army types — use levies field as authoritative levy indicator
   if (/cannon|falconet|houfnice|helepolis|bombard|mortar|culverin/i.test(type)) { return "artillery"; }
-  else if (/supply|convoy|baggage|camp_follower|discovery/i.test(type)) { return isLevy ? "levyInfantry" : "infantry"; }
-  else if (/cavalry|lancer|knight|horsem|cavalier|pistoleer|hussar|cuirassier|dragoon|steppe_horde|retainer|elephant|armored_horse|maurician/i.test(type)) { return isLevy ? "levyCavalry" : "cavalry"; }
-  else { return isLevy ? "levyInfantry" : "infantry"; }
+  else if (/supply|convoy|baggage|camp_follower|discovery/i.test(type)) { return hasLeviesField ? "levyInfantry" : "infantry"; }
+  else if (/cavalry|lancer|knight|horsem|cavalier|pistoleer|hussar|cuirassier|dragoon|steppe_horde|retainer|elephant|armored_horse|maurician/i.test(type)) { return hasLeviesField ? "levyCavalry" : "cavalry"; }
+  else { return hasLeviesField ? "levyInfantry" : "infantry"; }
 };
 
 // =============================================================================
@@ -78,6 +76,7 @@ const DATABASE = tokenId("database") ?? -1;
 const OWNER = tokenId("owner") ?? -1;
 const STRENGTH = tokenId("strength") ?? -1;
 const TYPE = 0xe1; // "type" / definition reference field
+const LEVIES = tokenId("levies") ?? -1;
 const IS_ARMY = tokenId("is_army") ?? -1;
 const COUNTRY = tokenId("country") ?? -1;
 const FRONTAGE = tokenId("frontage") ?? -1;
@@ -136,6 +135,7 @@ const readSubunits = (
           let owner = -1;
           let typeStr = "";
           let strength = 0;
+          let hasLeviesField = false;
           let ed = 1;
           while (!r.done && ed > 0) {
             const eft = r.readToken();
@@ -168,6 +168,9 @@ const readSubunits = (
                 } else {
                   r.skipValuePayload(vt);
                 }
+              } else if (eft === LEVIES) {
+                hasLeviesField = true;
+                r.readToken(); r.skipValue();
               } else {
                 r.readToken(); r.skipValue();
               }
@@ -179,7 +182,7 @@ const readSubunits = (
           if (owner >= 0 && typeStr !== "") {
             const tag = countryTags[owner] ?? "";
             if (tag !== "") {
-              const category = classifyType(typeStr);
+              const category = classifyType(typeStr, hasLeviesField);
               const entry = result[tag] ?? { ...EMPTY_FORCES };
               entry[category] = (entry[category] ?? 0) + 1;
               const sk = strKey(category);

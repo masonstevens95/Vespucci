@@ -11,6 +11,10 @@ export const fmtNum = (n: number): string =>
     : n > 0 ? n.toFixed(0)
     : "—";
 
+/** Format a currency value (gold/income) — FIXED5 values are 1000x, so divide and show 1 decimal. */
+export const fmtCurrency = (n: number): string =>
+  n !== 0 ? (n / 1000).toFixed(1) : "—";
+
 /** Compute total province count from a MapChart config's groups. */
 export const computeProvinceCount = (
   groups: Readonly<Record<string, { paths: readonly string[] }>>,

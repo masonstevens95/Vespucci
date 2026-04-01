@@ -2,7 +2,7 @@ import { useState } from "react";
 import type { ParsedSave } from "../lib/types";
 import { buildRankingEntries, sortRankings, filterPlayersOnly, isGreatPower, findTiedScores } from "../lib/ranking-sort";
 import type { RankingSortMode } from "../lib/ranking-sort";
-import { fmtNum } from "../lib/format";
+import { fmtNum, fmtCurrency } from "../lib/format";
 
 interface Props {
   parsed: ParsedSave;
@@ -93,7 +93,7 @@ export const RankingsTab = ({ parsed, onCountryClick }: Props) => {
                 <span className="ranking-stat-lbl">Pop</span>
               </div>
               <div className="ranking-stat">
-                <span className="ranking-stat-val">{fmtNum(entry.stats.monthlyIncome)}</span>
+                <span className="ranking-stat-val">{fmtCurrency(entry.stats.monthlyIncome)}</span>
                 <span className="ranking-stat-lbl">Income</span>
               </div>
               <div className="ranking-stat">

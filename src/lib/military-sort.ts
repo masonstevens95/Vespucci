@@ -6,7 +6,7 @@
 
 import type { CountryEconomyStats } from "./types";
 
-export type MilitarySortMode = "armyFrontage" | "regulars" | "infantry" | "cavalry" | "artillery" | "levies" | "navyFrontage" | "totalNavy" | "heavyShips" | "manpower" | "country";
+export type MilitarySortMode = "regulars" | "infantry" | "cavalry" | "artillery" | "levies" | "armyFrontage" | "totalNavy" | "heavyShips" | "navyFrontage" | "manpower" | "country";
 
 export interface MilitaryEntry {
   readonly tag: string;

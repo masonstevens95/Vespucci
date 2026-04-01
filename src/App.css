@@ -940,6 +940,21 @@
   color: #666;
   margin-top: 0.15rem;
 }
+.modal-info {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  background: #444;
+  color: #aaa;
+  font-size: 0.55rem;
+  font-style: italic;
+  cursor: help;
+  margin-left: 3px;
+  vertical-align: middle;
+}
 
 /* Rankings tab */
 .rankings-tab {

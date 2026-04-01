@@ -13,6 +13,7 @@ const FRONTAGE = 12070;
 const OWNER = 10258;
 const STRENGTH = 10462;
 const TYPE = 0xe1;
+const LEVIES = 10767;
 
 const boolYes = (): number[] => [...u16(BinaryToken.BOOL), 1];
 
@@ -31,9 +32,8 @@ const unitEntry = (id: number, country: number, frontage: number, isArmy: boolea
   ...close(),
 ];
 
-/** Build a subunit_manager entry: id = { owner=X type=S strength=F } */
-const subunitEntry = (id: number, owner: number, type: string, strength: number): number[] => {
-  // Encode strength as a 3-byte FIXED5 (0x0d4a) = val * 1000 as 3-byte LE
+/** Build a subunit_manager entry: id = { owner=X type=S strength=F [levies={...}] } */
+const subunitEntry = (id: number, owner: number, type: string, strength: number, isLevy = false): number[] => {
   const raw = Math.round(strength * 1000);
   const strBytes = [raw & 0xff, (raw >> 8) & 0xff, (raw >> 16) & 0xff];
   return [
@@ -41,6 +41,7 @@ const subunitEntry = (id: number, owner: number, type: string, strength: number)
     ...u16(OWNER), ...eq(), ...intVal(owner),
     ...u16(TYPE), ...eq(), ...u16(BinaryToken.UNQUOTED), ...u16(type.length), ...Array.from(new TextEncoder().encode(type)),
     ...u16(STRENGTH), ...eq(), ...u16(0x0d4a), ...strBytes,
+    ...(isLevy ? [...u16(LEVIES), ...eq(), ...open(), ...intVal(12345), ...close()] : []),
     ...close(),
   ];
 };
@@ -103,7 +104,7 @@ describe("readCountryForces", () => {
         subunitEntry(1, 100, "a_arquebusiers", 200),
         subunitEntry(2, 100, "a_lancers", 60),
         subunitEntry(3, 100, "a_falconet", 60),
-        subunitEntry(4, 100, "a_matchlock_levy", 150),
+        subunitEntry(4, 100, "a_matchlock_levy", 150, true),
         subunitEntry(5, 100, "n_carrack", 100),
       ],
     );
