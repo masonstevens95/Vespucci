@@ -1,6 +1,5 @@
 import { describe, it, expect } from "vitest";
 import { COUNTRY_DEFS, countryDef, wikiName } from "../country-defs";
-import type { CountryDef } from "../country-defs";
 
 describe("COUNTRY_DEFS", () => {
   it("contains 2,296 entries", () => {

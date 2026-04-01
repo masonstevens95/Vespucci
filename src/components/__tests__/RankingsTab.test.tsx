@@ -1,11 +1,18 @@
 import { describe, it, expect, vi } from "vitest";
-import { render, fireEvent, within } from "@testing-library/react";
+import { render, fireEvent } from "@testing-library/react";
 import { RankingsTab } from "../RankingsTab";
 import type { ParsedSave, CountryEconomyStats } from "../../lib/types";
 
 const mkStats = (overrides: Partial<CountryEconomyStats> = {}): CountryEconomyStats => ({
   gold: 0, monthlyIncome: 0, monthlyTradeValue: 0, population: 1000,
-  maxManpower: 0, maxSailors: 0, expectedArmySize: 0, expectedNavySize: 0,
+  infantry: 0, cavalry: 0, artillery: 0,
+  infantryStr: 0, cavalryStr: 0, artilleryStr: 0,
+  levyInfantry: 0, levyCavalry: 0,
+  levyInfantryStr: 0, levyCavalryStr: 0,
+  heavyShips: 0, lightShips: 0, galleys: 0, transports: 0,
+  maxManpower: 0, maxSailors: 0, monthlyManpower: 0, monthlySailors: 0,
+  armyMaintenance: 0, navyMaintenance: 0,
+  expectedArmySize: 0, expectedNavySize: 0,
   courtLanguage: "", govType: "", score: 0, ...overrides,
 });
 

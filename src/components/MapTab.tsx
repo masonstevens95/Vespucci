@@ -1,6 +1,6 @@
 import { useState, useCallback, useRef } from "react";
 import type { MapChartConfig, MapStyle } from "../lib/types";
-import type { StyleOverrides, ColorOverrides } from "../lib/map-styles";
+import type { StyleOverrides } from "../lib/map-styles";
 import {
   getStyleConfig,
   getBaseStyleConfig,
