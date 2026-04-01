@@ -119,43 +119,43 @@ export const CountryModal = ({ info, countryNames, onClose }: Props) => {
             </div>
           </div>
 
-          {/* Military — Regulars (strength = men) */}
+          {/* Military — Army */}
           <div className="modal-stats-grid">
             <div className="modal-stat">
-              <span className="modal-stat-value">{fmtNum(stats.infantryStr)}</span>
-              <span className="modal-stat-label">Infantry</span>
+              <span className="modal-stat-value">{fmtNum(stats.armyFrontage)}</span>
+              <span className="modal-stat-label">Army Frontage</span>
             </div>
             <div className="modal-stat">
-              <span className="modal-stat-value">{fmtNum(stats.cavalryStr)}</span>
-              <span className="modal-stat-label">Cavalry</span>
+              <span className="modal-stat-value">{stats.infantry}/{stats.cavalry}/{stats.artillery}</span>
+              <span className="modal-stat-label">Inf/Cav/Art</span>
             </div>
             <div className="modal-stat">
-              <span className="modal-stat-value">{fmtNum(stats.artilleryStr)}</span>
-              <span className="modal-stat-label">Artillery</span>
-            </div>
-            <div className="modal-stat">
-              <span className="modal-stat-value">{fmtNum(stats.levyInfantryStr + stats.levyCavalryStr)}</span>
+              <span className="modal-stat-value">{fmtNum(stats.levyInfantry + stats.levyCavalry)}</span>
               <span className="modal-stat-label">Levies</span>
+            </div>
+            <div className="modal-stat">
+              <span className="modal-stat-value">{fmtNum(stats.maxManpower)}</span>
+              <span className="modal-stat-label">Manpower</span>
             </div>
           </div>
 
           {/* Military — Navy */}
           <div className="modal-stats-grid">
             <div className="modal-stat">
-              <span className="modal-stat-value">{fmtNum(stats.heavyShips)}</span>
-              <span className="modal-stat-label">Heavy Ships</span>
+              <span className="modal-stat-value">{fmtNum(stats.navyFrontage)}</span>
+              <span className="modal-stat-label">Navy Frontage</span>
             </div>
             <div className="modal-stat">
-              <span className="modal-stat-value">{fmtNum(stats.lightShips)}</span>
-              <span className="modal-stat-label">Light Ships</span>
-            </div>
-            <div className="modal-stat">
-              <span className="modal-stat-value">{fmtNum(stats.galleys)}</span>
-              <span className="modal-stat-label">Galleys</span>
+              <span className="modal-stat-value">{stats.heavyShips}/{stats.lightShips}/{stats.galleys}</span>
+              <span className="modal-stat-label">Heavy/Light/Galley</span>
             </div>
             <div className="modal-stat">
               <span className="modal-stat-value">{fmtNum(stats.transports)}</span>
               <span className="modal-stat-label">Transports</span>
+            </div>
+            <div className="modal-stat">
+              <span className="modal-stat-value">{fmtNum(stats.maxSailors)}</span>
+              <span className="modal-stat-label">Sailors</span>
             </div>
           </div>
 

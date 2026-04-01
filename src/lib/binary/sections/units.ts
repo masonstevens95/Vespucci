@@ -17,25 +17,28 @@ import { isFixed5, readFixed5 } from "./fixed5";
 // Types
 // =============================================================================
 
-/** Per-category force counts (unit count) and strength (actual men/crew). */
+/** Per-category force counts, strength, and frontage per country. */
 export interface CountryForces {
-  // Regulars — strength = men
+  // Regulars — count + strength
   readonly infantry: number;
   readonly cavalry: number;
   readonly artillery: number;
   readonly infantryStr: number;
   readonly cavalryStr: number;
   readonly artilleryStr: number;
-  // Levies — strength = men
+  // Levies — count + strength
   readonly levyInfantry: number;
   readonly levyCavalry: number;
   readonly levyInfantryStr: number;
   readonly levyCavalryStr: number;
-  // Navy — strength = crew/capacity
+  // Navy — count
   readonly heavyShips: number;
   readonly lightShips: number;
   readonly galleys: number;
   readonly transports: number;
+  // Frontage (from unit_manager) — combat width, accounts for unit type sizes
+  readonly armyFrontage: number;
+  readonly navyFrontage: number;
 }
 
 // =============================================================================
@@ -69,11 +72,15 @@ const classifyType = (type: string): ForceCategory => {
 // Token IDs
 // =============================================================================
 
+const UNIT_MGR = tokenId("unit_manager") ?? -1;
 const SUBUNIT_MGR = tokenId("subunit_manager") ?? -1;
 const DATABASE = tokenId("database") ?? -1;
 const OWNER = tokenId("owner") ?? -1;
 const STRENGTH = tokenId("strength") ?? -1;
 const TYPE = 0xe1; // "type" / definition reference field
+const IS_ARMY = tokenId("is_army") ?? -1;
+const COUNTRY = tokenId("country") ?? -1;
+const FRONTAGE = tokenId("frontage") ?? -1;
 
 // =============================================================================
 // Subunit manager reader
@@ -85,6 +92,7 @@ const EMPTY_FORCES: CountryForces = {
   levyInfantry: 0, levyCavalry: 0,
   levyInfantryStr: 0, levyCavalryStr: 0,
   heavyShips: 0, lightShips: 0, galleys: 0, transports: 0,
+  armyFrontage: 0, navyFrontage: 0,
 };
 
 /** Map a count category to its strength counterpart. */
@@ -209,19 +217,114 @@ const readSubunits = (
 };
 
 // =============================================================================
-// Public API
+// Unit manager reader — frontage per country
 // =============================================================================
 
-/** Scan subunit_manager to build per-country force breakdowns.
- *  Classifies each subunit by its type name into infantry/cavalry/artillery/auxiliary
- *  or heavy ships/light ships/galleys/transports. */
-export const readCountryForces = (
+/** Read unit_manager > database, sum frontage per country split by army/navy. */
+const readUnitFrontage = (
+  r: TokenReader,
   data: Uint8Array,
-  dynStrings: string[],
   countryTags: Readonly<Record<number, string>>,
-): Record<string, CountryForces> => {
-  const r = new TokenReader(data, dynStrings);
+): Record<string, { army: number; navy: number }> => {
+  const result: Record<string, { army: number; navy: number }> = {};
 
+  let d = 1;
+  while (!r.done && d > 0) {
+    const ft = r.readToken();
+    if (ft === BinaryToken.CLOSE) { d--; continue; }
+    else if (ft === BinaryToken.OPEN) { d++; continue; }
+    else if (ft === BinaryToken.EQUAL) { continue; }
+    else if (isValueToken(ft)) { r.skipValuePayload(ft); continue; }
+
+    if (d === 1 && ft === DATABASE && r.peekToken() === BinaryToken.EQUAL) {
+      r.readToken(); r.expectOpen();
+
+      while (!r.done) {
+        const peek = r.peekToken();
+        if (peek === BinaryToken.CLOSE) { r.readToken(); break; }
+        if (peek === BinaryToken.I32 || peek === BinaryToken.U32) {
+          r.readToken();
+          peek === BinaryToken.I32 ? r.readI32() : r.readU32();
+          r.expectEqual();
+          if (!r.expectOpen()) { r.skipValue(); continue; }
+
+          let country = -1;
+          let frontage = 0;
+          let isArmy = false; // absent = navy
+          let ed = 1;
+          while (!r.done && ed > 0) {
+            const eft = r.readToken();
+            if (eft === BinaryToken.CLOSE) { ed--; continue; }
+            else if (eft === BinaryToken.OPEN) { ed++; continue; }
+            else if (eft === BinaryToken.EQUAL) { continue; }
+            else if (isValueToken(eft)) { r.skipValuePayload(eft); continue; }
+
+            if (ed === 1 && r.peekToken() === BinaryToken.EQUAL) {
+              if (eft === COUNTRY) {
+                r.readToken();
+                const ct = r.readToken();
+                if (ct === BinaryToken.I32) { country = r.readI32(); }
+                else if (ct === BinaryToken.U32) { country = r.readU32(); }
+                else { r.skipValuePayload(ct); }
+              } else if (eft === FRONTAGE) {
+                r.readToken();
+                const vt = r.readToken();
+                if (vt === BinaryToken.I32) { frontage = r.readI32(); }
+                else if (vt === BinaryToken.U32) { frontage = r.readU32(); }
+                else if (isFixed5(vt)) {
+                  const size = valuePayloadSize(vt, data, r.pos);
+                  frontage = readFixed5(data, r.pos, vt);
+                  r.pos += size;
+                } else { r.skipValuePayload(vt); }
+              } else if (eft === IS_ARMY) {
+                isArmy = true;
+                r.readToken(); r.skipValue();
+              } else {
+                r.readToken(); r.skipValue();
+              }
+            } else {
+              /* other */
+            }
+          }
+
+          if (country >= 0 && frontage > 0) {
+            const tag = countryTags[country] ?? "";
+            if (tag !== "") {
+              const entry = result[tag] ?? { army: 0, navy: 0 };
+              if (isArmy) {
+                result[tag] = { ...entry, army: entry.army + frontage };
+              } else {
+                result[tag] = { ...entry, navy: entry.navy + frontage };
+              }
+            } else {
+              /* unknown country */
+            }
+          } else {
+            /* no country or zero frontage */
+          }
+        } else {
+          r.readToken();
+          if (r.peekToken() === BinaryToken.EQUAL) { r.readToken(); r.skipValue(); }
+          else { /* other */ }
+        }
+      }
+      break;
+    } else if (r.peekToken() === BinaryToken.EQUAL) {
+      r.readToken(); r.skipValue();
+    } else {
+      /* other */
+    }
+  }
+
+  return result;
+};
+
+// =============================================================================
+// Top-level section finder
+// =============================================================================
+
+/** Scan for a top-level section token. Returns true if found (reader positioned after {). */
+const findTopLevel = (r: TokenReader, target: number): boolean => {
   r.pos = 0;
   let depth = 0;
   while (!r.done) {
@@ -230,17 +333,48 @@ export const readCountryForces = (
     else if (ft === BinaryToken.OPEN) { depth++; continue; }
     else if (ft === BinaryToken.EQUAL) { continue; }
     else if (isValueToken(ft)) { r.skipValuePayload(ft); continue; }
-    if (depth === 0 && ft === SUBUNIT_MGR && r.peekToken() === BinaryToken.EQUAL) {
+    if (depth === 0 && ft === target && r.peekToken() === BinaryToken.EQUAL) {
       r.readToken();
-      if (r.expectOpen()) {
-        return readSubunits(r, data, countryTags);
-      } else {
-        return {};
-      }
+      return r.expectOpen();
     } else {
       /* other */
     }
   }
+  return false;
+};
 
-  return {};
+// =============================================================================
+// Public API
+// =============================================================================
+
+/** Scan unit_manager (frontage) and subunit_manager (regiment counts + strength)
+ *  to build per-country force breakdowns. */
+export const readCountryForces = (
+  data: Uint8Array,
+  dynStrings: string[],
+  countryTags: Readonly<Record<number, string>>,
+): Record<string, CountryForces> => {
+  // Pass 1: unit_manager — sum frontage per country
+  const r1 = new TokenReader(data, dynStrings);
+  let frontageMap: Record<string, { army: number; navy: number }> = {};
+  if (findTopLevel(r1, UNIT_MGR)) {
+    frontageMap = readUnitFrontage(r1, data, countryTags);
+  }
+
+  // Pass 2: subunit_manager — regiment/ship counts + strength
+  const r2 = new TokenReader(data, dynStrings);
+  let subunitForces: Record<string, CountryForces> = {};
+  if (findTopLevel(r2, SUBUNIT_MGR)) {
+    subunitForces = readSubunits(r2, data, countryTags);
+  }
+
+  // Merge frontage into forces
+  const allTags = new Set([...Object.keys(frontageMap), ...Object.keys(subunitForces)]);
+  const result: Record<string, CountryForces> = {};
+  for (const tag of allTags) {
+    const sub = subunitForces[tag] ?? { ...EMPTY_FORCES };
+    const fr = frontageMap[tag] ?? { army: 0, navy: 0 };
+    result[tag] = { ...sub, armyFrontage: fr.army, navyFrontage: fr.navy };
+  }
+  return result;
 };

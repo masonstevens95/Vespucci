@@ -23,6 +23,9 @@ export interface CountryEconomyStats {
   readonly lightShips: number;
   readonly galleys: number;
   readonly transports: number;
+  // Military — frontage (combat width from unit_manager)
+  readonly armyFrontage: number;
+  readonly navyFrontage: number;
   // Military — capacity (from country database)
   readonly maxManpower: number;
   readonly maxSailors: number;

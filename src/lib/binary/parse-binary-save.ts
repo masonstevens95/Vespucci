@@ -236,6 +236,8 @@ const parseGamestate = (data: Uint8Array, dynStrings: string[]): ParsedSave => {
       lightShips: f?.lightShips ?? 0,
       galleys: f?.galleys ?? 0,
       transports: f?.transports ?? 0,
+      armyFrontage: f?.armyFrontage ?? 0,
+      navyFrontage: f?.navyFrontage ?? 0,
       maxManpower: cd.military.maxManpower,
       maxSailors: cd.military.maxSailors,
       monthlyManpower: cd.military.monthlyManpower,

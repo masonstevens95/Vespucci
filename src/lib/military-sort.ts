@@ -6,7 +6,7 @@
 
 import type { CountryEconomyStats } from "./types";
 
-export type MilitarySortMode = "regulars" | "infantry" | "cavalry" | "artillery" | "levies" | "totalNavy" | "heavyShips" | "manpower" | "country";
+export type MilitarySortMode = "armyFrontage" | "regulars" | "infantry" | "cavalry" | "artillery" | "levies" | "navyFrontage" | "totalNavy" | "heavyShips" | "manpower" | "country";
 
 export interface MilitaryEntry {
   readonly tag: string;
@@ -38,11 +38,13 @@ export const sortMilitary = (
     const diff = fn(b.stats) - fn(a.stats);
     return diff !== 0 ? diff : a.name.localeCompare(b.name);
   };
-  if (mode === "regulars") { sorted.sort(byField(totalRegulars)); }
+  if (mode === "armyFrontage") { sorted.sort(byField(s => s.armyFrontage)); }
+  else if (mode === "regulars") { sorted.sort(byField(totalRegulars)); }
   else if (mode === "infantry") { sorted.sort(byField(s => s.infantryStr)); }
   else if (mode === "cavalry") { sorted.sort(byField(s => s.cavalryStr)); }
   else if (mode === "artillery") { sorted.sort(byField(s => s.artilleryStr)); }
   else if (mode === "levies") { sorted.sort(byField(totalLevies)); }
+  else if (mode === "navyFrontage") { sorted.sort(byField(s => s.navyFrontage)); }
   else if (mode === "totalNavy") { sorted.sort(byField(totalNavy)); }
   else if (mode === "heavyShips") { sorted.sort(byField(s => s.heavyShips)); }
   else if (mode === "manpower") { sorted.sort(byField(s => s.maxManpower)); }
@@ -59,7 +61,7 @@ export const buildMilitaryEntries = (
   countryColors: Readonly<Record<string, readonly [number, number, number]>>,
 ): readonly MilitaryEntry[] =>
   Object.entries(countryStats)
-    .filter(([, s]) => totalRegulars(s) > 0 || totalLevies(s) > 0 || totalNavy(s) > 0 || s.maxManpower > 0)
+    .filter(([, s]) => s.armyFrontage > 0 || s.navyFrontage > 0 || totalRegulars(s) > 0 || totalLevies(s) > 0 || totalNavy(s) > 0 || s.maxManpower > 0)
     .map(([tag, stats]) => ({
       tag,
       name: countryNames[tag] ?? tag,
