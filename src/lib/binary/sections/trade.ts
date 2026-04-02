@@ -26,6 +26,8 @@ export interface MarketGood {
 
 export interface Market {
   readonly id: number;
+  readonly centerLocation: number;
+  readonly dialect: string;
   readonly population: number;
   readonly price: number;
   readonly food: number;
@@ -55,6 +57,8 @@ const TOTAL_PRODUCTION = 0x8d; // engine token
 const POPULATION = tokenId("population") ?? -1;
 const FOOD = tokenId("food") ?? -1;
 const CAPACITY = tokenId("capacity") ?? -1;
+const CENTER_LOCATION = 0x32; // engine token for center_location
+const DIALECT = tokenId("dialect") ?? -1;
 
 // =============================================================================
 // Helpers
@@ -159,7 +163,7 @@ const readMarketGoods = (r: TokenReader, data: Uint8Array): MarketGood[] => {
 
 /** Read a single market entry. */
 const readMarketEntry = (r: TokenReader, data: Uint8Array, id: number): Market => {
-  let population = 0, price = 0, food = 0, capacity = 0;
+  let centerLocation = 0, dialect = "", population = 0, price = 0, food = 0, capacity = 0;
   let goods: MarketGood[] = [];
   let d = 1;
   while (!r.done && d > 0) {
@@ -169,7 +173,9 @@ const readMarketEntry = (r: TokenReader, data: Uint8Array, id: number): Market =
     else if (ft === BinaryToken.EQUAL) { continue; }
     else if (isValueToken(ft)) { r.skipValuePayload(ft); continue; }
     if (d === 1 && r.peekToken() === BinaryToken.EQUAL) {
-      if (ft === POPULATION) { r.readToken(); population = readFixed5Val(r, data); }
+      if (ft === CENTER_LOCATION) { r.readToken(); centerLocation = readFixed5Val(r, data); }
+      else if (ft === DIALECT) { r.readToken(); const sv = r.readStringValue(); dialect = sv ?? ""; }
+      else if (ft === POPULATION) { r.readToken(); population = readFixed5Val(r, data); }
       else if (ft === PRICE) { r.readToken(); price = readFixed5Val(r, data); }
       else if (ft === FOOD) { r.readToken(); food = readFixed5Val(r, data); }
       else if (ft === CAPACITY) { r.readToken(); capacity = readFixed5Val(r, data); }
@@ -177,7 +183,7 @@ const readMarketEntry = (r: TokenReader, data: Uint8Array, id: number): Market =
       else { r.readToken(); r.skipValue(); }
     } else { /* bare */ }
   }
-  return { id, population, price, food, capacity, goods };
+  return { id, centerLocation, dialect, population, price, food, capacity, goods };
 };
 
 // =============================================================================

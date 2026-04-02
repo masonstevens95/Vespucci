@@ -43,7 +43,7 @@ const emptyParsedSave = (): ParsedSave => ({
   countryColors: {},
   overlordSubjects: {},
   countryNames: {},
-  countryStats: {}, wars: [], trade: { producedGoods: {}, markets: [] },
+  countryStats: {}, wars: [], trade: { producedGoods: {}, marketNames: {}, markets: [] },
 });
 
 /**
@@ -273,8 +273,19 @@ const parseGamestate = (data: Uint8Array, dynStrings: string[]): ParsedSave => {
     battles: w.battles,
   }));
 
-  // Read trade data
-  const trade = readTradeData(data, dynStrings);
+  // Read trade data and resolve market names from center_location
+  // The market center is typically one location after the capital city (capital=N, center=N+1)
+  const rawTrade = readTradeData(data, dynStrings);
+  const marketNames: Record<number, string> = {};
+  for (const m of rawTrade.markets) {
+    const capitalName = locationNames[m.centerLocation - 1] ?? "";
+    const centerName = locationNames[m.centerLocation] ?? "";
+    const name = capitalName !== "" ? capitalName : centerName;
+    if (name !== "") {
+      marketNames[m.id] = name.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+    }
+  }
+  const trade = { ...rawTrade, marketNames };
 
   return { countryLocations, tagToPlayers, countryColors, overlordSubjects, countryNames, countryStats, wars, trade };
 };

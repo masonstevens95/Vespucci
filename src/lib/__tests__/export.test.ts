@@ -232,7 +232,7 @@ describe("exportMapChartConfig", () => {
       tagToPlayers: { SWE: ["Alice"] },
       countryColors: { SWE: [0, 0, 255] as RGB },
       overlordSubjects: {},
-      countryNames: {}, countryStats: {}, wars: [], trade: { producedGoods: {}, markets: [] },
+      countryNames: {}, countryStats: {}, wars: [], trade: { producedGoods: {}, marketNames: {}, markets: [] },
     };
     const config = exportMapChartConfig(parsed, provinceMapping);
     const labels = Object.values(config.groups).map((g) => g.label);

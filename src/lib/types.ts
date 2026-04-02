@@ -78,8 +78,11 @@ export interface ParsedSave {
   wars: WarData[];
   trade: {
     readonly producedGoods: Readonly<Record<string, number>>;
+    readonly marketNames: Readonly<Record<number, string>>;
     readonly markets: readonly {
       readonly id: number;
+      readonly centerLocation: number;
+      readonly dialect: string;
       readonly population: number;
       readonly price: number;
       readonly food: number;

@@ -1246,7 +1246,7 @@
 }
 .trade-market-header {
   display: grid;
-  grid-template-columns: 1.5fr 1fr 1fr 1fr 1fr 1fr;
+  grid-template-columns: 1.5fr 0.8fr 1fr 1fr 1fr 1fr 1fr;
   gap: 0.5rem;
   font-size: 0.7rem;
   color: #666;
@@ -1257,13 +1257,29 @@
 }
 .trade-market-row {
   display: grid;
-  grid-template-columns: 1.5fr 1fr 1fr 1fr 1fr 1fr;
+  grid-template-columns: 1.5fr 0.8fr 1fr 1fr 1fr 1fr 1fr;
   gap: 0.5rem;
   font-size: 0.8rem;
   color: #ccc;
   padding: 0.25rem 0.4rem;
   background: #2a2a3e;
   border-radius: 3px;
+}
+.trade-sort-header {
+  cursor: pointer;
+  user-select: none;
+}
+.trade-sort-header:hover {
+  color: #aaa;
+}
+.trade-sort-active {
+  color: #48a;
+}
+.trade-surplus-pos {
+  color: #6c6;
+}
+.trade-surplus-neg {
+  color: #c66;
 }
 
 /* Subtab bar */
