@@ -61,8 +61,8 @@ export const CountryModal = ({ info, countryNames, onClose }: Props) => {
         <div className="modal-body">
           <div className="subtab-bar">
             {tabBtn("overview", "Overview")}
-            {tabBtn("economy", "Economy")}
             {tabBtn("government", "Government")}
+            {tabBtn("economy", "Economy")}
             {tabBtn("military", "Military")}
             {tabBtn("diplomacy", "Diplomacy")}
           </div>

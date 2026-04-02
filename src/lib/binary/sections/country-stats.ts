@@ -200,8 +200,8 @@ export const readCountryDatabase = (
           else if (ft === POLITICS_TOKENS.NUM_PROVINCES) { numProvOffset = fp; }
           else if (ft === POLITICS_TOKENS.LIBERTY_DESIRE) { libDesOffset = fp; }
           else if (ft === POLITICS_TOKENS.STABILITY_INVESTMENT) { stabInvOffset = fp; }
-          else if (ft === POLITICS_TOKENS.LEGITIMACY) { legitimacyOffset = fp; }
           else if (ft === POLITICS_TOKENS.LEGITIMACY_PCT) { legitimacyOffset = fp; }
+          else if (ft === POLITICS_TOKENS.LEGITIMACY && legitimacyOffset < 0) { legitimacyOffset = fp; }
           else if (ft === POLITICS_TOKENS.GREAT_POWER_SCORE) { gpScoreOffset = fp; }
           else if (ft === POLITICS_TOKENS.NUM_OF_ALLIES) { numAlliesOffset = fp; }
           else if (ft === POLITICS_TOKENS.ARMY_TRADITION) { armyTradOffset = fp; }
