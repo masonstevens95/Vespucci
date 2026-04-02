@@ -976,6 +976,82 @@
   background: #333;
   margin: 0.3rem 0;
 }
+.modal-section-label {
+  font-size: 0.75rem;
+  color: #666;
+  text-transform: uppercase;
+  font-weight: 700;
+  padding: 0.3rem 0.5rem 0;
+}
+.modal-institution-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  padding: 0.2rem 0.5rem;
+}
+.modal-institution-tag {
+  background: #161622;
+  border: 1px solid #333;
+  border-radius: 4px;
+  padding: 0.2rem 0.5rem;
+  font-size: 0.75rem;
+  color: #ccc;
+}
+.sv-axis {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 1rem 0.5rem 0.4rem;
+}
+.sv-label {
+  font-size: 0.8rem;
+  color: #888;
+  width: 6.5rem;
+  flex-shrink: 0;
+}
+.sv-left { text-align: right; }
+.sv-right { text-align: left; }
+.sv-bar-track {
+  flex: 1;
+  height: 8px;
+  background: #161622;
+  border-radius: 4px;
+  position: relative;
+}
+.sv-bar-center {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: #333;
+}
+.sv-bar-fill {
+  height: 100%;
+  background: #48a;
+  border-radius: 3px;
+  opacity: 0.3;
+}
+.sv-bar-marker {
+  position: absolute;
+  top: -10px;
+  width: 3px;
+  height: 22px;
+  background: #48a;
+  border-radius: 1px;
+  transform: translateX(-50%);
+}
+.sv-bar-value {
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #ccc;
+  white-space: nowrap;
+  margin-bottom: 1px;
+}
 .modal-stats-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);

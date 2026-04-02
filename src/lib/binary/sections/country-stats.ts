@@ -8,7 +8,7 @@
 
 import { TokenReader } from "../token-reader";
 import { BinaryToken, isValueToken } from "../tokens";
-import { IDENTITY_FIELDS, readIdentityAtOffsets, emptyIdentity } from "./country-identity";
+import { IDENTITY_FIELDS, readIdentityAtOffsets, readSocietalValues, emptyIdentity } from "./country-identity";
 import type { CountryIdentity } from "./country-identity";
 import { ECONOMY_TOKENS, readEconomyAtOffsets, emptyEconomyStats } from "./economy";
 import type { EconomyStats, EconomyOffsets } from "./economy";
@@ -28,6 +28,13 @@ const POLITICS_TOKENS = {
   STABILITY_INVESTMENT: tokenId("stability_investment") ?? -1,
   LEGITIMACY: tokenId("legitimacy") ?? -1,
   LEGITIMACY_PCT: tokenId("legitimacy_percentage") ?? -1,
+  REPUBLICAN_TRADITION: tokenId("republican_tradition") ?? -1,
+  HORDE_UNITY: tokenId("horde_unity") ?? -1,
+  DEVOTION: tokenId("devotion") ?? -1,
+  TRIBAL_COHESION: tokenId("tribal_cohesion") ?? -1,
+  GOVERNMENT_POWER: tokenId("government_power") ?? -1,
+  MILITARY_TACTICS: tokenId("military_tactics") ?? -1,
+  DIPLOMATIC_CAPACITY: tokenId("diplomatic_capacity") ?? -1,
   GREAT_POWER_SCORE: tokenId("great_power_score") ?? -1,
   NUM_OF_ALLIES: tokenId("num_of_allies") ?? -1,
   ARMY_TRADITION: tokenId("army_tradition") ?? -1,
@@ -47,6 +54,13 @@ export interface PoliticsStats {
   readonly libertyDesire: number;
   readonly stabilityInvestment: number;
   readonly legitimacy: number;
+  readonly republicanTradition: number;
+  readonly hordeUnity: number;
+  readonly devotion: number;
+  readonly tribalCohesion: number;
+  readonly governmentPower: number;
+  readonly militaryTactics: number;
+  readonly diplomaticCapacity: number;
   readonly greatPowerScore: number;
   readonly numAllies: number;
   readonly armyTradition: number;
@@ -60,6 +74,8 @@ export interface PoliticsStats {
 export const emptyPoliticsStats = (): PoliticsStats => ({
   diplomaticReputation: 0, warExhaustion: 0, powerProjection: 0,
   totalDevelopment: 0, numProvinces: 0, libertyDesire: 0, stabilityInvestment: 0, legitimacy: 0,
+  republicanTradition: 0, hordeUnity: 0, devotion: 0, tribalCohesion: 0,
+  governmentPower: 0, militaryTactics: 0, diplomaticCapacity: 0,
   greatPowerScore: 0, numAllies: 0, armyTradition: 0, navyTradition: 0,
   monthlyGoldIncome: 0, monthlyGoldExpense: 0, monthlyPrestige: 0, prestigeDecay: 0,
 });
@@ -126,6 +142,8 @@ export const readCountryDatabase = (
       let nameOffset = -1;
       let levelOffset = -1;
       let govOffset = -1;
+      let institutionsOffset = -1;
+      let svOffset = -1;
       let courtLangOffset = -1;
       let cultureOffset = -1;
       let religionOffset = -1;
@@ -148,6 +166,13 @@ export const readCountryDatabase = (
       let libDesOffset = -1;
       let stabInvOffset = -1;
       let legitimacyOffset = -1;
+      let repTradOffset = -1;
+      let hordeUnityOffset = -1;
+      let devotionOffset = -1;
+      let tribalCohesionOffset = -1;
+      let govPowerOffset = -1;
+      let milTacticsOffset = -1;
+      let dipCapOffset = -1;
       let gpScoreOffset = -1;
       let numAlliesOffset = -1;
       let armyTradOffset = -1;
@@ -181,6 +206,8 @@ export const readCountryDatabase = (
           if (ft === IDENTITY_FIELDS.COUNTRY_NAME) { nameOffset = fp; }
           else if (ft === IDENTITY_FIELDS.LEVEL) { levelOffset = fp; }
           else if (ft === IDENTITY_FIELDS.GOVERNMENT) { govOffset = fp; }
+          else if (ft === IDENTITY_FIELDS.INSTITUTIONS) { institutionsOffset = fp; }
+          else if (ft === IDENTITY_FIELDS.SOCIETAL_VALUES || ft === IDENTITY_FIELDS.SOCIETAL_VALUE || ft === IDENTITY_FIELDS.SOCIETAL_VALUE_PROGRESS) { svOffset = fp; }
           else if (ft === IDENTITY_FIELDS.COURT_LANG) { courtLangOffset = fp; }
           else if (ft === IDENTITY_FIELDS.PRIMARY_CULTURE) { cultureOffset = fp; }
           else if (ft === IDENTITY_FIELDS.RELIGION) { religionOffset = fp; }
@@ -202,6 +229,13 @@ export const readCountryDatabase = (
           else if (ft === POLITICS_TOKENS.STABILITY_INVESTMENT) { stabInvOffset = fp; }
           else if (ft === POLITICS_TOKENS.LEGITIMACY_PCT) { legitimacyOffset = fp; }
           else if (ft === POLITICS_TOKENS.LEGITIMACY && legitimacyOffset < 0) { legitimacyOffset = fp; }
+          else if (ft === POLITICS_TOKENS.REPUBLICAN_TRADITION) { repTradOffset = fp; }
+          else if (ft === POLITICS_TOKENS.HORDE_UNITY) { hordeUnityOffset = fp; }
+          else if (ft === POLITICS_TOKENS.DEVOTION) { devotionOffset = fp; }
+          else if (ft === POLITICS_TOKENS.TRIBAL_COHESION) { tribalCohesionOffset = fp; }
+          else if (ft === POLITICS_TOKENS.GOVERNMENT_POWER) { govPowerOffset = fp; }
+          else if (ft === POLITICS_TOKENS.MILITARY_TACTICS) { milTacticsOffset = fp; }
+          else if (ft === POLITICS_TOKENS.DIPLOMATIC_CAPACITY) { dipCapOffset = fp; }
           else if (ft === POLITICS_TOKENS.GREAT_POWER_SCORE) { gpScoreOffset = fp; }
           else if (ft === POLITICS_TOKENS.NUM_OF_ALLIES) { numAlliesOffset = fp; }
           else if (ft === POLITICS_TOKENS.ARMY_TRADITION) { armyTradOffset = fp; }
@@ -226,8 +260,8 @@ export const readCountryDatabase = (
       }
 
       // Pass 2: read values using domain-specific readers
-      const identity = readIdentityAtOffsets(r, tag, {
-        nameOffset, levelOffset, govOffset, courtLangOffset, cultureOffset, religionOffset, scoreOffset, gpRankOffset,
+      const identity = readIdentityAtOffsets(r, data, tag, {
+        nameOffset, levelOffset, govOffset, institutionsOffset, societalValuesOffset: svOffset, courtLangOffset, cultureOffset, religionOffset, scoreOffset, gpRankOffset,
       });
 
       const econOffsets: EconomyOffsets = {
@@ -250,6 +284,13 @@ export const readCountryDatabase = (
         libertyDesire: readFixed5AtOffset(r, data, libDesOffset),
         stabilityInvestment: readFixed5AtOffset(r, data, stabInvOffset),
         legitimacy: readFixed5AtOffset(r, data, legitimacyOffset),
+        republicanTradition: readFixed5AtOffset(r, data, repTradOffset),
+        hordeUnity: readFixed5AtOffset(r, data, hordeUnityOffset),
+        devotion: readFixed5AtOffset(r, data, devotionOffset),
+        tribalCohesion: readFixed5AtOffset(r, data, tribalCohesionOffset),
+        governmentPower: readFixed5AtOffset(r, data, govPowerOffset),
+        militaryTactics: readFixed5AtOffset(r, data, milTacticsOffset),
+        diplomaticCapacity: readFixed5AtOffset(r, data, dipCapOffset),
         greatPowerScore: readFixed5AtOffset(r, data, gpScoreOffset),
         numAllies: readFixed5AtOffset(r, data, numAlliesOffset),
         armyTradition: readFixed5AtOffset(r, data, armyTradOffset),
@@ -260,7 +301,54 @@ export const readCountryDatabase = (
         prestigeDecay: readFixed5AtOffset(r, data, prestDecayOffset),
       };
 
-      result[tag] = { identity, economy, military, politics };
+      // Pass 3: rescan for societal_values + institutions if not found via offset
+      // These blocks have LOOKUP keys that can confuse the offset scan
+      let finalIdentity = identity;
+      if (identity.societalValues.centralization === 0 && identity.institutions.length === 0) {
+        r.pos = entryStart;
+        let d3 = 1;
+        while (r.pos < entryEnd && d3 > 0) {
+          const ft3 = r.readToken();
+          if (ft3 === BinaryToken.CLOSE) { d3--; continue; }
+          else if (ft3 === BinaryToken.OPEN) { d3++; continue; }
+          else if (ft3 === BinaryToken.EQUAL) { continue; }
+          else if (isValueToken(ft3)) { r.skipValuePayload(ft3); continue; }
+          if (d3 === 1 && r.peekToken() === BinaryToken.EQUAL) {
+            if ((ft3 === IDENTITY_FIELDS.SOCIETAL_VALUES || ft3 === IDENTITY_FIELDS.SOCIETAL_VALUE || ft3 === IDENTITY_FIELDS.SOCIETAL_VALUE_PROGRESS) && finalIdentity.societalValues.centralization === 0) {
+              r.readToken();
+              if (r.expectOpen()) {
+                finalIdentity = { ...finalIdentity, societalValues: readSocietalValues(r, data) };
+              } else { r.skipValue(); }
+            } else if (ft3 === IDENTITY_FIELDS.INSTITUTIONS && finalIdentity.institutions.length === 0) {
+              r.readToken();
+              if (r.expectOpen()) {
+                // Read institution names from LOOKUP = yes pairs
+                const inst: string[] = [];
+                let id2 = 1;
+                while (!r.done && id2 > 0) {
+                  const pk = r.peekToken();
+                  if (pk === BinaryToken.CLOSE) { r.readToken(); id2--; }
+                  else if (pk === BinaryToken.OPEN) { r.readToken(); id2++; }
+                  else if (pk === BinaryToken.EQUAL) { r.readToken(); }
+                  else {
+                    const nm = r.readStringValue();
+                    if (nm !== null) {
+                      if (r.peekToken() === BinaryToken.EQUAL) { r.readToken(); r.skipValue(); }
+                      if (nm !== "") { inst.push(nm); }
+                    } else if (isValueToken(pk)) { r.readToken(); r.skipValuePayload(pk); }
+                    else { r.readToken(); }
+                  }
+                }
+                finalIdentity = { ...finalIdentity, institutions: inst };
+              } else { r.skipValue(); }
+            } else {
+              r.readToken(); r.skipValue();
+            }
+          }
+        }
+      }
+
+      result[tag] = { identity: finalIdentity, economy, military, politics };
       r.pos = entryEnd;
     } else {
       r.readToken();

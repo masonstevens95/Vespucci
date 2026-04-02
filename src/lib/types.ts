@@ -41,6 +41,17 @@ export interface CountryEconomyStats {
   readonly legitimacy: number;
   readonly inflation: number;
   readonly stabilityInvestment: number;
+  // Government
+  readonly republicanTradition: number;
+  readonly hordeUnity: number;
+  readonly devotion: number;
+  readonly tribalCohesion: number;
+  readonly governmentPower: number;
+  readonly karma: number;
+  readonly religiousInfluence: number;
+  readonly purity: number;
+  readonly righteousness: number;
+  readonly diplomaticCapacity: number;
   // Diplomacy / politics
   readonly diplomaticReputation: number;
   readonly warExhaustion: number;
@@ -48,6 +59,8 @@ export interface CountryEconomyStats {
   readonly libertyDesire: number;
   readonly greatPowerScore: number;
   readonly numAllies: number;
+  // Military — tactics
+  readonly militaryTactics: number;
   // Military — traditions
   readonly armyTradition: number;
   readonly navyTradition: number;
@@ -59,6 +72,27 @@ export interface CountryEconomyStats {
   // Territory
   readonly totalDevelopment: number;
   readonly numProvinces: number;
+  // Institutions (list of institution definition names)
+  readonly institutions: readonly string[];
+  // Societal values (0-100 scale each)
+  readonly societalValues: {
+    readonly centralization: number;
+    readonly innovative: number;
+    readonly humanist: number;
+    readonly plutocracy: number;
+    readonly freeSubjects: number;
+    readonly freeTrade: number;
+    readonly conciliatory: number;
+    readonly quantity: number;
+    readonly defensive: number;
+    readonly naval: number;
+    readonly traditionalEconomy: number;
+    readonly communalism: number;
+    readonly inward: number;
+    readonly liberalism: number;
+    readonly jurisprudence: number;
+    readonly unsinicized: number;
+  };
   // Identity
   readonly courtLanguage: string;
   readonly govType: string;

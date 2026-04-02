@@ -20,6 +20,15 @@ export interface EconomyStats {
   readonly sailors: number;
   readonly stability: number;
   readonly prestige: number;
+  readonly legitimacy: number;
+  readonly armyTradition: number;
+  readonly navyTradition: number;
+  readonly governmentPower: number;
+  readonly warExhaustion: number;
+  readonly karma: number;
+  readonly religiousInfluence: number;
+  readonly purity: number;
+  readonly righteousness: number;
   readonly inflation: number;
   readonly monthlyIncome: number;
   readonly monthlyTradeValue: number;
@@ -38,6 +47,15 @@ export const ECONOMY_TOKENS = {
   SAILORS: tokenId("sailors") ?? -1,
   STABILITY: tokenId("stability") ?? -1,
   PRESTIGE: tokenId("prestige") ?? -1,
+  COMPLACENCY: tokenId("complacency") ?? -1, // internal name for legitimacy
+  ARMY_TRADITION: tokenId("army_tradition") ?? -1,
+  NAVY_TRADITION: tokenId("navy_tradition") ?? -1,
+  GOVERNMENT_POWER: tokenId("government_power") ?? -1,
+  WAR_EXHAUSTION: tokenId("war_exhaustion") ?? -1,
+  KARMA: tokenId("karma") ?? -1,
+  RELIGIOUS_INFLUENCE: tokenId("religious_influence") ?? -1,
+  PURITY: tokenId("purity") ?? -1,
+  RIGHTEOUSNESS: tokenId("righteousness") ?? -1,
   INFLATION: tokenId("inflation") ?? -1,
   EST_MONTHLY_INCOME: tokenId("estimated_monthly_income") ?? -1,
   MONTHLY_TRADE_VALUE: tokenId("monthly_trade_value") ?? -1,
@@ -50,7 +68,9 @@ export const ECONOMY_TOKENS = {
 // =============================================================================
 
 export const emptyEconomyStats = (): EconomyStats => ({
-  gold: 0, manpower: 0, sailors: 0, stability: 0, prestige: 0, inflation: 0,
+  gold: 0, manpower: 0, sailors: 0, stability: 0, prestige: 0, legitimacy: 0,
+  armyTradition: 0, navyTradition: 0, governmentPower: 0, warExhaustion: 0,
+  karma: 0, religiousInfluence: 0, purity: 0, righteousness: 0, inflation: 0,
   monthlyIncome: 0, monthlyTradeValue: 0, monthlyTaxIncome: 0, population: 0,
 });
 
@@ -81,13 +101,10 @@ export const emptyEconomyOffsets = (): EconomyOffsets => ({
 export const readCurrencyData = (
   r: TokenReader,
   data: Uint8Array,
-): Pick<EconomyStats, "gold" | "manpower" | "sailors" | "stability" | "prestige" | "inflation"> => {
-  let gold = 0;
-  let manpower = 0;
-  let sailors = 0;
-  let stability = 0;
-  let prestige = 0;
-  let inflation = 0;
+): Pick<EconomyStats, "gold" | "manpower" | "sailors" | "stability" | "prestige" | "legitimacy" | "armyTradition" | "navyTradition" | "governmentPower" | "warExhaustion" | "karma" | "religiousInfluence" | "purity" | "righteousness" | "inflation"> => {
+  let gold = 0, manpower = 0, sailors = 0, stability = 0, prestige = 0, legitimacy = 0;
+  let armyTradition = 0, navyTradition = 0, governmentPower = 0, warExhaustion = 0;
+  let karma = 0, religiousInfluence = 0, purity = 0, righteousness = 0, inflation = 0;
 
   let depth = 1;
   while (!r.done && depth > 0) {
@@ -106,6 +123,7 @@ export const readCurrencyData = (
       const fieldTok = tok;
       r.readToken(); // =
       const valTok = r.peekToken();
+
       if (isFixed5(valTok)) {
         r.readToken();
         const size = valuePayloadSize(valTok, data, r.pos);
@@ -118,6 +136,15 @@ export const readCurrencyData = (
         else if (fieldTok === ECONOMY_TOKENS.STABILITY) { stability = val; }
         else if (fieldTok === ECONOMY_TOKENS.PRESTIGE) { prestige = val; }
         else if (fieldTok === ECONOMY_TOKENS.INFLATION) { inflation = val; }
+        else if (fieldTok === ECONOMY_TOKENS.COMPLACENCY) { legitimacy = val; }
+        else if (fieldTok === ECONOMY_TOKENS.ARMY_TRADITION) { armyTradition = val; }
+        else if (fieldTok === ECONOMY_TOKENS.NAVY_TRADITION) { navyTradition = val; }
+        else if (fieldTok === ECONOMY_TOKENS.GOVERNMENT_POWER) { governmentPower = val; }
+        else if (fieldTok === ECONOMY_TOKENS.WAR_EXHAUSTION) { warExhaustion = val; }
+        else if (fieldTok === ECONOMY_TOKENS.KARMA) { karma = val; }
+        else if (fieldTok === ECONOMY_TOKENS.RELIGIOUS_INFLUENCE) { religiousInfluence = val; }
+        else if (fieldTok === ECONOMY_TOKENS.PURITY) { purity = val; }
+        else if (fieldTok === ECONOMY_TOKENS.RIGHTEOUSNESS) { righteousness = val; }
         else { /* other currency field — skip */ }
       } else {
         r.skipValue();
@@ -127,7 +154,9 @@ export const readCurrencyData = (
     }
   }
 
-  return { gold, manpower, sailors, stability, prestige, inflation };
+  return { gold, manpower, sailors, stability, prestige, legitimacy,
+    armyTradition, navyTradition, governmentPower, warExhaustion,
+    karma, religiousInfluence, purity, righteousness, inflation };
 };
 
 // =============================================================================
