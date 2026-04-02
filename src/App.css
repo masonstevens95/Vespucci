@@ -1268,6 +1268,10 @@
   text-transform: uppercase;
   padding: 0.3rem 0.4rem;
   border-bottom: 1px solid #333;
+  position: sticky;
+  top: 0;
+  background: #1e1e2e;
+  z-index: 1;
 }
 .trade-market-row {
   display: grid;
@@ -1282,9 +1286,13 @@
 .trade-sort-header {
   cursor: pointer;
   user-select: none;
+  display: block;
+  padding: 0.15rem 0.2rem;
+  border-radius: 3px;
 }
 .trade-sort-header:hover {
-  color: #aaa;
+  color: #ccc;
+  background: #2a2a3e;
 }
 .trade-sort-active {
   color: #48a;

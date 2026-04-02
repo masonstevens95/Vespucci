@@ -422,15 +422,26 @@ describe("GoodModal", () => {
     expect(rows[0].textContent).toContain("Venice");
   });
 
-  it("clicking Price sort header makes it active (shows ▾)", () => {
+  it("clicking Price sort header reorders rows by price descending", () => {
+    const sortMarkets: MarketType[] = [
+      mkMarket(1, { goods: [mkGood("goods_grain", { supply: 200, price: 1.0 })] }),
+      mkMarket(2, { goods: [mkGood("goods_grain", { supply: 100, price: 5.0 })] }),
+    ];
     const { container } = render(
-      <GoodModal goodName="goods_grain" markets={markets} marketNames={marketNames} onClose={() => {}} />
+      <GoodModal goodName="goods_grain" markets={sortMarkets} marketNames={marketNames} onClose={() => {}} />
     );
+    // Default supply desc → Venice (supply 200) first
+    expect(container.querySelectorAll(".trade-market-row")[0].textContent).toContain("Venice");
+
+    // Click Price header
     const priceHeader = Array.from(container.querySelectorAll(".trade-sort-header")).find(
       el => el.textContent?.startsWith("Price")
     )!;
     fireEvent.click(priceHeader);
-    expect(priceHeader.textContent).toContain("▾");
+
+    // Re-query: price desc → London (price 5.0) should be first
+    const rowsAfter = container.querySelectorAll(".trade-market-row");
+    expect(rowsAfter[0].textContent).toContain("London");
   });
 
   it("close button click fires onClose", () => {
@@ -557,15 +568,29 @@ describe("MarketModal", () => {
     expect(rows[0].textContent).toContain("Grain");
   });
 
-  it("clicking Price sort header makes Price active (shows ▾)", () => {
+  it("clicking Price sort header reorders rows by price descending", () => {
+    const sortableMarket: MarketType = mkMarket(1, {
+      dialect: "",
+      goods: [
+        mkGood("goods_grain", { supply: 200, price: 1.0 }),
+        mkGood("goods_wine", { supply: 100, price: 5.0 }),
+      ],
+    });
     const { container } = render(
-      <MarketModal market={market} marketNames={marketNames} onClose={() => {}} />
+      <MarketModal market={sortableMarket} marketNames={marketNames} onClose={() => {}} />
     );
+    // Default supply desc → Grain (supply 200) first
+    expect(container.querySelectorAll(".trade-market-row")[0].textContent).toContain("Grain");
+
+    // Click Price header
     const priceHeader = Array.from(container.querySelectorAll(".trade-sort-header")).find(
       el => el.textContent?.startsWith("Price")
     )!;
     fireEvent.click(priceHeader);
-    expect(priceHeader.textContent).toContain("▾");
+
+    // Re-query: price desc → Wine (price 5.0) should be first
+    const rowsAfter = container.querySelectorAll(".trade-market-row");
+    expect(rowsAfter[0].textContent).toContain("Wine");
   });
 
   it("does NOT show · separator when dialect is empty", () => {
