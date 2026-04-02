@@ -111,7 +111,7 @@ const readProducedGoods = (r: TokenReader, data: Uint8Array): Record<string, num
 
 /** Read a single good entry inside a market's goods block. */
 const readMarketGood = (r: TokenReader, data: Uint8Array, name: string): MarketGood => {
-  let price = 0, supply = 0, demand = 0, surplus = 0, stockpile = 0, totalProduction = 0;
+  let price = 0, supply = 0, demand = 0, stockpile = 0, totalProduction = 0;
   let d = 1;
   while (!r.done && d > 0) {
     const ft = r.readToken();
@@ -123,13 +123,13 @@ const readMarketGood = (r: TokenReader, data: Uint8Array, name: string): MarketG
       if (ft === PRICE) { r.readToken(); price = readFixed5Val(r, data); }
       else if (ft === SUPPLY) { r.readToken(); supply = readFixed5Val(r, data); }
       else if (ft === DEMAND) { r.readToken(); demand = readFixed5Val(r, data); }
-      else if (ft === SURPLUS) { r.readToken(); surplus = readFixed5Val(r, data); }
+      else if (ft === SURPLUS) { r.readToken(); readFixed5Val(r, data); /* skip — we compute supply-demand instead */ }
       else if (ft === STOCKPILE) { r.readToken(); stockpile = readFixed5Val(r, data); }
       else if (ft === TOTAL_PRODUCTION) { r.readToken(); totalProduction = readFixed5Val(r, data); }
       else { r.readToken(); r.skipValue(); }
     } else { /* bare */ }
   }
-  return { name, price, supply, demand, surplus, stockpile, totalProduction };
+  return { name, price, supply, demand, surplus: supply - demand, stockpile, totalProduction };
 };
 
 /** Read goods = { "name" { ... } "name" { ... } } inside a market entry. */

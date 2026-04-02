@@ -131,6 +131,20 @@
   color: #e0e0e0;
   font-size: 0.9rem;
 }
+.sort-dir-btn {
+  background: #1e1e2e;
+  border: 1px solid #333;
+  border-radius: 4px;
+  padding: 0.3rem 0.5rem;
+  color: #aaa;
+  font-size: 0.9rem;
+  cursor: pointer;
+  line-height: 1;
+}
+.sort-dir-btn:hover {
+  color: #fff;
+  border-color: #555;
+}
 
 /* Drop zone */
 .drop-zone {
@@ -1254,6 +1268,10 @@
   text-transform: uppercase;
   padding: 0.3rem 0.4rem;
   border-bottom: 1px solid #333;
+  position: sticky;
+  top: 0;
+  background: #1e1e2e;
+  z-index: 1;
 }
 .trade-market-row {
   display: grid;
@@ -1268,9 +1286,13 @@
 .trade-sort-header {
   cursor: pointer;
   user-select: none;
+  display: block;
+  padding: 0.15rem 0.2rem;
+  border-radius: 3px;
 }
 .trade-sort-header:hover {
-  color: #aaa;
+  color: #ccc;
+  background: #2a2a3e;
 }
 .trade-sort-active {
   color: #48a;

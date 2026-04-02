@@ -29,7 +29,7 @@ const mockParsed: ParsedSave = {
     TIM: mkStats({ score: 10, population: 300000, monthlyIncome: 50000 }),
   },
   wars: [],
-  trade: { producedGoods: {}, marketNames: {}, markets: [] },
+  trade: { producedGoods: {}, marketNames: {}, marketOwners: {}, markets: [] },
 };
 
 describe("RankingsTab", () => {

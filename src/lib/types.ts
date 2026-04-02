@@ -79,6 +79,7 @@ export interface ParsedSave {
   trade: {
     readonly producedGoods: Readonly<Record<string, number>>;
     readonly marketNames: Readonly<Record<number, string>>;
+    readonly marketOwners: Readonly<Record<number, string>>;
     readonly markets: readonly {
       readonly id: number;
       readonly centerLocation: number;

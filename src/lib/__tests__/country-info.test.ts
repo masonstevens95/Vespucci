@@ -57,7 +57,7 @@ describe("buildCountryInfo", () => {
       countryColors: { GBR: [255, 0, 0] as [number, number, number] },
       overlordSubjects: { GBR: new Set(["SCO"]) },
       countryNames: { GBR: "Kingdom of Great Britain" },
-      countryStats: {}, wars: [], trade: { producedGoods: {}, marketNames: {}, markets: [] },
+      countryStats: {}, wars: [], trade: { producedGoods: {}, marketNames: {}, marketOwners: {}, markets: [] },
     };
     const info = buildCountryInfo("GBR", parsed, 10);
     expect(info.tag).toBe("GBR");
@@ -75,7 +75,7 @@ describe("buildCountryInfo", () => {
       tagToPlayers: {},
       countryColors: {},
       overlordSubjects: {},
-      countryNames: {}, countryStats: {}, wars: [], trade: { producedGoods: {}, marketNames: {}, markets: [] },
+      countryNames: {}, countryStats: {}, wars: [], trade: { producedGoods: {}, marketNames: {}, marketOwners: {}, markets: [] },
     };
     const info = buildCountryInfo("FRA", parsed, 5);
     expect(info.displayName).toBe("FRA");
@@ -88,7 +88,7 @@ describe("buildCountryInfo", () => {
       tagToPlayers: {},
       countryColors: {},
       overlordSubjects: { GBR: new Set(["SCO"]) },
-      countryNames: {}, countryStats: {}, wars: [], trade: { producedGoods: {}, marketNames: {}, markets: [] },
+      countryNames: {}, countryStats: {}, wars: [], trade: { producedGoods: {}, marketNames: {}, marketOwners: {}, markets: [] },
     };
     const info = buildCountryInfo("SCO", parsed, 3);
     expect(info.overlord).toBe("GBR");

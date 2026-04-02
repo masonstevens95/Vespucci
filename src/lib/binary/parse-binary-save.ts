@@ -43,7 +43,7 @@ const emptyParsedSave = (): ParsedSave => ({
   countryColors: {},
   overlordSubjects: {},
   countryNames: {},
-  countryStats: {}, wars: [], trade: { producedGoods: {}, marketNames: {}, markets: [] },
+  countryStats: {}, wars: [], trade: { producedGoods: {}, marketNames: {}, marketOwners: {}, markets: [] },
 });
 
 /**
@@ -285,7 +285,15 @@ const parseGamestate = (data: Uint8Array, dynStrings: string[]): ParsedSave => {
       marketNames[m.id] = name.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
     }
   }
-  const trade = { ...rawTrade, marketNames };
+  const marketOwners: Record<number, string> = {};
+  for (const m of rawTrade.markets) {
+    // Try the center location itself, then one before (capital city pattern)
+    const owner = locationOwners[m.centerLocation] ?? locationOwners[m.centerLocation - 1] ?? "";
+    if (owner !== "") {
+      marketOwners[m.id] = owner;
+    }
+  }
+  const trade = { ...rawTrade, marketNames, marketOwners };
 
   return { countryLocations, tagToPlayers, countryColors, overlordSubjects, countryNames, countryStats, wars, trade };
 };
