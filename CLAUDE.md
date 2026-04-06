@@ -90,6 +90,24 @@ File Upload (.eu5 or .txt)
 - `npm run test` — Vitest watch mode
 - `npm run test:coverage` — Coverage report
 
+## Diagnostics
+
+Standalone Node.js scripts for binary parser debugging live in `diagnostics/` (gitignored).
+They load a save file directly from the project root (e.g. `MP_BOH_1644.eu5`) without needing the browser.
+Run with: `node diagnostics/<script>.mjs`
+
+Each script unzips the save, reads `gamestate` + `string_lookup`, and probes specific structures.
+When debugging binary parsing issues, place new diagnostic scripts here rather than in the project root.
+
+Past scripts (RGO / raw_material investigation):
+- `diag-rgo.mjs` — Path-trace from countries section to raw_material; found depth explosion from 0x0D4A misclassification
+- `diag-rgo2.mjs` — Scanned context around first raw_material occurrences near locations section
+- `diag-rgo3.mjs` — Targeted walk to 40017059 treating 0x0D4A as FIXED5(3-byte); confirmed it's a value type
+- `diag-rgo4.mjs` — Multi-part: locations section scan, block at 40M with correct FIXED5 treatment, revealed LOOKUP_U16 pattern
+- `diag-rgo5.mjs` — Found 497 raw_material hits in 170M-175M; revealed `raw_material = LOOKUP_U16(idx)` and 0x0D3E pattern
+- `diag-rgo6.mjs` — Full location entry structure dump; scanned for employment/counters tokens; confirmed LOOKUP structure
+- `diag-verify.mjs` — Final verification: reads dynStrings, confirms 769/1000 locations return real goods names
+
 ## Branches
 
 - **main** — Stable, deployed

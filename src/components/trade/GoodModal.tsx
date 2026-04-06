@@ -13,6 +13,9 @@ import {
 } from "../../lib/trade-helpers";
 import { topProducersForGood } from "../../lib/rgo-helpers";
 import { resolveDisplayName } from "../../lib/country-info";
+import { createLogger } from "../../lib/logger";
+
+const log = createLogger("GoodModal");
 import { SortHeader } from "./SortHeader";
 
 interface Props {
@@ -56,6 +59,10 @@ export const GoodModal = ({ goodName, markets, marketNames, countryProduction, c
 
   const allGoods = collectGoodEntries(goodName, markets);
   const producers = topProducersForGood(goodName, countryProduction, 5);
+  log.info(
+    `good=${goodName} countryProduction entries:${Object.keys(countryProduction).length} ` +
+    `producers found:${producers.length}`,
+  );
   const sorted = sortGoods(allGoods, detailSort, detailDir);
 
   const totalSupply = allGoods.reduce((s, g) => s + g.supply, 0);

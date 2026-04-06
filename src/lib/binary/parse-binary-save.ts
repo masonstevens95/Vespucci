@@ -37,6 +37,9 @@ import { BinaryToken } from "./tokens";
 import { buildDisplayName } from "../country-names";
 import type { ParsedSave, RGB, RgoData } from "../types";
 import { buildCountryProduction } from "../rgo-helpers";
+import { createLogger } from "../logger";
+
+const log = createLogger("parseBinarySave");
 
 // ---------------------------------------------------------------------------
 // Pure helpers
@@ -275,6 +278,13 @@ const parseGamestate = (data: Uint8Array, dynStrings: string[]): ParsedSave => {
 
   const countryLocations = buildCountryLocations(locationOwners, locationNames);
   const countryProduction = buildCountryProduction(locationRgos, locationOwners);
+
+  const productionGoodCount = Object.values(countryProduction)
+    .reduce((n, goods) => n + Object.keys(goods).length, 0);
+  log.info(
+    `countryProduction — ${Object.keys(countryProduction).length} countries, ` +
+    `${productionGoodCount} total good entries`,
+  );
 
   // Read actual forces from unit_manager + subunit_manager
   const forces = readCountryForces(data, dynStrings, countryTags);

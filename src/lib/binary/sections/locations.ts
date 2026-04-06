@@ -3,7 +3,10 @@ import { BinaryToken, isValueToken, valuePayloadSize } from "../tokens";
 import { T } from "../game-tokens";
 import { tokenId } from "../token-names";
 import { isFixed5, readFixed5 } from "./fixed5";
+import { createLogger } from "../../logger";
 import type { RgoData } from "../../types";
+
+const log = createLogger("locations");
 
 // ---------------------------------------------------------------------------
 // RGO token IDs
@@ -169,14 +172,24 @@ export const readLocationEntry = (
         } else {
           /* unknown or missing owner */
         }
+      } else if (tok === RAW_MATERIAL) {
+        // raw_material = LOOKUP_U16(dynStrings_index) → goods name string
+        r.expectEqual();
+        const good = r.readStringValue() ?? "";
+        if (good !== "") {
+          locationRgos[locId] = { good, size: 1, employment: 0, maxSize: 0, method: "", outputScale: 0 };
+        } else {
+          /* none or empty — location has no resource */
+        }
       } else if (tok === RGO_TOKEN) {
+        // Legacy: rgo = { raw_material = ... } sub-block (older save format)
         r.expectEqual();
         r.expectOpen();
         const rgo = readRgoBlock(r, data);
         if (rgo.good !== "") {
           locationRgos[locId] = rgo;
         } else {
-          /* rgo block present but no raw_material — skip */
+          /* rgo block found but no raw_material */
         }
       } else {
         skipUnknownField(r);
@@ -248,9 +261,14 @@ export const readLocationOwnership = (
       r.expectEqual();
       r.expectOpen();
       readLocationEntries(r, data, countryTags, locationOwners, locationRgos);
+      log.info(
+        `done — locationOwners:${Object.keys(locationOwners).length} ` +
+        `locationRgos:${Object.keys(locationRgos).length}`,
+      );
       return;
     } else {
       skipUnknownField(r);
     }
   }
+  log.warn("inner 'locations' block not found — no ownership or RGO data read");
 };
