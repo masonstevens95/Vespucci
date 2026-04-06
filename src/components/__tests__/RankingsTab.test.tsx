@@ -25,7 +25,7 @@ const mkStats = (overrides: Partial<CountryEconomyStats> = {}): CountryEconomySt
   totalDevelopment: 0, numProvinces: 0,
   institutions: [],
   societalValues: { centralization: 0, innovative: 0, humanist: 0, plutocracy: 0, freeSubjects: 0, freeTrade: 0, conciliatory: 0, quantity: 0, defensive: 0, naval: 0, traditionalEconomy: 0, communalism: 0, inward: 0, liberalism: 0, jurisprudence: 0, unsinicized: 0 },
-  courtLanguage: "", govType: "", primaryCulture: "", religion: "", score: 0, ...overrides,
+  courtLanguage: "", govType: "", primaryCulture: "", religion: "", score: 0, estates: [], ...overrides,
 });
 
 const mockParsed: ParsedSave = {
@@ -39,7 +39,7 @@ const mockParsed: ParsedSave = {
     FRA: mkStats({ score: 1, population: 800000, monthlyIncome: 200000 }),
     TIM: mkStats({ score: 10, population: 300000, monthlyIncome: 50000 }),
   },
-  wars: [],
+  wars: [], pastWars: [], warReparations: [], annulledTreaties: [], royalMarriages: [], activeCBs: [],
   trade: { producedGoods: {}, marketNames: {}, marketOwners: {}, markets: [] },
 };
 

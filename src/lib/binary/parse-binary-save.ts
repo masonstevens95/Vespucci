@@ -22,6 +22,7 @@ import { readPlayedCountry } from "./sections/players";
 import { findDependencies } from "./sections/dependencies";
 import { readCountryDatabase } from "./sections/country-stats";
 import { readWars } from "./sections/wars";
+import { readPastWarsFromDiplomacy, readDiplomacyAgreements } from "./sections/past-wars";
 import { readTradeData } from "./sections/trade";
 import type { CountryData } from "./sections/country-stats";
 import { readCountryForces } from "./sections/units";
@@ -43,7 +44,7 @@ const emptyParsedSave = (): ParsedSave => ({
   countryColors: {},
   overlordSubjects: {},
   countryNames: {},
-  countryStats: {}, wars: [], trade: { producedGoods: {}, marketNames: {}, marketOwners: {}, markets: [] },
+  countryStats: {}, wars: [], pastWars: [], warReparations: [], annulledTreaties: [], royalMarriages: [], activeCBs: [], trade: { producedGoods: {}, marketNames: {}, marketOwners: {}, markets: [] },
 });
 
 /**
@@ -203,6 +204,14 @@ const parseGamestate = (data: Uint8Array, dynStrings: string[]): ParsedSave => {
     // diplomacy section not found — subjectIds will be empty
   }
 
+  // Read past wars and agreements from diplomacy relations
+  const rawPastWars = dipOff >= 0
+    ? readPastWarsFromDiplomacy(data, dynStrings, dipOff + 6)
+    : [];
+  const rawAgreements = dipOff >= 0
+    ? readDiplomacyAgreements(data, dynStrings, dipOff + 6)
+    : { reparations: [], annulledTreaties: [], royalMarriages: [], activeCBs: [] };
+
   for (const off of findAllMatches(data, T.playedCountry)) {
     r.pos = off + 6;
     readPlayedCountry(r, countryTags, tagToPlayers);
@@ -252,6 +261,7 @@ const parseGamestate = (data: Uint8Array, dynStrings: string[]): ParsedSave => {
       expectedNavySize: cd.military.expectedNavySize,
       legitimacy: cd.economy.legitimacy,
       inflation: cd.economy.inflation,
+      estates: cd.estates,
       stabilityInvestment: cd.politics.stabilityInvestment,
       republicanTradition: cd.identity.govRepublicanTradition !== 0 ? cd.identity.govRepublicanTradition : cd.politics.republicanTradition,
       hordeUnity: cd.identity.govHordeUnity !== 0 ? cd.identity.govHordeUnity : cd.politics.hordeUnity,
@@ -294,17 +304,48 @@ const parseGamestate = (data: Uint8Array, dynStrings: string[]): ParsedSave => {
     attackerTag: countryTags[w.attackerId] ?? `id:${w.attackerId}`,
     defenderTag: countryTags[w.defenderId] ?? `id:${w.defenderId}`,
     casusBelli: w.casusBelli,
+    targetProvince: w.targetProvince,
     startDate: w.startDate,
     endDate: w.endDate,
     isEnded: w.isEnded,
+    isCivilWar: w.isCivilWar,
+    isRevolt: w.isRevolt,
     attackerScore: w.attackerScore,
     defenderScore: w.defenderScore,
+    warDirectionQuarter: w.warDirectionQuarter,
+    warDirectionYear: w.warDirectionYear,
+    stalledYears: w.stalledYears,
     participants: w.participants.map(p => ({
       tag: countryTags[p.country] ?? `id:${p.country}`,
       side: p.side,
       reason: p.reason,
     })),
-    battles: w.battles,
+    battles: w.battles.map(b => ({
+      location: b.location,
+      date: b.date,
+      attackerWon: b.attackerWon,
+      attackerLosses: b.attackerLosses,
+      defenderLosses: b.defenderLosses,
+      attackerTotal: b.attackerTotal,
+      defenderTotal: b.defenderTotal,
+      attackerCountryTag: countryTags[b.attackerCountry] ?? `id:${b.attackerCountry}`,
+      defenderCountryTag: countryTags[b.defenderCountry] ?? `id:${b.defenderCountry}`,
+      battleWarScore: b.battleWarScore,
+      attackerTroopBreakdown: b.attackerTroopBreakdown,
+      defenderTroopBreakdown: b.defenderTroopBreakdown,
+      attackerLossBreakdown: b.attackerLossBreakdown,
+      defenderLossBreakdown: b.defenderLossBreakdown,
+      attackerCommander: b.attackerCommander,
+      defenderCommander: b.defenderCommander,
+      attackerPrisoners: b.attackerPrisoners,
+      defenderPrisoners: b.defenderPrisoners,
+      attackerWarExhaustion: b.attackerWarExhaustion,
+      defenderWarExhaustion: b.defenderWarExhaustion,
+    })),
+    occupiedLocations: w.occupiedLocations.map(ol => ({
+      location: ol.location,
+      controllerTag: countryTags[ol.controller] ?? `id:${ol.controller}`,
+    })),
   }));
 
   // Read trade data and resolve market names from center_location
@@ -329,7 +370,37 @@ const parseGamestate = (data: Uint8Array, dynStrings: string[]): ParsedSave => {
   }
   const trade = { ...rawTrade, marketNames, marketOwners };
 
-  return { countryLocations, tagToPlayers, countryColors, overlordSubjects, countryNames, countryStats, wars, trade };
+  const pastWars: import("../types").PastWarData[] = rawPastWars.map(pw => ({
+    countryATag: countryTags[pw.countryA] ?? `id:${pw.countryA}`,
+    countryBTag: countryTags[pw.countryB] ?? `id:${pw.countryB}`,
+    lastWarDate: pw.lastWarDate,
+    warScore: pw.warScore,
+  }));
+
+  const warReparations: import("../types").WarReparationData[] = rawAgreements.reparations.map(r => ({
+    winnerTag: countryTags[r.winner] ?? `id:${r.winner}`,
+    loserTag: countryTags[r.loser] ?? `id:${r.loser}`,
+    startDate: r.startDate,
+    expirationDate: r.expirationDate,
+  }));
+  const annulledTreaties: import("../types").AnnulledTreatyData[] = rawAgreements.annulledTreaties.map(a => ({
+    enforcerTag: countryTags[a.enforcer] ?? `id:${a.enforcer}`,
+    targetTag: countryTags[a.target] ?? `id:${a.target}`,
+    startDate: a.startDate,
+    expirationDate: a.expirationDate,
+  }));
+  const royalMarriages: import("../types").RoyalMarriageData[] = rawAgreements.royalMarriages.map(rm => ({
+    countryATag: countryTags[rm.countryA] ?? `id:${rm.countryA}`,
+    countryBTag: countryTags[rm.countryB] ?? `id:${rm.countryB}`,
+    startDate: rm.startDate,
+  }));
+  const activeCBs: import("../types").ActiveCBData[] = rawAgreements.activeCBs.map(cb => ({
+    holderTag: countryTags[cb.holder] ?? `id:${cb.holder}`,
+    targetTag: countryTags[cb.target] ?? `id:${cb.target}`,
+    startDate: cb.startDate,
+  }));
+
+  return { countryLocations, tagToPlayers, countryColors, overlordSubjects, countryNames, countryStats, wars, pastWars, warReparations, annulledTreaties, royalMarriages, activeCBs, trade };
 };
 
 // ---------------------------------------------------------------------------
