@@ -16,6 +16,8 @@ import { MILITARY_TOKENS, readMilitaryAtOffsets, emptyMilitaryStats } from "./mi
 import type { MilitaryStats, MilitaryOffsets } from "./military";
 import { tokenId } from "../token-names";
 import { readFixed5AtOffset } from "./fixed5";
+import { readEstates, ESTATES_TOKEN } from "./estates";
+import type { EstateData } from "./estates";
 
 // Politics / territory / extra tokens (depth-1 scalar fields)
 const POLITICS_TOKENS = {
@@ -89,6 +91,7 @@ export interface CountryData {
   readonly economy: EconomyStats;
   readonly military: MilitaryStats;
   readonly politics: PoliticsStats;
+  readonly estates: readonly EstateData[];
 }
 
 // =============================================================================
@@ -100,6 +103,7 @@ export const emptyCountryData = (): CountryData => ({
   economy: emptyEconomyStats(),
   military: emptyMilitaryStats(),
   politics: emptyPoliticsStats(),
+  estates: [],
 });
 
 // =============================================================================
@@ -192,6 +196,9 @@ export const readCountryDatabase = (
       let expArmyOffset = -1;
       let expNavyOffset = -1;
 
+      // Estates offset (block field)
+      let estatesOffset = -1;
+
       while (r.pos < entryEnd && depth > 0) {
         const fp = r.pos;
         const ft = r.readToken();
@@ -253,6 +260,7 @@ export const readCountryDatabase = (
           else if (ft === MILITARY_TOKENS.NAVY_MAINT) { navyMaintOffset = fp; }
           else if (ft === MILITARY_TOKENS.EXPECTED_ARMY) { expArmyOffset = fp; }
           else if (ft === MILITARY_TOKENS.EXPECTED_NAVY) { expNavyOffset = fp; }
+          else if (ft === ESTATES_TOKEN) { estatesOffset = fp; }
           else { /* other field */ }
           r.readToken();
           r.skipValue();
@@ -348,7 +356,22 @@ export const readCountryDatabase = (
         }
       }
 
-      result[tag] = { identity: finalIdentity, economy, military, politics };
+      // Parse estates block if found
+      let estates: readonly EstateData[] = [];
+      if (estatesOffset >= 0) {
+        r.pos = estatesOffset;
+        r.readToken(); // field name
+        r.expectEqual();
+        if (r.expectOpen()) {
+          estates = readEstates(r, data);
+        } else {
+          // not an open block — skip
+        }
+      } else {
+        // no estates block found
+      }
+
+      result[tag] = { identity: finalIdentity, economy, military, politics, estates };
       r.pos = entryEnd;
     } else {
       r.readToken();

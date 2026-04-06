@@ -3,10 +3,13 @@ import type { CountryInfo } from "../lib/country-info";
 import { resolveDisplayName } from "../lib/country-info";
 import { fmtNum, fmtCurrency, fmtLanguage, fmtGovType } from "../lib/format";
 import { isGreatPower } from "../lib/ranking-sort";
+import type { RoyalMarriageData, ActiveCBData, EstateData } from "../lib/types";
 
 interface Props {
   info: CountryInfo;
   countryNames: Readonly<Record<string, string>>;
+  royalMarriages: readonly RoyalMarriageData[];
+  activeCBs: readonly ActiveCBData[];
   onClose: () => void;
 }
 
@@ -29,7 +32,7 @@ const NumRow = ({ label, value, decimals }: { label: string; value: number; deci
   <Row label={label} value={decimals !== undefined ? value.toFixed(decimals) : fmtNum(value)} />
 );
 
-export const CountryModal = ({ info, countryNames, onClose }: Props) => {
+export const CountryModal = ({ info, countryNames, royalMarriages, activeCBs, onClose }: Props) => {
   const { stats } = info;
   const [tab, setTab] = useState<ModalTab>("overview");
   const [subjectsOpen, setSubjectsOpen] = useState(false);
@@ -80,7 +83,7 @@ export const CountryModal = ({ info, countryNames, onClose }: Props) => {
             ) : tab === "military" ? (
               <MilitaryTab stats={stats} />
             ) : (
-              <DiplomacyTab info={info} stats={stats} />
+              <DiplomacyTab info={info} stats={stats} countryNames={countryNames} royalMarriages={royalMarriages} activeCBs={activeCBs} />
             )}
           </div>
         </div>
@@ -224,6 +227,48 @@ const ValuesTab = ({ stats }: { stats: CountryInfo["stats"] }) => (
   </div>
 );
 
+/** Map raw estate_type strings to display names. */
+const fmtEstateType = (type: string): string => {
+  const known: Record<string, string> = {
+    estate_nobles: "Nobility",
+    estate_clergy: "Clergy",
+    estate_burghers: "Burghers",
+    estate_peasants: "Commoners",
+    estate_dhimmi: "Dhimmi",
+    estate_tribes: "Tribes",
+    estate_cossacks: "Cossacks",
+    estate_crown: "Crown",
+  };
+  return known[type] ?? fmtTitle(type.replace(/^estate_/, ""));
+};
+
+const EstatesSection = ({ estates }: { estates: readonly EstateData[] }) => {
+  const active = estates.filter(e => e.type !== "");
+  if (active.length === 0) { return <></>; }
+  return (
+    <>
+      <div className="modal-row-divider" />
+      <div className="modal-section-label">Estates</div>
+      <div className="estates-table">
+        <div className="estates-header">
+          <span>Estate</span>
+          <span>Power</span>
+          <span>Satisfaction</span>
+          <span>Privileges</span>
+        </div>
+        {active.map((e) => (
+          <div key={e.type} className="estates-row">
+            <span>{fmtEstateType(e.type)}</span>
+            <span>{e.power > 0 ? `${(e.power / 100).toFixed(1)}%` : "—"}</span>
+            <span>{e.satisfaction > 0 ? `${(e.satisfaction / 100).toFixed(1)}%` : "—"}</span>
+            <span>{e.maxPrivileges > 0 ? `${e.numPrivileges}/${e.maxPrivileges}` : e.numPrivileges > 0 ? `${e.numPrivileges}` : "—"}</span>
+          </div>
+        ))}
+      </div>
+    </>
+  );
+};
+
 const GovernmentTab = ({ stats }: { stats: CountryInfo["stats"] }) => {
   // Show the government-type-specific legitimacy variant
   const legitLabel =
@@ -244,10 +289,10 @@ const GovernmentTab = ({ stats }: { stats: CountryInfo["stats"] }) => {
       {stats.govType !== "" ? <Row label="Government Type" value={fmtGovType(stats.govType)} /> : <></>}
       {stats.governmentPower > 0 ? <NumRow label="Government Power" value={stats.governmentPower / 100} decimals={0} /> : <></>}
       {stats.diplomaticCapacity > 0 ? <NumRow label="Diplomatic Capacity" value={stats.diplomaticCapacity / 100} decimals={0} /> : <></>}
-      {stats.karma > 0 ? <NumRow label="Karma" value={stats.karma / 100} decimals={1} /> : <></>}
       {stats.religiousInfluence > 0 ? <NumRow label="Religious Influence" value={stats.religiousInfluence / 100} decimals={1} /> : <></>}
-      {stats.purity > 0 ? <NumRow label="Purity" value={stats.purity / 100} decimals={1} /> : <></>}
-      {stats.righteousness > 0 ? <NumRow label="Righteousness" value={stats.righteousness / 100} decimals={1} /> : <></>}
+      {stats.karma > 0 && stats.karma < 99000 && stats.religion.includes("buddh") ? <NumRow label="Karma" value={stats.karma / 100} decimals={1} /> : <></>}
+      {stats.purity > 0 && stats.purity !== 6000 ? <NumRow label="Purity" value={stats.purity / 100} decimals={1} /> : <></>}
+      {stats.righteousness > 0 && stats.righteousness !== 9000 ? <NumRow label="Righteousness" value={stats.righteousness / 100} decimals={1} /> : <></>}
       <div className="modal-row-divider" />
       <NumRow label="Stability" value={stats.stability / 100} decimals={1} />
       {stats.stabilityInvestment > 0 ? <NumRow label="Stability Investment" value={stats.stabilityInvestment / 100} decimals={1} /> : <></>}
@@ -260,6 +305,7 @@ const GovernmentTab = ({ stats }: { stats: CountryInfo["stats"] }) => {
       <div className="modal-row-divider" />
       {stats.powerProjection > 0 ? <NumRow label="Power Projection" value={stats.powerProjection / 100} decimals={1} /> : <></>}
       {stats.warExhaustion > 0 ? <NumRow label="War Exhaustion" value={stats.warExhaustion / 100} decimals={1} /> : <></>}
+      <EstatesSection estates={stats.estates} />
     </div>
   );
 };
@@ -303,17 +349,72 @@ const MilitaryTab = ({ stats }: { stats: CountryInfo["stats"] }) => {
   );
 };
 
-const DiplomacyTab = ({ info, stats }: { info: CountryInfo; stats: CountryInfo["stats"] }) => (
-  <div className="modal-rows">
-    {stats.greatPowerScore > 0 ? <NumRow label="Great Power Score" value={stats.greatPowerScore} decimals={0} /> : <></>}
-    {stats.diplomaticReputation !== 0 ? <NumRow label="Diplomatic Reputation" value={stats.diplomaticReputation} decimals={1} /> : <></>}
-    {stats.powerProjection > 0 ? <NumRow label="Power Projection" value={stats.powerProjection} decimals={1} /> : <></>}
-    <NumRow label="Allies" value={stats.numAllies} decimals={0} />
-    {info.overlord !== "" ? (
-      <NumRow label="Liberty Desire" value={stats.libertyDesire} decimals={1} />
-    ) : <></>}
-    {info.subjects.length > 0 ? (
-      <Row label="Subjects" value={String(info.subjects.length)} />
-    ) : <></>}
-  </div>
-);
+const DiplomacyTab = ({ info, stats, countryNames, royalMarriages, activeCBs }: {
+  info: CountryInfo;
+  stats: CountryInfo["stats"];
+  countryNames: Readonly<Record<string, string>>;
+  royalMarriages: readonly RoyalMarriageData[];
+  activeCBs: readonly ActiveCBData[];
+}) => {
+  const tag = info.tag;
+  const myMarriages = royalMarriages.filter(rm => rm.countryATag === tag || rm.countryBTag === tag);
+  const myCBsHeld = activeCBs.filter(cb => cb.holderTag === tag);
+  const myCBsAgainst = activeCBs.filter(cb => cb.targetTag === tag);
+
+  return (
+    <div className="modal-rows">
+      {stats.greatPowerScore > 0 ? <NumRow label="Great Power Score" value={stats.greatPowerScore} decimals={0} /> : <></>}
+      {stats.diplomaticReputation !== 0 ? <NumRow label="Diplomatic Reputation" value={stats.diplomaticReputation} decimals={1} /> : <></>}
+      {stats.powerProjection > 0 ? <NumRow label="Power Projection" value={stats.powerProjection} decimals={1} /> : <></>}
+      <NumRow label="Allies" value={stats.numAllies} decimals={0} />
+      {info.overlord !== "" ? (
+        <NumRow label="Liberty Desire" value={stats.libertyDesire} decimals={1} />
+      ) : <></>}
+      {info.subjects.length > 0 ? (
+        <Row label="Subjects" value={String(info.subjects.length)} />
+      ) : <></>}
+
+      {myMarriages.length > 0 ? (
+        <>
+          <div className="modal-row-divider" />
+          <div className="modal-section-label">Royal Marriages ({myMarriages.length})</div>
+          {myMarriages.map((rm, i) => {
+            const otherTag = rm.countryATag === tag ? rm.countryBTag : rm.countryATag;
+            return (
+              <div key={`rm${i}`} className="modal-row">
+                <span className="modal-row-label">{resolveDisplayName(otherTag, countryNames)}</span>
+                <span className="modal-row-value modal-muted">{otherTag}</span>
+              </div>
+            );
+          })}
+        </>
+      ) : <></>}
+
+      {myCBsHeld.length > 0 ? (
+        <>
+          <div className="modal-row-divider" />
+          <div className="modal-section-label">Casus Belli Held ({myCBsHeld.length})</div>
+          {myCBsHeld.map((cb, i) => (
+            <div key={`cbh${i}`} className="modal-row">
+              <span className="modal-row-label">vs {resolveDisplayName(cb.targetTag, countryNames)}</span>
+              <span className="modal-row-value modal-muted">{cb.targetTag}</span>
+            </div>
+          ))}
+        </>
+      ) : <></>}
+
+      {myCBsAgainst.length > 0 ? (
+        <>
+          <div className="modal-row-divider" />
+          <div className="modal-section-label">Casus Belli Against ({myCBsAgainst.length})</div>
+          {myCBsAgainst.map((cb, i) => (
+            <div key={`cba${i}`} className="modal-row">
+              <span className="modal-row-label">by {resolveDisplayName(cb.holderTag, countryNames)}</span>
+              <span className="modal-row-value modal-muted">{cb.holderTag}</span>
+            </div>
+          ))}
+        </>
+      ) : <></>}
+    </div>
+  );
+};

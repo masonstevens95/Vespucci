@@ -183,6 +183,8 @@ export default function App() {
           <CountryModal
             info={selectedCountry}
             countryNames={debug.parsed.countryNames}
+            royalMarriages={debug.parsed.royalMarriages}
+            activeCBs={debug.parsed.activeCBs}
             onClose={() => setSelectedCountry(undefined)}
           />
         )}

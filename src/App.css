@@ -997,6 +997,34 @@
   font-size: 0.75rem;
   color: #ccc;
 }
+.estates-table {
+  padding: 0.2rem 0.5rem;
+  font-size: 0.78rem;
+}
+.estates-header {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr 1fr;
+  color: #666;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  font-weight: 700;
+  padding: 0.15rem 0;
+  border-bottom: 1px solid #333;
+  margin-bottom: 0.2rem;
+}
+.estates-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr 1fr;
+  padding: 0.2rem 0;
+  border-bottom: 1px solid #1e1e2e;
+  color: #ccc;
+}
+.estates-row > span:not(:first-child) {
+  text-align: right;
+}
+.estates-header > span:not(:first-child) {
+  text-align: right;
+}
 .sv-axis {
   display: flex;
   align-items: center;
@@ -1326,10 +1354,22 @@
 .war-battle-def-win {
   border-left: 3px solid #48a;
 }
+.war-battle-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
 .war-battle-result {
   color: #ccc;
 }
-.war-battle-losses {
+.war-battle-score {
+  color: #888;
+  font-size: 0.75rem;
+}
+.war-battle-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
   color: #888;
   font-size: 0.75rem;
 }
@@ -1349,6 +1389,28 @@
   border-left-color: #555;
   opacity: 0.7;
 }
+.war-card-past {
+  opacity: 0.5;
+}
+.war-card-past .war-header {
+  padding: 0.3rem 0;
+}
+.war-show-more {
+  background: #1e1e2e;
+  border: 1px solid #333;
+  border-radius: 6px;
+  padding: 0.6rem 1rem;
+  color: #888;
+  font-size: 0.85rem;
+  cursor: pointer;
+  text-align: center;
+}
+.war-show-more:hover {
+  color: #ccc;
+  border-color: #555;
+}
+.war-momentum-att { color: #c44; }
+.war-momentum-def { color: #48a; }
 
 /* Trade Tab */
 .trade-search {

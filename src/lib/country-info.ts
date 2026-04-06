@@ -80,6 +80,7 @@ const EMPTY_STATS: CountryStats = {
   institutions: [],
   societalValues: { centralization: 0, innovative: 0, humanist: 0, plutocracy: 0, freeSubjects: 0, freeTrade: 0, conciliatory: 0, quantity: 0, defensive: 0, naval: 0, traditionalEconomy: 0, communalism: 0, inward: 0, liberalism: 0, jurisprudence: 0, unsinicized: 0 },
   courtLanguage: "", govType: "", primaryCulture: "", religion: "", score: 0,
+  estates: [],
 };
 
 /** Build a CountryInfo from parsed save data for a given tag. */
