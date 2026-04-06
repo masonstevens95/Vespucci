@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { ParsedSave } from "../../lib/types";
+import type { ParsedSave, RgoProductionEntry } from "../../lib/types";
 import {
   type DetailSortMode,
   type MarketGoodEntry,
@@ -11,12 +11,16 @@ import {
   collectGoodEntries,
   sortGoods,
 } from "../../lib/trade-helpers";
+import { topProducersForGood } from "../../lib/rgo-helpers";
+import { resolveDisplayName } from "../../lib/country-info";
 import { SortHeader } from "./SortHeader";
 
 interface Props {
   goodName: string;
   markets: ParsedSave["trade"]["markets"];
   marketNames: Readonly<Record<number, string>>;
+  countryProduction: Readonly<Record<string, Readonly<Record<string, RgoProductionEntry>>>>;
+  countryNames: Readonly<Record<string, string>>;
   onClose: () => void;
 }
 
@@ -37,7 +41,7 @@ const BarCell = ({ value, label, max, color }: {
   </span>
 );
 
-export const GoodModal = ({ goodName, markets, marketNames, onClose }: Props) => {
+export const GoodModal = ({ goodName, markets, marketNames, countryProduction, countryNames, onClose }: Props) => {
   const [detailSort, setDetailSort] = useState<DetailSortMode>("supply");
   const [detailDir, setDetailDir] = useState<"asc" | "desc">("desc");
 
@@ -51,6 +55,7 @@ export const GoodModal = ({ goodName, markets, marketNames, onClose }: Props) =>
   };
 
   const allGoods = collectGoodEntries(goodName, markets);
+  const producers = topProducersForGood(goodName, countryProduction, 5);
   const sorted = sortGoods(allGoods, detailSort, detailDir);
 
   const totalSupply = allGoods.reduce((s, g) => s + g.supply, 0);
@@ -118,6 +123,28 @@ export const GoodModal = ({ goodName, markets, marketNames, onClose }: Props) =>
               </div>
             ))}
           </div>
+          {producers.length > 0 ? (
+            <>
+              <div className="modal-divider" />
+              <div className="trade-producers-header">Top Producers (RGO levels)</div>
+              <div className="trade-producers-list">
+                {producers.map((p) => (
+                  <div key={p.tag} className="trade-producer-row">
+                    <span className="trade-producer-name">
+                      {resolveDisplayName(p.tag, countryNames)}
+                    </span>
+                    <span className="trade-producer-tag">{p.tag}</span>
+                    <span className="trade-producer-size">{p.totalSize} lvl</span>
+                    <span className="trade-producer-locs">
+                      {p.locationCount} loc{p.locationCount !== 1 ? "s" : ""}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </>
+          ) : (
+            <></>
+          )}
         </div>
       </div>
     </div>

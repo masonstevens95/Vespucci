@@ -5,7 +5,7 @@
  * No null, no exceptions, every if has an else.
  */
 
-import type { ParsedSave, RGB, CountryEconomyStats } from "./types";
+import type { ParsedSave, RGB, CountryEconomyStats, RgoProductionEntry } from "./types";
 import { rgbToHex } from "./colors";
 
 // =============================================================================
@@ -23,6 +23,7 @@ export interface CountryInfo {
   readonly overlord: string;
   readonly subjects: readonly string[];
   readonly stats: CountryStats;
+  readonly production: Readonly<Record<string, RgoProductionEntry>>;
 }
 
 // =============================================================================
@@ -96,6 +97,8 @@ export const buildCountryInfo = (
   const overlord = findOverlord(tag, parsed.overlordSubjects);
   const subjects = getSubjects(tag, parsed.overlordSubjects);
   const stats: CountryStats = parsed.countryStats[tag] ?? EMPTY_STATS;
+  const production: Readonly<Record<string, RgoProductionEntry>> =
+    parsed.countryProduction[tag] ?? {};
 
   return {
     tag,
@@ -106,6 +109,7 @@ export const buildCountryInfo = (
     overlord,
     subjects,
     stats,
+    production,
   };
 };
 

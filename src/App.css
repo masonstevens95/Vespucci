@@ -1528,6 +1528,50 @@
   color: #c66;
 }
 
+/* Producers section in GoodModal */
+.trade-producers-header {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #aaa;
+  margin-bottom: 0.4rem;
+}
+.trade-producers-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+.trade-producer-row {
+  display: grid;
+  grid-template-columns: 1fr auto auto auto;
+  gap: 0.75rem;
+  align-items: center;
+  font-size: 0.82rem;
+  padding: 0.2rem 0;
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+}
+.trade-producer-name {
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.trade-producer-tag {
+  color: #888;
+  font-size: 0.75rem;
+  font-family: monospace;
+}
+.trade-producer-size {
+  color: #ccc;
+  text-align: right;
+}
+.trade-producer-locs {
+  color: #888;
+  text-align: right;
+  min-width: 3.5rem;
+}
+
 /* Subtab bar */
 .subtab-bar {
   display: flex;

@@ -1,4 +1,4 @@
-import type { ParsedSave } from "../../lib/types";
+import type { ParsedSave, RgoProductionEntry } from "../../lib/types";
 import type { GoodSortMode } from "../../lib/trade-helpers";
 import {
   fmtGood,
@@ -14,6 +14,8 @@ interface Props {
   producedGoods: Readonly<Record<string, number>>;
   markets: ParsedSave["trade"]["markets"];
   marketNames: Readonly<Record<number, string>>;
+  countryProduction: Readonly<Record<string, Readonly<Record<string, RgoProductionEntry>>>>;
+  countryNames: Readonly<Record<string, string>>;
   sortMode: GoodSortMode;
   sortDir: "asc" | "desc";
   selectedGood: string | undefined;
@@ -24,6 +26,8 @@ export const GoodsSubTab = ({
   producedGoods,
   markets,
   marketNames,
+  countryProduction,
+  countryNames,
   sortMode,
   sortDir,
   selectedGood,
@@ -79,6 +83,8 @@ export const GoodsSubTab = ({
           goodName={selectedGood}
           markets={markets}
           marketNames={marketNames}
+          countryProduction={countryProduction}
+          countryNames={countryNames}
           onClose={() => onSelectGood(undefined)}
         />
       ) : (<></>)}

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { buildCountryProduction, topGoodsForCountry } from "../rgo-helpers";
+import { buildCountryProduction, topGoodsForCountry, topProducersForGood } from "../rgo-helpers";
 import type { RgoData } from "../types";
 
 const mkRgo = (good: string, size: number, employment: number = 0): RgoData => ({
@@ -94,5 +94,43 @@ describe("topGoodsForCountry", () => {
       grain: { totalSize: 2, totalEmployment: 0, locationCount: 1 },
     };
     expect(topGoodsForCountry(production, 5)).toHaveLength(1);
+  });
+});
+
+describe("topProducersForGood", () => {
+  const production = {
+    GBR: { grain: { totalSize: 3, totalEmployment: 3000, locationCount: 2 }, iron: { totalSize: 1, totalEmployment: 1000, locationCount: 1 } },
+    FRA: { grain: { totalSize: 5, totalEmployment: 5000, locationCount: 3 } },
+    SWE: { copper: { totalSize: 4, totalEmployment: 4000, locationCount: 2 } },
+  };
+
+  it("returns producers sorted by totalSize descending", () => {
+    const result = topProducersForGood("grain", production, 5);
+    expect(result.map(p => p.tag)).toEqual(["FRA", "GBR"]);
+  });
+
+  it("excludes countries that don't produce the good", () => {
+    const result = topProducersForGood("grain", production, 5);
+    expect(result.find(p => p.tag === "SWE")).toBeUndefined();
+  });
+
+  it("respects the limit", () => {
+    expect(topProducersForGood("grain", production, 1)).toHaveLength(1);
+    expect(topProducersForGood("grain", production, 1)[0].tag).toBe("FRA");
+  });
+
+  it("returns empty when no country produces the good", () => {
+    expect(topProducersForGood("silk", production, 5)).toHaveLength(0);
+  });
+
+  it("returns empty for empty production map", () => {
+    expect(topProducersForGood("grain", {}, 5)).toHaveLength(0);
+  });
+
+  it("includes correct totalSize and locationCount", () => {
+    const result = topProducersForGood("grain", production, 5);
+    const fra = result.find(p => p.tag === "FRA")!;
+    expect(fra.totalSize).toBe(5);
+    expect(fra.locationCount).toBe(3);
   });
 });

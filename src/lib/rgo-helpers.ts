@@ -65,3 +65,22 @@ export const topGoodsForCountry = (
     .map(([good, entry]) => ({ good, entry }))
     .sort((a, b) => b.entry.totalSize - a.entry.totalSize)
     .slice(0, limit);
+
+/**
+ * Return the top producing countries for a given good, sorted by
+ * totalSize descending, capped at `limit` entries.
+ */
+export const topProducersForGood = (
+  good: string,
+  countryProduction: Readonly<Record<string, Readonly<Record<string, RgoProductionEntry>>>>,
+  limit: number,
+): readonly { readonly tag: string; readonly totalSize: number; readonly locationCount: number }[] =>
+  Object.entries(countryProduction)
+    .filter(([, goods]) => goods[good] !== undefined)
+    .map(([tag, goods]) => ({
+      tag,
+      totalSize: goods[good].totalSize,
+      locationCount: goods[good].locationCount,
+    }))
+    .sort((a, b) => b.totalSize - a.totalSize)
+    .slice(0, limit);

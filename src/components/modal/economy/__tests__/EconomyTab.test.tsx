@@ -28,7 +28,7 @@ const mkStats = (overrides: Partial<CountryEconomyStats> = {}): CountryEconomySt
 
 describe("EconomyTab", () => {
   it("always shows Treasury, Monthly Income, and Trade Value rows", () => {
-    const { container } = render(<EconomyTab stats={mkStats()} />);
+    const { container } = render(<EconomyTab stats={mkStats()} production={{}} />);
     const c = within(container);
     expect(c.getByText("Treasury")).toBeTruthy();
     expect(c.getByText("Monthly Income (est.)")).toBeTruthy();
@@ -36,22 +36,22 @@ describe("EconomyTab", () => {
   });
 
   it("shows Monthly Gold Income via GoldFlowSection when monthlyGoldIncome > 0", () => {
-    const { container } = render(<EconomyTab stats={mkStats({ monthlyGoldIncome: 5 })} />);
+    const { container } = render(<EconomyTab stats={mkStats({ monthlyGoldIncome: 5 })} production={{}} />);
     expect(container.textContent).toContain("Monthly Gold Income");
   });
 
   it("does not show Monthly Gold Income when monthlyGoldIncome = 0", () => {
-    const { container } = render(<EconomyTab stats={mkStats({ monthlyGoldIncome: 0 })} />);
+    const { container } = render(<EconomyTab stats={mkStats({ monthlyGoldIncome: 0 })} production={{}} />);
     expect(container.textContent).not.toContain("Monthly Gold Income");
   });
 
   it("shows Inflation via GoldFlowSection when inflation != 0", () => {
-    const { container } = render(<EconomyTab stats={mkStats({ inflation: 500 })} />);
+    const { container } = render(<EconomyTab stats={mkStats({ inflation: 500 })} production={{}} />);
     expect(container.textContent).toContain("Inflation");
   });
 
   it("does not show Inflation when inflation = 0", () => {
-    const { container } = render(<EconomyTab stats={mkStats({ inflation: 0 })} />);
+    const { container } = render(<EconomyTab stats={mkStats({ inflation: 0 })} production={{}} />);
     expect(container.textContent).not.toContain("Inflation");
   });
 });

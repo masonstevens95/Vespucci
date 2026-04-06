@@ -104,6 +104,8 @@ export const TradeTab = ({ parsed }: Props) => {
           producedGoods={filteredGoods}
           markets={trade.markets}
           marketNames={trade.marketNames}
+          countryProduction={parsed.countryProduction}
+          countryNames={parsed.countryNames}
           sortMode={goodSortMode}
           sortDir={goodSortDir}
           selectedGood={selectedGood}
