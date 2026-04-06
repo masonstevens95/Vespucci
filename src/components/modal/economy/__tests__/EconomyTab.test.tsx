@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import { render } from "@testing-library/react";
 import { within } from "@testing-library/dom";
 import { EconomyTab } from "../EconomyTab";
-import type { CountryEconomyStats } from "../../../lib/types";
+import type { CountryEconomyStats } from "../../../../lib/types";
 
 const mkStats = (overrides: Partial<CountryEconomyStats> = {}): CountryEconomyStats => ({
   gold: 0, stability: 0, prestige: 0, monthlyIncome: 0, monthlyTradeValue: 0, population: 0,
@@ -35,7 +35,7 @@ describe("EconomyTab", () => {
     expect(c.getByText("Trade Value")).toBeTruthy();
   });
 
-  it("shows Monthly Gold Income when monthlyGoldIncome > 0", () => {
+  it("shows Monthly Gold Income via GoldFlowSection when monthlyGoldIncome > 0", () => {
     const { container } = render(<EconomyTab stats={mkStats({ monthlyGoldIncome: 5 })} />);
     expect(container.textContent).toContain("Monthly Gold Income");
   });
@@ -45,20 +45,9 @@ describe("EconomyTab", () => {
     expect(container.textContent).not.toContain("Monthly Gold Income");
   });
 
-  it("shows Monthly Gold Expense when monthlyGoldExpense > 0", () => {
-    const { container } = render(<EconomyTab stats={mkStats({ monthlyGoldExpense: 3 })} />);
-    expect(container.textContent).toContain("Monthly Gold Expense");
-  });
-
-  it("does not show Monthly Gold Expense when monthlyGoldExpense = 0", () => {
-    const { container } = render(<EconomyTab stats={mkStats({ monthlyGoldExpense: 0 })} />);
-    expect(container.textContent).not.toContain("Monthly Gold Expense");
-  });
-
-  it("shows divider and Inflation row when inflation != 0", () => {
+  it("shows Inflation via GoldFlowSection when inflation != 0", () => {
     const { container } = render(<EconomyTab stats={mkStats({ inflation: 500 })} />);
     expect(container.textContent).toContain("Inflation");
-    expect(container.querySelector(".modal-row-divider")).not.toBeNull();
   });
 
   it("does not show Inflation when inflation = 0", () => {

@@ -1,8 +1,9 @@
-import { Row, NumRow, fmtTitle } from "./ModalRow";
-import { resolveDisplayName } from "../../lib/country-info";
-import type { CountryInfo } from "../../lib/country-info";
-import { fmtGovType, fmtLanguage } from "../../lib/format";
-import { isGreatPower } from "../../lib/ranking-sort";
+import { Row, NumRow, fmtTitle } from "../ModalRow";
+import { resolveDisplayName } from "../../../lib/country-info";
+import type { CountryInfo } from "../../../lib/country-info";
+import { fmtGovType, fmtLanguage } from "../../../lib/format";
+import { isGreatPower } from "../../../lib/ranking-sort";
+import { SubjectsSection } from "./SubjectsSection";
 
 export const OverviewTab = ({
   info,
@@ -81,28 +82,11 @@ export const OverviewTab = ({
       <></>
     )}
 
-    {info.subjects.length > 0 ? (
-      <div className="modal-row">
-        <span
-          className="modal-row-label modal-collapsible"
-          onClick={() => setSubjectsOpen(!subjectsOpen)}
-        >
-          {subjectsOpen ? "▾" : "▸"} Subjects ({info.subjects.length})
-        </span>
-        {subjectsOpen ? (
-          <div className="modal-subject-list">
-            {info.subjects.map((sub) => (
-              <span key={sub} className="modal-subject-tag">
-                {resolveDisplayName(sub, countryNames)} ({sub})
-              </span>
-            ))}
-          </div>
-        ) : (
-          <></>
-        )}
-      </div>
-    ) : (
-      <></>
-    )}
+    <SubjectsSection
+      subjects={info.subjects}
+      open={subjectsOpen}
+      onToggle={() => setSubjectsOpen(!subjectsOpen)}
+      countryNames={countryNames}
+    />
   </div>
 );

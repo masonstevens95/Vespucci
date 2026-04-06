@@ -2,8 +2,8 @@ import { describe, it, expect, vi } from "vitest";
 import { render, fireEvent } from "@testing-library/react";
 import { within } from "@testing-library/dom";
 import { OverviewTab } from "../OverviewTab";
-import type { CountryEconomyStats } from "../../../lib/types";
-import type { CountryInfo } from "../../../lib/country-info";
+import type { CountryEconomyStats } from "../../../../lib/types";
+import type { CountryInfo } from "../../../../lib/country-info";
 
 const mkStats = (overrides: Partial<CountryEconomyStats> = {}): CountryEconomyStats => ({
   gold: 0, stability: 0, prestige: 0, monthlyIncome: 0, monthlyTradeValue: 0, population: 0,
@@ -53,7 +53,6 @@ describe("OverviewTab", () => {
     );
     const c = within(container);
     expect(c.getByText("AI")).toBeTruthy();
-    // The row value span should have modal-muted
     const muted = container.querySelector(".modal-muted");
     expect(muted?.textContent).toBe("AI");
   });
@@ -126,7 +125,7 @@ describe("OverviewTab", () => {
     expect(container.textContent).not.toContain("Religion");
   });
 
-  it("shows rank without Great Power label for score 9 (not in top 8)", () => {
+  it("shows rank without Great Power label for score 9", () => {
     const info = mkInfo({ stats: mkStats({ score: 9 }) });
     const { container } = render(
       <OverviewTab info={info} stats={info.stats} countryNames={{}} subjectsOpen={false} setSubjectsOpen={noOp} />

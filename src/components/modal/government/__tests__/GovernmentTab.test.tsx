@@ -1,8 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { render } from "@testing-library/react";
-import { within } from "@testing-library/dom";
-import { GovernmentTab, fmtEstateType, EstatesSection } from "../GovernmentTab";
-import type { CountryEconomyStats, EstateData } from "../../../lib/types";
+import { GovernmentTab } from "../GovernmentTab";
+import type { CountryEconomyStats } from "../../../../lib/types";
 
 const mkStats = (overrides: Partial<CountryEconomyStats> = {}): CountryEconomyStats => ({
   gold: 0, stability: 0, prestige: 0, monthlyIncome: 0, monthlyTradeValue: 0, population: 0,
@@ -24,110 +23,6 @@ const mkStats = (overrides: Partial<CountryEconomyStats> = {}): CountryEconomySt
   societalValues: { centralization: 0, innovative: 0, humanist: 0, plutocracy: 0, freeSubjects: 0, freeTrade: 0, conciliatory: 0, quantity: 0, defensive: 0, naval: 0, traditionalEconomy: 0, communalism: 0, inward: 0, liberalism: 0, jurisprudence: 0, unsinicized: 0 },
   courtLanguage: "", govType: "", primaryCulture: "", religion: "", score: 0,
   ...overrides,
-});
-
-const mkEstate = (overrides: Partial<EstateData> = {}): EstateData => ({
-  type: "estate_nobles",
-  power: 0,
-  powerFraction: 0,
-  satisfaction: 0,
-  targetSatisfaction: 0,
-  numPrivileges: 0,
-  maxPrivileges: 0,
-  ...overrides,
-});
-
-describe("fmtEstateType", () => {
-  it("formats estate_nobles as Nobility", () => {
-    expect(fmtEstateType("estate_nobles")).toBe("Nobility");
-  });
-
-  it("formats estate_clergy as Clergy", () => {
-    expect(fmtEstateType("estate_clergy")).toBe("Clergy");
-  });
-
-  it("formats estate_burghers as Burghers", () => {
-    expect(fmtEstateType("estate_burghers")).toBe("Burghers");
-  });
-
-  it("formats estate_peasants as Commoners", () => {
-    expect(fmtEstateType("estate_peasants")).toBe("Commoners");
-  });
-
-  it("formats estate_dhimmi as Dhimmi", () => {
-    expect(fmtEstateType("estate_dhimmi")).toBe("Dhimmi");
-  });
-
-  it("formats estate_tribes as Tribes", () => {
-    expect(fmtEstateType("estate_tribes")).toBe("Tribes");
-  });
-
-  it("formats estate_cossacks as Cossacks", () => {
-    expect(fmtEstateType("estate_cossacks")).toBe("Cossacks");
-  });
-
-  it("formats estate_crown as Crown", () => {
-    expect(fmtEstateType("estate_crown")).toBe("Crown");
-  });
-
-  it("formats unknown type via fmtTitle stripping estate_ prefix", () => {
-    expect(fmtEstateType("estate_unknown_type")).toBe("Unknown Type");
-  });
-});
-
-describe("EstatesSection", () => {
-  it("renders nothing for empty estates", () => {
-    const { container } = render(<EstatesSection estates={[]} />);
-    expect(container.textContent).toBe("");
-  });
-
-  it("renders nothing when all estates have type=''", () => {
-    const { container } = render(<EstatesSection estates={[mkEstate({ type: "" })]} />);
-    expect(container.textContent).toBe("");
-  });
-
-  it("shows estate with power, satisfaction, numPrivileges, maxPrivileges", () => {
-    const estate = mkEstate({ type: "estate_nobles", power: 5000, satisfaction: 7000, numPrivileges: 3, maxPrivileges: 5 });
-    const { container } = render(<EstatesSection estates={[estate]} />);
-    expect(container.textContent).toContain("Nobility");
-    expect(container.textContent).toContain("50.0%");   // 5000/100
-    expect(container.textContent).toContain("70.0%");   // 7000/100
-    expect(container.textContent).toContain("3/5");
-  });
-
-  it("shows — for power when power = 0", () => {
-    const estate = mkEstate({ type: "estate_clergy", power: 0, satisfaction: 3000, numPrivileges: 1, maxPrivileges: 3 });
-    const { container } = render(<EstatesSection estates={[estate]} />);
-    const rows = container.querySelectorAll(".estates-row");
-    const c = within(rows[0] as HTMLElement);
-    // power column is second span after estate name span
-    const spans = rows[0].querySelectorAll("span");
-    expect(spans[1].textContent).toBe("—");
-  });
-
-  it("shows — for satisfaction when satisfaction = 0", () => {
-    const estate = mkEstate({ type: "estate_clergy", power: 3000, satisfaction: 0, numPrivileges: 1, maxPrivileges: 3 });
-    const { container } = render(<EstatesSection estates={[estate]} />);
-    const rows = container.querySelectorAll(".estates-row");
-    const spans = rows[0].querySelectorAll("span");
-    expect(spans[2].textContent).toBe("—");
-  });
-
-  it("shows just numPrivileges when maxPrivileges = 0 and numPrivileges > 0", () => {
-    const estate = mkEstate({ type: "estate_burghers", power: 0, satisfaction: 0, numPrivileges: 2, maxPrivileges: 0 });
-    const { container } = render(<EstatesSection estates={[estate]} />);
-    const rows = container.querySelectorAll(".estates-row");
-    const spans = rows[0].querySelectorAll("span");
-    expect(spans[3].textContent).toBe("2");
-  });
-
-  it("shows — for privileges when maxPrivileges = 0 and numPrivileges = 0", () => {
-    const estate = mkEstate({ type: "estate_burghers", power: 0, satisfaction: 0, numPrivileges: 0, maxPrivileges: 0 });
-    const { container } = render(<EstatesSection estates={[estate]} />);
-    const rows = container.querySelectorAll(".estates-row");
-    const spans = rows[0].querySelectorAll("span");
-    expect(spans[3].textContent).toBe("—");
-  });
 });
 
 describe("GovernmentTab", () => {
@@ -295,5 +190,11 @@ describe("GovernmentTab", () => {
   it("does not show War Exhaustion when warExhaustion = 0", () => {
     const { container } = render(<GovernmentTab stats={mkStats({ warExhaustion: 0 })} />);
     expect(container.textContent).not.toContain("War Exhaustion");
+  });
+
+  it("renders EstatesSection when estates are present", () => {
+    const estates = [{ type: "estate_nobles", power: 0, powerFraction: 0, satisfaction: 0, targetSatisfaction: 0, numPrivileges: 0, maxPrivileges: 0 }];
+    const { container } = render(<GovernmentTab stats={mkStats({ estates })} />);
+    expect(container.textContent).toContain("Estates");
   });
 });

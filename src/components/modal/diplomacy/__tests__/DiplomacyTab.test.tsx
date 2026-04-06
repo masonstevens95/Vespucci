@@ -1,9 +1,8 @@
 import { describe, it, expect } from "vitest";
 import { render } from "@testing-library/react";
-import { within } from "@testing-library/dom";
 import { DiplomacyTab } from "../DiplomacyTab";
-import type { CountryEconomyStats, RoyalMarriageData, ActiveCBData } from "../../../lib/types";
-import type { CountryInfo } from "../../../lib/country-info";
+import type { CountryEconomyStats, RoyalMarriageData, ActiveCBData } from "../../../../lib/types";
+import type { CountryInfo } from "../../../../lib/country-info";
 
 const mkStats = (overrides: Partial<CountryEconomyStats> = {}): CountryEconomyStats => ({
   gold: 0, stability: 0, prestige: 0, monthlyIncome: 0, monthlyTradeValue: 0, population: 0,
@@ -51,7 +50,7 @@ describe("DiplomacyTab", () => {
     expect(container.textContent).not.toContain("Great Power Score");
   });
 
-  it("shows Diplomatic Reputation when diplomaticReputation > 0", () => {
+  it("shows Diplomatic Reputation when diplomaticReputation != 0", () => {
     const info = mkInfo({ stats: mkStats({ diplomaticReputation: 2 }) });
     const { container } = render(
       <DiplomacyTab info={info} stats={info.stats} countryNames={{}} royalMarriages={[]} activeCBs={[]} />
@@ -124,83 +123,23 @@ describe("DiplomacyTab", () => {
     expect(container.textContent).not.toContain("Subjects");
   });
 
-  it("shows Royal Marriages section when this tag has marriages", () => {
+  it("delegates Royal Marriages rendering to RoyalMarriagesSection", () => {
     const info = mkInfo({ tag: "ENG" });
     const rm: RoyalMarriageData = { countryATag: "ENG", countryBTag: "FRA", startDate: 0 };
-    const countryNames = { FRA: "France" };
     const { container } = render(
-      <DiplomacyTab info={info} stats={info.stats} countryNames={countryNames} royalMarriages={[rm]} activeCBs={[]} />
+      <DiplomacyTab info={info} stats={info.stats} countryNames={{ FRA: "France" }} royalMarriages={[rm]} activeCBs={[]} />
     );
     expect(container.textContent).toContain("Royal Marriages");
     expect(container.textContent).toContain("France");
-    expect(container.textContent).toContain("FRA");
   });
 
-  it("does not show Royal Marriages section when royalMarriages is empty", () => {
-    const info = mkInfo({ tag: "ENG" });
-    const { container } = render(
-      <DiplomacyTab info={info} stats={info.stats} countryNames={{}} royalMarriages={[]} activeCBs={[]} />
-    );
-    expect(container.textContent).not.toContain("Royal Marriages");
-  });
-
-  it("does not show Royal Marriages section when marriages do not involve this tag", () => {
-    const info = mkInfo({ tag: "ENG" });
-    const rm: RoyalMarriageData = { countryATag: "FRA", countryBTag: "SPA", startDate: 0 };
-    const { container } = render(
-      <DiplomacyTab info={info} stats={info.stats} countryNames={{}} royalMarriages={[rm]} activeCBs={[]} />
-    );
-    expect(container.textContent).not.toContain("Royal Marriages");
-  });
-
-  it("shows marriage partner from countryBTag when countryATag = this tag", () => {
-    const info = mkInfo({ tag: "ENG" });
-    const rm: RoyalMarriageData = { countryATag: "ENG", countryBTag: "FRA", startDate: 0 };
-    const countryNames = { FRA: "France" };
-    const { container } = render(
-      <DiplomacyTab info={info} stats={info.stats} countryNames={countryNames} royalMarriages={[rm]} activeCBs={[]} />
-    );
-    expect(container.textContent).toContain("France");
-  });
-
-  it("shows marriage partner from countryATag when countryBTag = this tag", () => {
-    const info = mkInfo({ tag: "ENG" });
-    const rm: RoyalMarriageData = { countryATag: "FRA", countryBTag: "ENG", startDate: 0 };
-    const countryNames = { FRA: "France" };
-    const { container } = render(
-      <DiplomacyTab info={info} stats={info.stats} countryNames={countryNames} royalMarriages={[rm]} activeCBs={[]} />
-    );
-    expect(container.textContent).toContain("France");
-  });
-
-  it("shows Casus Belli Held section when holderTag = this tag", () => {
+  it("delegates CB rendering to CasusBelliSection", () => {
     const info = mkInfo({ tag: "ENG" });
     const cb: ActiveCBData = { holderTag: "ENG", targetTag: "FRA", startDate: 0 };
-    const countryNames = { FRA: "France" };
     const { container } = render(
-      <DiplomacyTab info={info} stats={info.stats} countryNames={countryNames} royalMarriages={[]} activeCBs={[cb]} />
+      <DiplomacyTab info={info} stats={info.stats} countryNames={{ FRA: "France" }} royalMarriages={[]} activeCBs={[cb]} />
     );
     expect(container.textContent).toContain("Casus Belli Held");
     expect(container.textContent).toContain("France");
-  });
-
-  it("shows Casus Belli Against section when targetTag = this tag", () => {
-    const info = mkInfo({ tag: "ENG" });
-    const cb: ActiveCBData = { holderTag: "FRA", targetTag: "ENG", startDate: 0 };
-    const countryNames = { FRA: "France" };
-    const { container } = render(
-      <DiplomacyTab info={info} stats={info.stats} countryNames={countryNames} royalMarriages={[]} activeCBs={[cb]} />
-    );
-    expect(container.textContent).toContain("Casus Belli Against");
-    expect(container.textContent).toContain("France");
-  });
-
-  it("does not show CB sections when activeCBs is empty", () => {
-    const info = mkInfo({ tag: "ENG" });
-    const { container } = render(
-      <DiplomacyTab info={info} stats={info.stats} countryNames={{}} royalMarriages={[]} activeCBs={[]} />
-    );
-    expect(container.textContent).not.toContain("Casus Belli Held");
-    expect(container.textContent).not.toContain("Casus Belli Against");
   });
 });

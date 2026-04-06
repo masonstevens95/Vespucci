@@ -1,5 +1,4 @@
-import { fmtTitle } from "./ModalRow";
-import type { CountryInfo } from "../../lib/country-info";
+import type { CountryInfo } from "../../../lib/country-info";
 
 export const SOCIETAL_AXES: readonly {
   key: keyof CountryInfo["stats"]["societalValues"];
@@ -71,25 +70,3 @@ export const SocietalValuesSection = ({
     </>
   );
 };
-
-export const ValuesTab = ({ stats }: { stats: CountryInfo["stats"] }) => (
-  <div className="modal-rows">
-    {stats.institutions.length > 0 ? (
-      <>
-        <div className="modal-section-label">
-          Institutions ({stats.institutions.length})
-        </div>
-        <div className="modal-institution-list">
-          {stats.institutions.map((name) => (
-            <span key={name} className="modal-institution-tag">
-              {fmtTitle(name)}
-            </span>
-          ))}
-        </div>
-      </>
-    ) : (
-      <></>
-    )}
-    <SocietalValuesSection sv={stats.societalValues} />
-  </div>
-);

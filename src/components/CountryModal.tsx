@@ -1,12 +1,12 @@
 import { useState } from "react";
 import type { CountryInfo } from "../lib/country-info";
 import type { RoyalMarriageData, ActiveCBData } from "../lib/types";
-import { OverviewTab } from "./modal/OverviewTab";
-import { EconomyTab } from "./modal/EconomyTab";
-import { ValuesTab } from "./modal/ValuesTab";
-import { GovernmentTab } from "./modal/GovernmentTab";
-import { MilitaryTab } from "./modal/MilitaryTab";
-import { DiplomacyTab } from "./modal/DiplomacyTab";
+import { OverviewTab } from "./modal/overview/OverviewTab";
+import { EconomyTab } from "./modal/economy/EconomyTab";
+import { ValuesTab } from "./modal/values/ValuesTab";
+import { GovernmentTab } from "./modal/government/GovernmentTab";
+import { MilitaryTab } from "./modal/military/MilitaryTab";
+import { DiplomacyTab } from "./modal/diplomacy/DiplomacyTab";
 
 interface Props {
   info: CountryInfo;
