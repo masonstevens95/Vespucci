@@ -13,7 +13,11 @@ import { unzipSync } from "fflate";
 import { TokenReader } from "./token-reader";
 import { parseStringLookup } from "./string-lookup";
 import { T } from "./game-tokens";
-import { findSection, findAllMatches, findOwnershipLocations } from "./section-finder";
+import {
+  findSection,
+  findAllMatches,
+  findOwnershipLocations,
+} from "./section-finder";
 import { readMetadataLocations } from "./sections/metadata";
 import { readCountries } from "./sections/countries";
 import { readLocationOwnership } from "./sections/locations";
@@ -22,13 +26,16 @@ import { readPlayedCountry } from "./sections/players";
 import { findDependencies } from "./sections/dependencies";
 import { readCountryDatabase } from "./sections/country-stats";
 import { readWars } from "./sections/wars";
-import { readPastWarsFromDiplomacy, readDiplomacyAgreements } from "./sections/past-wars";
+import {
+  readPastWarsFromDiplomacy,
+  readDiplomacyAgreements,
+} from "./sections/past-wars";
 import { readTradeData } from "./sections/trade";
 import type { CountryData } from "./sections/country-stats";
 import { readCountryForces } from "./sections/units";
 import { BinaryToken } from "./tokens";
 import { buildDisplayName } from "../country-names";
-import type { ParsedSave, RGB } from "../types";
+import type { ParsedSave, RGB, RgoData } from "../types";
 
 // ---------------------------------------------------------------------------
 // Pure helpers
@@ -44,7 +51,15 @@ const emptyParsedSave = (): ParsedSave => ({
   countryColors: {},
   overlordSubjects: {},
   countryNames: {},
-  countryStats: {}, wars: [], pastWars: [], warReparations: [], annulledTreaties: [], royalMarriages: [], activeCBs: [], trade: { producedGoods: {}, marketNames: {}, marketOwners: {}, markets: [] },
+  countryStats: {},
+  locationRgos: {},
+  wars: [],
+  pastWars: [],
+  warReparations: [],
+  annulledTreaties: [],
+  royalMarriages: [],
+  activeCBs: [],
+  trade: { producedGoods: {}, marketNames: {}, marketOwners: {}, markets: [] },
 });
 
 /**
@@ -72,7 +87,7 @@ const resolveCapitalOwnershipSubjects = (
   countryTags: Readonly<Record<number, string>>,
   countryCapitals: Readonly<Record<number, number>>,
   locationOwners: Readonly<Record<number, string>>,
-  overlordSubjects: Record<string, Set<string>>,
+  overlordSubjects: Record<string, Set<string>>
 ): void => {
   for (const subId of subjectIds) {
     const subTag = countryTags[subId];
@@ -104,7 +119,7 @@ const resolveCapitalOwnershipSubjects = (
  */
 const buildCountryLocations = (
   locationOwners: Readonly<Record<number, string>>,
-  locationNames: Readonly<Record<number, string>>,
+  locationNames: Readonly<Record<number, string>>
 ): Record<string, string[]> => {
   const result: Record<string, string[]> = {};
   for (const [locIdStr, tag] of Object.entries(locationOwners)) {
@@ -142,7 +157,9 @@ const parseGamestate = (data: Uint8Array, dynStrings: string[]): ParsedSave => {
     r.pos = metaOff + 6;
     readMetadataLocations(r, locationNames);
   } else {
-    console.error("[parseGamestate] 'metadata' section not found — location names will be empty");
+    console.error(
+      "[parseGamestate] 'metadata' section not found — location names will be empty"
+    );
   }
 
   const countriesOff = findSection(data, T.countries, r);
@@ -150,23 +167,38 @@ const parseGamestate = (data: Uint8Array, dynStrings: string[]): ParsedSave => {
   let countryDb: Record<string, CountryData> = {};
   if (countriesOff >= 0) {
     r.pos = countriesOff + 6;
-    readCountries(r, countryTags, countryColors, countryCapitals, overlordCandidates);
-
+    readCountries(
+      r,
+      countryTags,
+      countryColors,
+      countryCapitals,
+      overlordCandidates
+    );
 
     // Second pass on database for country stats + names
     r.pos = countriesOff + 6;
     let d = 1;
     while (!r.done && d > 0) {
       const tok = r.readToken();
-      if (tok === BinaryToken.CLOSE) { d--; continue; }
-      else if (tok === BinaryToken.OPEN) { d++; continue; }
-      else if (tok === BinaryToken.EQUAL) { continue; }
-      else if (tok === T.database) {
+      if (tok === BinaryToken.CLOSE) {
+        d--;
+        continue;
+      } else if (tok === BinaryToken.OPEN) {
+        d++;
+        continue;
+      } else if (tok === BinaryToken.EQUAL) {
+        continue;
+      } else if (tok === T.database) {
         r.expectEqual();
         r.expectOpen();
         countryDb = readCountryDatabase(r, data, countryTags);
         for (const [tag, cd] of Object.entries(countryDb)) {
-          const displayName = buildDisplayName(tag, cd.identity.countryName, cd.identity.level, cd.identity.govType);
+          const displayName = buildDisplayName(
+            tag,
+            cd.identity.countryName,
+            cd.identity.level,
+            cd.identity.govType
+          );
           if (displayName !== tag) {
             countryNames[tag] = displayName;
           }
@@ -180,17 +212,23 @@ const parseGamestate = (data: Uint8Array, dynStrings: string[]): ParsedSave => {
       }
     }
   } else {
-    console.error("[parseGamestate] 'countries' section not found — tags/colors/capitals will be empty");
+    console.error(
+      "[parseGamestate] 'countries' section not found — tags/colors/capitals will be empty"
+    );
   }
 
   // (integration_owner removed — too many false positives from partial conquest)
 
+  const locationRgos: Record<number, RgoData> = {};
+
   const locOff = findOwnershipLocations(data, T.locations, T.owner, r);
   if (locOff >= 0) {
     r.pos = locOff + 6;
-    readLocationOwnership(r, countryTags, locationOwners);
+    readLocationOwnership(r, data, countryTags, locationOwners, locationRgos);
   } else {
-    console.error("[parseGamestate] ownership 'locations' section not found — locationOwners will be empty");
+    console.error(
+      "[parseGamestate] ownership 'locations' section not found — locationOwners will be empty"
+    );
   }
 
   // Dependencies: authoritative overlord-subject relationships
@@ -202,23 +240,36 @@ const parseGamestate = (data: Uint8Array, dynStrings: string[]): ParsedSave => {
     r.pos = dipOff + 6;
     readDiplomacy(r, subjectIds);
   } else {
-    console.error("[parseGamestate] 'diplomacy_manager' section not found — subjectIds will be empty");
+    console.error(
+      "[parseGamestate] 'diplomacy_manager' section not found — subjectIds will be empty"
+    );
   }
 
   // Read past wars and agreements from diplomacy relations
-  const rawPastWars = dipOff >= 0
-    ? readPastWarsFromDiplomacy(data, dynStrings, dipOff + 6)
-    : [];
-  const rawAgreements = dipOff >= 0
-    ? readDiplomacyAgreements(data, dynStrings, dipOff + 6)
-    : { reparations: [], annulledTreaties: [], royalMarriages: [], activeCBs: [] };
+  const rawPastWars =
+    dipOff >= 0 ? readPastWarsFromDiplomacy(data, dynStrings, dipOff + 6) : [];
+  const rawAgreements =
+    dipOff >= 0
+      ? readDiplomacyAgreements(data, dynStrings, dipOff + 6)
+      : {
+          reparations: [],
+          annulledTreaties: [],
+          royalMarriages: [],
+          activeCBs: [],
+        };
 
   for (const off of findAllMatches(data, T.playedCountry)) {
     r.pos = off + 6;
     readPlayedCountry(r, countryTags, tagToPlayers);
   }
 
-  resolveCapitalOwnershipSubjects(subjectIds, countryTags, countryCapitals, locationOwners, overlordSubjects);
+  resolveCapitalOwnershipSubjects(
+    subjectIds,
+    countryTags,
+    countryCapitals,
+    locationOwners,
+    overlordSubjects
+  );
 
   const countryLocations = buildCountryLocations(locationOwners, locationNames);
 
@@ -226,7 +277,8 @@ const parseGamestate = (data: Uint8Array, dynStrings: string[]): ParsedSave => {
   const forces = readCountryForces(data, dynStrings, countryTags);
 
   // Build countryStats from country database + forces
-  const countryStats: Record<string, import("../types").CountryEconomyStats> = {};
+  const countryStats: Record<string, import("../types").CountryEconomyStats> =
+    {};
   for (const [tag, cd] of Object.entries(countryDb)) {
     const f = forces[tag];
     countryStats[tag] = {
@@ -264,24 +316,48 @@ const parseGamestate = (data: Uint8Array, dynStrings: string[]): ParsedSave => {
       inflation: cd.economy.inflation,
       estates: cd.estates,
       stabilityInvestment: cd.politics.stabilityInvestment,
-      republicanTradition: cd.identity.govRepublicanTradition !== 0 ? cd.identity.govRepublicanTradition : cd.politics.republicanTradition,
-      hordeUnity: cd.identity.govHordeUnity !== 0 ? cd.identity.govHordeUnity : cd.politics.hordeUnity,
-      devotion: cd.identity.govDevotion !== 0 ? cd.identity.govDevotion : cd.politics.devotion,
-      tribalCohesion: cd.identity.govTribalCohesion !== 0 ? cd.identity.govTribalCohesion : cd.politics.tribalCohesion,
-      governmentPower: cd.economy.governmentPower !== 0 ? cd.economy.governmentPower : cd.politics.governmentPower,
+      republicanTradition:
+        cd.identity.govRepublicanTradition !== 0
+          ? cd.identity.govRepublicanTradition
+          : cd.politics.republicanTradition,
+      hordeUnity:
+        cd.identity.govHordeUnity !== 0
+          ? cd.identity.govHordeUnity
+          : cd.politics.hordeUnity,
+      devotion:
+        cd.identity.govDevotion !== 0
+          ? cd.identity.govDevotion
+          : cd.politics.devotion,
+      tribalCohesion:
+        cd.identity.govTribalCohesion !== 0
+          ? cd.identity.govTribalCohesion
+          : cd.politics.tribalCohesion,
+      governmentPower:
+        cd.economy.governmentPower !== 0
+          ? cd.economy.governmentPower
+          : cd.politics.governmentPower,
       karma: cd.economy.karma,
       religiousInfluence: cd.economy.religiousInfluence,
       purity: cd.economy.purity,
       righteousness: cd.economy.righteousness,
       diplomaticCapacity: cd.politics.diplomaticCapacity,
       diplomaticReputation: cd.politics.diplomaticReputation,
-      warExhaustion: cd.economy.warExhaustion !== 0 ? cd.economy.warExhaustion : cd.politics.warExhaustion,
+      warExhaustion:
+        cd.economy.warExhaustion !== 0
+          ? cd.economy.warExhaustion
+          : cd.politics.warExhaustion,
       powerProjection: cd.politics.powerProjection,
       libertyDesire: cd.politics.libertyDesire,
       greatPowerScore: cd.politics.greatPowerScore,
       numAllies: cd.politics.numAllies,
-      armyTradition: cd.economy.armyTradition !== 0 ? cd.economy.armyTradition : cd.politics.armyTradition,
-      navyTradition: cd.economy.navyTradition !== 0 ? cd.economy.navyTradition : cd.politics.navyTradition,
+      armyTradition:
+        cd.economy.armyTradition !== 0
+          ? cd.economy.armyTradition
+          : cd.politics.armyTradition,
+      navyTradition:
+        cd.economy.navyTradition !== 0
+          ? cd.economy.navyTradition
+          : cd.politics.navyTradition,
       militaryTactics: cd.politics.militaryTactics,
       monthlyGoldIncome: cd.politics.monthlyGoldIncome,
       monthlyGoldExpense: cd.politics.monthlyGoldExpense,
@@ -301,7 +377,7 @@ const parseGamestate = (data: Uint8Array, dynStrings: string[]): ParsedSave => {
 
   // Read wars
   const rawWars = readWars(data, dynStrings);
-  const wars: import("../types").WarData[] = rawWars.map(w => ({
+  const wars: import("../types").WarData[] = rawWars.map((w) => ({
     attackerTag: countryTags[w.attackerId] ?? `id:${w.attackerId}`,
     defenderTag: countryTags[w.defenderId] ?? `id:${w.defenderId}`,
     casusBelli: w.casusBelli,
@@ -316,12 +392,12 @@ const parseGamestate = (data: Uint8Array, dynStrings: string[]): ParsedSave => {
     warDirectionQuarter: w.warDirectionQuarter,
     warDirectionYear: w.warDirectionYear,
     stalledYears: w.stalledYears,
-    participants: w.participants.map(p => ({
+    participants: w.participants.map((p) => ({
       tag: countryTags[p.country] ?? `id:${p.country}`,
       side: p.side,
       reason: p.reason,
     })),
-    battles: w.battles.map(b => ({
+    battles: w.battles.map((b) => ({
       location: b.location,
       date: b.date,
       attackerWon: b.attackerWon,
@@ -329,8 +405,10 @@ const parseGamestate = (data: Uint8Array, dynStrings: string[]): ParsedSave => {
       defenderLosses: b.defenderLosses,
       attackerTotal: b.attackerTotal,
       defenderTotal: b.defenderTotal,
-      attackerCountryTag: countryTags[b.attackerCountry] ?? `id:${b.attackerCountry}`,
-      defenderCountryTag: countryTags[b.defenderCountry] ?? `id:${b.defenderCountry}`,
+      attackerCountryTag:
+        countryTags[b.attackerCountry] ?? `id:${b.attackerCountry}`,
+      defenderCountryTag:
+        countryTags[b.defenderCountry] ?? `id:${b.defenderCountry}`,
       battleWarScore: b.battleWarScore,
       attackerTroopBreakdown: b.attackerTroopBreakdown,
       defenderTroopBreakdown: b.defenderTroopBreakdown,
@@ -343,7 +421,7 @@ const parseGamestate = (data: Uint8Array, dynStrings: string[]): ParsedSave => {
       attackerWarExhaustion: b.attackerWarExhaustion,
       defenderWarExhaustion: b.defenderWarExhaustion,
     })),
-    occupiedLocations: w.occupiedLocations.map(ol => ({
+    occupiedLocations: w.occupiedLocations.map((ol) => ({
       location: ol.location,
       controllerTag: countryTags[ol.controller] ?? `id:${ol.controller}`,
     })),
@@ -358,50 +436,74 @@ const parseGamestate = (data: Uint8Array, dynStrings: string[]): ParsedSave => {
     const centerName = locationNames[m.centerLocation] ?? "";
     const name = capitalName !== "" ? capitalName : centerName;
     if (name !== "") {
-      marketNames[m.id] = name.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+      marketNames[m.id] = name
+        .replace(/_/g, " ")
+        .replace(/\b\w/g, (c) => c.toUpperCase());
     }
   }
   const marketOwners: Record<number, string> = {};
   for (const m of rawTrade.markets) {
     // Try the center location itself, then one before (capital city pattern)
-    const owner = locationOwners[m.centerLocation] ?? locationOwners[m.centerLocation - 1] ?? "";
+    const owner =
+      locationOwners[m.centerLocation] ??
+      locationOwners[m.centerLocation - 1] ??
+      "";
     if (owner !== "") {
       marketOwners[m.id] = owner;
     }
   }
   const trade = { ...rawTrade, marketNames, marketOwners };
 
-  const pastWars: import("../types").PastWarData[] = rawPastWars.map(pw => ({
+  const pastWars: import("../types").PastWarData[] = rawPastWars.map((pw) => ({
     countryATag: countryTags[pw.countryA] ?? `id:${pw.countryA}`,
     countryBTag: countryTags[pw.countryB] ?? `id:${pw.countryB}`,
     lastWarDate: pw.lastWarDate,
     warScore: pw.warScore,
   }));
 
-  const warReparations: import("../types").WarReparationData[] = rawAgreements.reparations.map(r => ({
-    winnerTag: countryTags[r.winner] ?? `id:${r.winner}`,
-    loserTag: countryTags[r.loser] ?? `id:${r.loser}`,
-    startDate: r.startDate,
-    expirationDate: r.expirationDate,
-  }));
-  const annulledTreaties: import("../types").AnnulledTreatyData[] = rawAgreements.annulledTreaties.map(a => ({
-    enforcerTag: countryTags[a.enforcer] ?? `id:${a.enforcer}`,
-    targetTag: countryTags[a.target] ?? `id:${a.target}`,
-    startDate: a.startDate,
-    expirationDate: a.expirationDate,
-  }));
-  const royalMarriages: import("../types").RoyalMarriageData[] = rawAgreements.royalMarriages.map(rm => ({
-    countryATag: countryTags[rm.countryA] ?? `id:${rm.countryA}`,
-    countryBTag: countryTags[rm.countryB] ?? `id:${rm.countryB}`,
-    startDate: rm.startDate,
-  }));
-  const activeCBs: import("../types").ActiveCBData[] = rawAgreements.activeCBs.map(cb => ({
-    holderTag: countryTags[cb.holder] ?? `id:${cb.holder}`,
-    targetTag: countryTags[cb.target] ?? `id:${cb.target}`,
-    startDate: cb.startDate,
-  }));
+  const warReparations: import("../types").WarReparationData[] =
+    rawAgreements.reparations.map((r) => ({
+      winnerTag: countryTags[r.winner] ?? `id:${r.winner}`,
+      loserTag: countryTags[r.loser] ?? `id:${r.loser}`,
+      startDate: r.startDate,
+      expirationDate: r.expirationDate,
+    }));
+  const annulledTreaties: import("../types").AnnulledTreatyData[] =
+    rawAgreements.annulledTreaties.map((a) => ({
+      enforcerTag: countryTags[a.enforcer] ?? `id:${a.enforcer}`,
+      targetTag: countryTags[a.target] ?? `id:${a.target}`,
+      startDate: a.startDate,
+      expirationDate: a.expirationDate,
+    }));
+  const royalMarriages: import("../types").RoyalMarriageData[] =
+    rawAgreements.royalMarriages.map((rm) => ({
+      countryATag: countryTags[rm.countryA] ?? `id:${rm.countryA}`,
+      countryBTag: countryTags[rm.countryB] ?? `id:${rm.countryB}`,
+      startDate: rm.startDate,
+    }));
+  const activeCBs: import("../types").ActiveCBData[] =
+    rawAgreements.activeCBs.map((cb) => ({
+      holderTag: countryTags[cb.holder] ?? `id:${cb.holder}`,
+      targetTag: countryTags[cb.target] ?? `id:${cb.target}`,
+      startDate: cb.startDate,
+    }));
 
-  return { countryLocations, tagToPlayers, countryColors, overlordSubjects, countryNames, countryStats, wars, pastWars, warReparations, annulledTreaties, royalMarriages, activeCBs, trade };
+  return {
+    countryLocations,
+    tagToPlayers,
+    countryColors,
+    overlordSubjects,
+    countryNames,
+    countryStats,
+    locationRgos,
+    wars,
+    pastWars,
+    warReparations,
+    annulledTreaties,
+    royalMarriages,
+    activeCBs,
+    trade,
+  };
 };
 
 // ---------------------------------------------------------------------------
@@ -416,7 +518,9 @@ const parseGamestate = (data: Uint8Array, dynStrings: string[]): ParsedSave => {
 export const parseBinarySave = (fileData: Uint8Array): ParsedSave => {
   const pkOffset = findZipOffset(fileData);
   if (pkOffset === -1) {
-    console.error("[parseBinarySave] ZIP magic bytes (PK) not found — is this a binary .eu5 save?");
+    console.error(
+      "[parseBinarySave] ZIP magic bytes (PK) not found — is this a binary .eu5 save?"
+    );
     return emptyParsedSave();
   } else {
     // found ZIP data — proceed
@@ -434,7 +538,9 @@ export const parseBinarySave = (fileData: Uint8Array): ParsedSave => {
   }
 
   if (!stringLookup) {
-    console.error("[parseBinarySave] 'string_lookup' entry missing from save ZIP");
+    console.error(
+      "[parseBinarySave] 'string_lookup' entry missing from save ZIP"
+    );
     return emptyParsedSave();
   } else {
     // string_lookup present

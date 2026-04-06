@@ -1,6 +1,21 @@
 import { TokenReader } from "../token-reader";
-import { BinaryToken } from "../tokens";
+import { BinaryToken, isValueToken, valuePayloadSize } from "../tokens";
 import { T } from "../game-tokens";
+import { tokenId } from "../token-names";
+import { isFixed5, readFixed5 } from "./fixed5";
+import type { RgoData } from "../../types";
+
+// ---------------------------------------------------------------------------
+// RGO token IDs
+// ---------------------------------------------------------------------------
+
+const RGO_TOKEN = tokenId("rgo") ?? -1;
+const RAW_MATERIAL = tokenId("raw_material") ?? -1;
+const RAW_MATERIAL_SIZE = tokenId("raw_material_size") ?? -1;
+const EMPLOYMENT_SIZE = tokenId("employment_size") ?? -1;
+const LOCAL_MAX_RGO_SIZE = tokenId("local_max_rgo_size") ?? -1;
+const GOODS_METHOD = tokenId("goods_method") ?? -1;
+const OUTPUT_SCALE = tokenId("output_scale") ?? -1;
 
 // ---------------------------------------------------------------------------
 // Pure helpers
@@ -8,12 +23,16 @@ import { T } from "../game-tokens";
 
 /** True when a token is structural noise we skip in depth-tracking loops. */
 const isStructuralToken = (tok: number): boolean =>
-  tok === BinaryToken.CLOSE || tok === BinaryToken.OPEN || tok === BinaryToken.EQUAL;
+  tok === BinaryToken.CLOSE ||
+  tok === BinaryToken.OPEN ||
+  tok === BinaryToken.EQUAL;
 
 /** Adjust depth for OPEN / CLOSE tokens; returns updated depth. */
 const adjustDepth = (tok: number, depth: number): number =>
-  tok === BinaryToken.CLOSE ? depth - 1
-    : tok === BinaryToken.OPEN ? depth + 1
+  tok === BinaryToken.CLOSE
+    ? depth - 1
+    : tok === BinaryToken.OPEN
+    ? depth + 1
     : depth;
 
 /** Skip an unknown key=value pair when the next token is EQUAL. */
@@ -37,41 +56,144 @@ const readIntPayload = (r: TokenReader, tok: number): number =>
 /** Resolve an owner ID to a country tag, returning "" when unresolvable. */
 const resolveOwnerTag = (
   ownerId: number,
-  countryTags: Record<number, string>,
+  countryTags: Record<number, string>
 ): string => countryTags[ownerId] ?? "";
+
+/** Read a FIXED5-or-integer value after the type token has been consumed. */
+const readNumericPayload = (
+  r: TokenReader,
+  data: Uint8Array,
+  vt: number
+): number => {
+  if (isFixed5(vt)) {
+    const val = readFixed5(data, r.pos, vt);
+    r.pos += valuePayloadSize(vt, data, r.pos);
+    return val;
+  } else if (vt === BinaryToken.I32) {
+    return r.readI32();
+  } else if (vt === BinaryToken.U32) {
+    return r.readU32();
+  } else {
+    r.skipValuePayload(vt);
+    return 0;
+  }
+};
+
+/** Read the rgo = { ... } sub-block. Cursor must be just after the opening {. */
+const readRgoBlock = (r: TokenReader, data: Uint8Array): RgoData => {
+  let good = "";
+  let size = 0;
+  let employment = 0;
+  let maxSize = 0;
+  let method = "";
+  let outputScale = 0;
+
+  let depth = 1;
+  while (!r.done && depth > 0) {
+    const tok = r.readToken();
+
+    if (tok === BinaryToken.CLOSE) {
+      depth--;
+    } else if (tok === BinaryToken.OPEN) {
+      depth++;
+    } else if (tok === BinaryToken.EQUAL) {
+      /* structural noise */
+    } else if (isValueToken(tok)) {
+      r.skipValuePayload(tok);
+    } else if (depth === 1) {
+      if (tok === RAW_MATERIAL) {
+        r.expectEqual();
+        good = r.readStringValue() ?? "";
+      } else if (tok === RAW_MATERIAL_SIZE) {
+        r.expectEqual();
+        size = r.readIntValue() ?? 0;
+      } else if (tok === EMPLOYMENT_SIZE) {
+        r.expectEqual();
+        employment = r.readIntValue() ?? 0;
+      } else if (tok === LOCAL_MAX_RGO_SIZE) {
+        r.expectEqual();
+        maxSize = r.readIntValue() ?? 0;
+      } else if (tok === GOODS_METHOD) {
+        r.expectEqual();
+        method = r.readStringValue() ?? "";
+      } else if (tok === OUTPUT_SCALE) {
+        r.expectEqual();
+        const vt = r.readToken();
+        outputScale = readNumericPayload(r, data, vt);
+      } else {
+        skipUnknownField(r);
+      }
+    } else {
+      /* depth > 1 — inside nested sub-block, field token has no meaning here */
+    }
+  }
+
+  return { good, size, employment, maxSize, method, outputScale };
+};
 
 // ---------------------------------------------------------------------------
 // Public API
 // ---------------------------------------------------------------------------
 
-/** Read owner from a single location entry, then skip the rest. */
+/**
+ * Read owner + rgo from a single location entry block.
+ * Cursor must be just after the opening {.
+ */
 export const readLocationEntry = (
   r: TokenReader,
+  data: Uint8Array,
   locId: number,
   countryTags: Record<number, string>,
   locationOwners: Record<number, string>,
+  locationRgos: Record<number, RgoData>
 ): void => {
-  if (r.peekToken() === T.owner) {
-    r.readToken();
-    r.expectEqual();
-    const ownerId = r.readIntValue() ?? -1;
-    const tag = resolveOwnerTag(ownerId, countryTags);
-    if (tag !== "") {
-      locationOwners[locId] = tag;
+  let depth = 1;
+  while (!r.done && depth > 0) {
+    const tok = r.readToken();
+
+    if (tok === BinaryToken.CLOSE) {
+      depth--;
+    } else if (tok === BinaryToken.OPEN) {
+      depth++;
+    } else if (tok === BinaryToken.EQUAL) {
+      /* structural noise */
+    } else if (isValueToken(tok)) {
+      r.skipValuePayload(tok);
+    } else if (depth === 1) {
+      if (tok === T.owner) {
+        r.expectEqual();
+        const ownerId = r.readIntValue() ?? -1;
+        const tag = resolveOwnerTag(ownerId, countryTags);
+        if (tag !== "") {
+          locationOwners[locId] = tag;
+        } else {
+          /* unknown or missing owner */
+        }
+      } else if (tok === RGO_TOKEN) {
+        r.expectEqual();
+        r.expectOpen();
+        const rgo = readRgoBlock(r, data);
+        if (rgo.good !== "") {
+          locationRgos[locId] = rgo;
+        } else {
+          /* rgo block present but no raw_material — skip */
+        }
+      } else {
+        skipUnknownField(r);
+      }
     } else {
-      /* unknown or missing owner — skip */
+      /* depth > 1 — field token inside a nested block we don't care about */
     }
-  } else {
-    /* entry does not lead with owner — skip entire block */
   }
-  r.skipBlock();
 };
 
 /** Read numeric-keyed location entries. */
 export const readLocationEntries = (
   r: TokenReader,
+  data: Uint8Array,
   countryTags: Record<number, string>,
   locationOwners: Record<number, string>,
+  locationRgos: Record<number, RgoData>
 ): void => {
   while (!r.done) {
     const tok = r.peekToken();
@@ -88,7 +210,14 @@ export const readLocationEntries = (
       const locId = readIntPayload(r, tok);
       r.expectEqual();
       r.expectOpen();
-      readLocationEntry(r, locId, countryTags, locationOwners);
+      readLocationEntry(
+        r,
+        data,
+        locId,
+        countryTags,
+        locationOwners,
+        locationRgos
+      );
     } else {
       r.readToken();
       skipUnknownField(r);
@@ -96,11 +225,13 @@ export const readLocationEntries = (
   }
 };
 
-/** Read location ownership from the main locations section. */
+/** Read location ownership and RGO data from the main locations section. */
 export const readLocationOwnership = (
   r: TokenReader,
+  data: Uint8Array,
   countryTags: Record<number, string>,
   locationOwners: Record<number, string>,
+  locationRgos: Record<number, RgoData>
 ): void => {
   let depth = 1;
   while (!r.done && depth > 0) {
@@ -116,7 +247,7 @@ export const readLocationOwnership = (
     if (tok === T.locations) {
       r.expectEqual();
       r.expectOpen();
-      readLocationEntries(r, countryTags, locationOwners);
+      readLocationEntries(r, data, countryTags, locationOwners, locationRgos);
       return;
     } else {
       skipUnknownField(r);
