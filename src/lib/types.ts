@@ -1,5 +1,21 @@
 export type RGB = [number, number, number];
 
+export interface RgoData {
+  readonly good: string;        // raw_material
+  readonly size: number;        // raw_material_size (levels built)
+  readonly employment: number;  // employment_size (current workers)
+  readonly maxSize: number;     // local_max_rgo_size
+  readonly method: string;      // goods_method (farming/mining/etc.)
+  readonly outputScale: number; // output_scale (FIXED5 multiplier)
+}
+
+/** Aggregated RGO production totals for one country + one good. */
+export interface RgoProductionEntry {
+  readonly totalSize: number;
+  readonly totalEmployment: number;
+  readonly locationCount: number;
+}
+
 export interface EstateData {
   readonly type: string;
   readonly power: number;
@@ -202,6 +218,10 @@ export interface ParsedSave {
   overlordSubjects: Record<string, Set<string>>;
   countryNames: Record<string, string>;
   countryStats: Record<string, CountryEconomyStats>;
+  locationRgos: Record<number, RgoData>;
+  countryProduction: Record<string, Record<string, RgoProductionEntry>>;
+  goodsRankings: Record<string, Record<string, number>>;
+  goodAvgPrices: Record<string, number>;
   wars: WarData[];
   pastWars: PastWarData[];
   warReparations: WarReparationData[];

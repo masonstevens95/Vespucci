@@ -1,0 +1,32 @@
+import { Row } from "../ModalRow";
+import { fmtCurrency } from "../../../lib/format";
+import type { CountryInfo } from "../../../lib/country-info";
+import { GoldFlowSection } from "./GoldFlowSection";
+import { ProducesSection } from "./ProducesSection";
+
+export const EconomyTab = ({
+  stats,
+  production,
+  goodsRankings,
+  goodAvgPrices,
+}: {
+  stats: CountryInfo["stats"];
+  production: CountryInfo["production"];
+  goodsRankings: CountryInfo["goodsRankings"];
+  goodAvgPrices: CountryInfo["goodAvgPrices"];
+}) => (
+  <div className="modal-rows">
+    <Row label="Treasury" value={fmtCurrency(stats.gold)} />
+    <Row
+      label="Monthly Income (est.)"
+      value={fmtCurrency(stats.monthlyIncome)}
+    />
+    <Row label="Trade Value" value={fmtCurrency(stats.monthlyTradeValue)} />
+    <GoldFlowSection stats={stats} />
+    <ProducesSection
+      production={production}
+      goodsRankings={goodsRankings}
+      goodAvgPrices={goodAvgPrices}
+    />
+  </div>
+);

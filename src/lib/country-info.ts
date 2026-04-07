@@ -5,7 +5,7 @@
  * No null, no exceptions, every if has an else.
  */
 
-import type { ParsedSave, RGB, CountryEconomyStats } from "./types";
+import type { ParsedSave, RGB, CountryEconomyStats, RgoProductionEntry } from "./types";
 import { rgbToHex } from "./colors";
 
 // =============================================================================
@@ -23,6 +23,11 @@ export interface CountryInfo {
   readonly overlord: string;
   readonly subjects: readonly string[];
   readonly stats: CountryStats;
+  readonly production: Readonly<Record<string, RgoProductionEntry>>;
+  /** Global rank (1 = top producer) for each good this country produces. */
+  readonly goodsRankings: Readonly<Record<string, number>>;
+  /** Global average price per good (across all markets). */
+  readonly goodAvgPrices: Readonly<Record<string, number>>;
 }
 
 // =============================================================================
@@ -96,6 +101,19 @@ export const buildCountryInfo = (
   const overlord = findOverlord(tag, parsed.overlordSubjects);
   const subjects = getSubjects(tag, parsed.overlordSubjects);
   const stats: CountryStats = parsed.countryStats[tag] ?? EMPTY_STATS;
+  const production: Readonly<Record<string, RgoProductionEntry>> =
+    parsed.countryProduction[tag] ?? {};
+
+  // Extract this country's rank for each good it produces
+  const goodsRankings: Record<string, number> = {};
+  for (const good of Object.keys(production)) {
+    const rank = parsed.goodsRankings[good]?.[tag];
+    if (rank !== undefined) {
+      goodsRankings[good] = rank;
+    } else {
+      /* good not in global rankings — skip */
+    }
+  }
 
   return {
     tag,
@@ -106,6 +124,9 @@ export const buildCountryInfo = (
     overlord,
     subjects,
     stats,
+    production,
+    goodsRankings,
+    goodAvgPrices: parsed.goodAvgPrices,
   };
 };
 

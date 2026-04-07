@@ -29,3 +29,4 @@ coverage/
 *_melted.json
 melted/
 .env
+diagnostics/

@@ -7,7 +7,7 @@
  */
 
 import { TokenReader } from "../token-reader";
-import { BinaryToken, isValueToken } from "../tokens";
+import { BinaryToken, isValueToken, valuePayloadSize } from "../tokens";
 import { IDENTITY_FIELDS, readIdentityAtOffsets, readSocietalValues, emptyIdentity } from "./country-identity";
 import type { CountryIdentity } from "./country-identity";
 import { ECONOMY_TOKENS, readEconomyAtOffsets, emptyEconomyStats } from "./economy";
@@ -356,6 +356,25 @@ export const readCountryDatabase = (
         }
       }
 
+      // Secondary scan: find estates token at ANY depth within the entry
+      // (it may be nested inside government { } or another sub-block)
+      if (estatesOffset < 0) {
+        r.pos = entryStart;
+        while (r.pos < entryEnd - 3) {
+          const sp = r.pos;
+          const st = r.readToken();
+          if (isValueToken(st)) { r.pos += valuePayloadSize(st, data, r.pos); continue; }
+          if (st === ESTATES_TOKEN && r.pos < entryEnd && r.peekToken() === BinaryToken.EQUAL) {
+            estatesOffset = sp;
+            break;
+          } else {
+            // structural or field token — no payload to skip, loop continues
+          }
+        }
+      } else {
+        // already found at depth=1
+      }
+
       // Parse estates block if found
       let estates: readonly EstateData[] = [];
       if (estatesOffset >= 0) {
@@ -365,10 +384,10 @@ export const readCountryDatabase = (
         if (r.expectOpen()) {
           estates = readEstates(r, data);
         } else {
-          // not an open block — skip
+          console.error(`[readCountryDatabase] 'estates' field for tag ${tag} found but value is not a block`);
         }
       } else {
-        // no estates block found
+        console.error(`[readCountryDatabase] no 'estates' block found in entry for tag ${tag}`);
       }
 
       result[tag] = { identity: finalIdentity, economy, military, politics, estates };

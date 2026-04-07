@@ -99,6 +99,32 @@ export const filterMarkets = (
 
 // ─── Data helpers ──────────────────────────────────────────────────────────
 
+/**
+ * Build a global good → average price map across all markets.
+ * Used to show price context in the country production table.
+ */
+export const buildGoodAvgPrices = (
+  markets: ParsedSave["trade"]["markets"],
+): Record<string, number> => {
+  const acc: Record<string, { sum: number; count: number }> = {};
+  for (const market of markets) {
+    for (const good of market.goods) {
+      if (!acc[good.name]) {
+        acc[good.name] = { sum: 0, count: 0 };
+      } else {
+        /* already initialised */
+      }
+      acc[good.name].sum += good.price;
+      acc[good.name].count += 1;
+    }
+  }
+  const result: Record<string, number> = {};
+  for (const [name, { sum, count }] of Object.entries(acc)) {
+    result[name] = count > 0 ? sum / count : 0;
+  }
+  return result;
+};
+
 /** Build aggregate stats per good across all markets. */
 export const buildGoodStats = (
   producedGoods: Readonly<Record<string, number>>,

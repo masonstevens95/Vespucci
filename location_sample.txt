@@ -1,0 +1,85 @@
+--- Location 1 ---
+owner = U32(3)
+controller = U32(3)
+previous_owner = U32(3)
+market = U32(27)
+second_best_market = U32(27)
+market_access = FIXED5_0xd4a(100)
+market_attraction = FIXED5_0xd4a(155.154)
+second_best_market_access = FIXED5_0xd4a(100)
+cores = {
+religion = U32(15)
+religious_unity = FIXED5_0xd4a(97.568)
+culture = U32(1845)
+secondary_culture = U32(463)
+cultural_unity = FIXED5_0xd4a(98.773)
+?0xbb = LOOKUP_U16(1565="scandinavian_language")
+dialect = LOOKUP_U16(8965="swedish_dialect")
+last_owner_change = I32(55514280)
+last_controller_change = I32(55514280)
+?0xdf = LOOKUP_U16(1616="city")
+raw_material = LOOKUP_U16(13494="clay")
+max_raw_material_workers = FIXED5_0xd4a(1100)
+prosperity = FIXED5_0xd49(61.178)
+development = FIXED5_0xd4a(4736.624)
+control = FIXED5_0xd4a(100)
+road_to_capital = BOOL(1)
+proximity = FIXED5_0xd4a(10000)
+local_proximity_propagation = FIXED5_0xd4a(7144.959)
+value_flow = FIXED5_0xd4b(21625.121)
+province = U32(0)
+tax = FIXED5_0xd4a(6432.459)
+possible_tax = FIXED5_0xd4a(6432.459)
+estate_tax = {
+institutions = {
+ub = BOOL(0)
+population = {
+  pop_stats = {
+      population_ratio = FIXED5_0xd4a(185.688)
+      produced = FIXED5_0xd49(36)
+      unemployed = FIXED5_0xd4a(149.645)
+      changes = {
+      population_ratio = FIXED5_0xd4a(188.964)
+      produced = FIXED5_0xd49(45)
+      unemployed = FIXED5_0xd4a(143.923)
+      changes = {
+      population_ratio = FIXED5_0xd4a(1460)
+      produced = FIXED5_0xd4a(1350)
+      unemployed = FIXED5_0xd4a(154)
+      changes = {
+        ?0xd47
+      population_ratio = FIXED5_0xd4a(1890)
+      produced = FIXED5_0xd4a(690)
+      unemployed = FIXED5_0xd4a(200)
+      employed_in_rgo = FIXED5_0xd4a(1100)
+      population_ratio = FIXED5_0xd4a(825)
+      produced = FIXED5_0xd4a(800)
+      unemployed = FIXED5_0xd49(25)
+      population_ratio = FIXED5_0xd49(50)
+      produced = FIXED5_0xd49(50)
+      unemployed = FIXED5_0xd4a(6666.207)
+      changes = {
+  biggest = U32(3573571941)
+  last = {
+    ?0xf0 = {
+        owner = U32(3)
+        change = FIXED5_0xd49(3.65)
+  changes = {
+      ?0xf0 = {
+          owner = U32(3)
+          change = FIXED5_0xd49(3.65)
+  pops = {
+integration_data = {
+    integration = ?0x2f89
+    core
+    integration_owner = U32(3)
+garrison = FIXED5_0xd49(18.75)
+counters = {
+variables = {
+  ?0xf0 = {
+      flag = LOOKUP_U16(57532="lutherans_blocked_in_location")
+      ?0xf0 = {
+        ?0xe1 = ?0x2d2
+        value
+        ?0xdb = U64
+

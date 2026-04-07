@@ -381,7 +381,7 @@ describe("readLocationOwnership", () => {
     );
     const r = new TokenReader(data);
     const owners: Record<number, string> = {};
-    readLocationOwnership(r, { 0: "SWE" }, owners);
+    readLocationOwnership(r, data, { 0: "SWE" }, owners, {});
     expect(owners[1]).toBe("SWE");
   });
 
@@ -400,7 +400,7 @@ describe("readLocationOwnership", () => {
     );
     const r = new TokenReader(data);
     const owners: Record<number, string> = {};
-    readLocationOwnership(r, { 0: "SWE" }, owners);
+    readLocationOwnership(r, data, { 0: "SWE" }, owners, {});
     expect(owners[1]).toBe("SWE");
   });
 
@@ -408,7 +408,7 @@ describe("readLocationOwnership", () => {
     const data = bytes(close());
     const r = new TokenReader(data);
     const owners: Record<number, string> = {};
-    readLocationOwnership(r, {}, owners);
+    readLocationOwnership(r, data, {}, owners, {});
     expect(owners).toEqual({});
   });
 });
@@ -428,7 +428,7 @@ describe("readLocationEntries", () => {
     const r = new TokenReader(data);
     const tags = { 0: "SWE", 1: "FRA" };
     const owners: Record<number, string> = {};
-    readLocationEntries(r, tags, owners);
+    readLocationEntries(r, data, tags, owners, {});
     expect(owners).toEqual({ 1: "SWE", 2: "FRA" });
   });
 
@@ -442,7 +442,7 @@ describe("readLocationEntries", () => {
     );
     const r = new TokenReader(data);
     const owners: Record<number, string> = {};
-    readLocationEntries(r, { 0: "SWE" }, owners);
+    readLocationEntries(r, data, { 0: "SWE" }, owners, {});
     expect(owners).toEqual({});
   });
 
@@ -458,7 +458,7 @@ describe("readLocationEntries", () => {
     );
     const r = new TokenReader(data);
     const owners: Record<number, string> = {};
-    readLocationEntries(r, { 0: "SWE" }, owners);
+    readLocationEntries(r, data, { 0: "SWE" }, owners, {});
     expect(owners[1]).toBe("SWE");
   });
 
@@ -466,13 +466,13 @@ describe("readLocationEntries", () => {
     const data = bytes(close());
     const r = new TokenReader(data);
     const owners: Record<number, string> = {};
-    readLocationEntries(r, {}, owners);
+    readLocationEntries(r, data, {}, owners, {});
     expect(owners).toEqual({});
   });
 });
 
 describe("readLocationEntry", () => {
-  it("reads owner when it is the first token", () => {
+  it("reads owner from entry block", () => {
     const OWNER = T.owner!;
     const data = bytes(
       u16(OWNER), eq(), uintVal(0),
@@ -480,11 +480,25 @@ describe("readLocationEntry", () => {
     );
     const r = new TokenReader(data);
     const owners: Record<number, string> = {};
-    readLocationEntry(r, 5, { 0: "SWE" }, owners);
+    readLocationEntry(r, data, 5, { 0: "SWE" }, owners, {});
     expect(owners[5]).toBe("SWE");
   });
 
-  it("skips entry when owner is not first token", () => {
+  it("reads owner even when not the first field", () => {
+    const UNKNOWN = 0x8888;
+    const OWNER = T.owner!;
+    const data = bytes(
+      u16(UNKNOWN), eq(), uintVal(0),
+      u16(OWNER), eq(), uintVal(0),
+      close(),
+    );
+    const r = new TokenReader(data);
+    const owners: Record<number, string> = {};
+    readLocationEntry(r, data, 5, { 0: "SWE" }, owners, {});
+    expect(owners[5]).toBe("SWE");
+  });
+
+  it("skips entry when no owner present", () => {
     const UNKNOWN = 0x8888;
     const data = bytes(
       u16(UNKNOWN), eq(), uintVal(0),
@@ -492,7 +506,7 @@ describe("readLocationEntry", () => {
     );
     const r = new TokenReader(data);
     const owners: Record<number, string> = {};
-    readLocationEntry(r, 5, { 0: "SWE" }, owners);
+    readLocationEntry(r, data, 5, { 0: "SWE" }, owners, {});
     expect(owners).toEqual({});
   });
 });
