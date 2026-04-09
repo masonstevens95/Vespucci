@@ -86,7 +86,7 @@ export const CountryModal = ({
                 setSubjectsOpen={setSubjectsOpen}
               />
             ) : tab === "economy" ? (
-              <EconomyTab stats={stats} production={info.production} goodsRankings={info.goodsRankings} goodAvgPrices={info.goodAvgPrices} lastMonthProduced={info.lastMonthProduced} producedGoodsRankings={info.producedGoodsRankings} />
+              <EconomyTab stats={stats} production={info.production} goodsRankings={info.goodsRankings} goodAvgPrices={info.goodAvgPrices} buildings={info.buildings} />
             ) : tab === "government" ? (
               <GovernmentTab stats={stats} />
             ) : tab === "values" ? (

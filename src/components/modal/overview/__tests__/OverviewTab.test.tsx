@@ -30,7 +30,7 @@ const mkStats = (overrides: Partial<CountryEconomyStats> = {}): CountryEconomySt
 const mkInfo = (overrides: Partial<CountryInfo> = {}): CountryInfo => ({
   tag: "ENG", displayName: "England", players: [], color: "#ff0000",
   provinceCount: 5, overlord: "", subjects: [],
-  stats: mkStats(), production: {}, goodsRankings: {}, goodAvgPrices: {}, lastMonthProduced: {}, producedGoodsRankings: {},
+  stats: mkStats(), production: {}, goodsRankings: {}, goodAvgPrices: {}, lastMonthProduced: {}, producedGoodsRankings: {}, buildings: [],
   ...overrides,
 });
 

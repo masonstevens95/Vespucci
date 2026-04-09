@@ -20,6 +20,7 @@ const EMPLOYMENT_SIZE = tokenId("employment_size") ?? -1;
 const LOCAL_MAX_RGO_SIZE = tokenId("local_max_rgo_size") ?? -1;
 const GOODS_METHOD = tokenId("goods_method") ?? -1;
 const OUTPUT_SCALE = tokenId("output_scale") ?? -1;
+const MARKET_TOKEN = tokenId("market") ?? -1;
 
 // ---------------------------------------------------------------------------
 // Pure helpers
@@ -153,7 +154,8 @@ export const readLocationEntry = (
   locId: number,
   countryTags: Record<number, string>,
   locationOwners: Record<number, string>,
-  locationRgos: Record<number, RgoData>
+  locationRgos: Record<number, RgoData>,
+  locationMarkets: Record<number, number>
 ): void => {
   let depth = 1;
   let rgoGood = "";
@@ -180,6 +182,11 @@ export const readLocationEntry = (
         } else {
           /* unknown or missing owner */
         }
+      } else if (tok === MARKET_TOKEN) {
+        r.expectEqual();
+        const marketId = r.readIntValue() ?? -1;
+        if (marketId >= 0) { locationMarkets[locId] = marketId; }
+        else { /* no market for this location */ }
       } else if (tok === RAW_MATERIAL) {
         r.expectEqual();
         rgoGood = r.readStringValue() ?? "";
@@ -231,7 +238,8 @@ export const readLocationEntries = (
   data: Uint8Array,
   countryTags: Record<number, string>,
   locationOwners: Record<number, string>,
-  locationRgos: Record<number, RgoData>
+  locationRgos: Record<number, RgoData>,
+  locationMarkets: Record<number, number>
 ): void => {
   while (!r.done) {
     const tok = r.peekToken();
@@ -254,7 +262,8 @@ export const readLocationEntries = (
         locId,
         countryTags,
         locationOwners,
-        locationRgos
+        locationRgos,
+        locationMarkets
       );
     } else {
       r.readToken();
@@ -263,13 +272,14 @@ export const readLocationEntries = (
   }
 };
 
-/** Read location ownership and RGO data from the main locations section. */
+/** Read location ownership, RGO data, and market assignments from the main locations section. */
 export const readLocationOwnership = (
   r: TokenReader,
   data: Uint8Array,
   countryTags: Record<number, string>,
   locationOwners: Record<number, string>,
-  locationRgos: Record<number, RgoData>
+  locationRgos: Record<number, RgoData>,
+  locationMarkets: Record<number, number>
 ): void => {
   let depth = 1;
   while (!r.done && depth > 0) {
@@ -285,7 +295,7 @@ export const readLocationOwnership = (
     if (tok === T.locations) {
       r.expectEqual();
       r.expectOpen();
-      readLocationEntries(r, data, countryTags, locationOwners, locationRgos);
+      readLocationEntries(r, data, countryTags, locationOwners, locationRgos, locationMarkets);
       log.info(
         `done — locationOwners:${Object.keys(locationOwners).length} ` +
         `locationRgos:${Object.keys(locationRgos).length}`,

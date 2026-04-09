@@ -11,7 +11,7 @@ import {
   collectGoodEntries,
   sortGoods,
 } from "../../lib/trade-helpers";
-import { topProducersForGood, topManufacturersForGood } from "../../lib/rgo-helpers";
+import { topProducersForGood } from "../../lib/rgo-helpers";
 import { resolveDisplayName } from "../../lib/country-info";
 import { isProducedGood } from "../../lib/goods-catalog";
 import { createLogger } from "../../lib/logger";
@@ -24,7 +24,6 @@ interface Props {
   markets: ParsedSave["trade"]["markets"];
   marketNames: Readonly<Record<number, string>>;
   countryProduction: Readonly<Record<string, Readonly<Record<string, RgoProductionEntry>>>>;
-  countryLastMonthProduced: Readonly<Record<string, Readonly<Record<string, number>>>>;
   countryNames: Readonly<Record<string, string>>;
   onClose: () => void;
 }
@@ -46,7 +45,7 @@ const BarCell = ({ value, label, max, color }: {
   </span>
 );
 
-export const GoodModal = ({ goodName, markets, marketNames, countryProduction, countryLastMonthProduced, countryNames, onClose }: Props) => {
+export const GoodModal = ({ goodName, markets, marketNames, countryProduction, countryNames, onClose }: Props) => {
   const [detailSort, setDetailSort] = useState<DetailSortMode>("supply");
   const [detailDir, setDetailDir] = useState<"asc" | "desc">("desc");
 
@@ -62,11 +61,7 @@ export const GoodModal = ({ goodName, markets, marketNames, countryProduction, c
   const allGoods = collectGoodEntries(goodName, markets);
   const isProduced = isProducedGood(goodName);
   const rgoProducers = isProduced ? [] : topProducersForGood(goodName, countryProduction, 5);
-  const manufacturers = isProduced ? topManufacturersForGood(goodName, countryLastMonthProduced, 5) : [];
-  log.info(
-    `good=${goodName} isProduced=${isProduced} ` +
-    `rgoProducers:${rgoProducers.length} manufacturers:${manufacturers.length}`,
-  );
+  log.info(`good=${goodName} isProduced=${isProduced} rgoProducers:${rgoProducers.length}`);
   const sorted = sortGoods(allGoods, detailSort, detailDir);
 
   const totalSupply = allGoods.reduce((s, g) => s + g.supply, 0);
@@ -153,28 +148,6 @@ export const GoodModal = ({ goodName, markets, marketNames, countryProduction, c
                     <span className="trade-producer-tag">{p.tag}</span>
                     <span className="trade-producer-size">{p.totalSize}</span>
                     <span className="trade-producer-locs">{p.locationCount}</span>
-                  </div>
-                ))}
-              </div>
-            </>
-          ) : (<></>)}
-          {manufacturers.length > 0 ? (
-            <>
-              <div className="modal-divider" />
-              <div className="trade-producers-header">Top Manufacturers</div>
-              <div className="trade-producers-list">
-                <div className="trade-producer-row" style={{ borderBottom: "1px solid #333", paddingBottom: "0.2rem", marginBottom: "0.1rem", gridTemplateColumns: "1fr auto auto" }}>
-                  <span style={{ fontSize: "0.72rem", textTransform: "uppercase", letterSpacing: "0.05em", color: "#666" }}>Country</span>
-                  <span style={{ fontSize: "0.72rem", textTransform: "uppercase", letterSpacing: "0.05em", color: "#666" }}>Tag</span>
-                  <span style={{ fontSize: "0.72rem", textTransform: "uppercase", letterSpacing: "0.05em", color: "#666", textAlign: "right" }}>Produced</span>
-                </div>
-                {manufacturers.map((m) => (
-                  <div key={m.tag} className="trade-producer-row" style={{ gridTemplateColumns: "1fr auto auto" }}>
-                    <span className="trade-producer-name">
-                      {resolveDisplayName(m.tag, countryNames)}
-                    </span>
-                    <span className="trade-producer-tag">{m.tag}</span>
-                    <span className="trade-producer-size">{Math.round(m.amount).toLocaleString()}</span>
                   </div>
                 ))}
               </div>

@@ -83,7 +83,7 @@ export const ProducedGoodsSection = ({
         <div className="produces-scroll">
           <div className="produces-row produces-row-header" style={{ gridTemplateColumns: "1fr 3.5rem 3.5rem 3rem" }}>
             <ColHeader label="Good" col="good" active={sortCol === "good"} dir={sortDir} onClick={handleSort} />
-            <ColHeader label="Amt" col="amount" active={sortCol === "amount"} dir={sortDir} align="right" onClick={handleSort} />
+            <ColHeader label="Total" col="amount" active={sortCol === "amount"} dir={sortDir} align="right" onClick={handleSort} />
             <ColHeader label="Price" col="price" active={sortCol === "price"} dir={sortDir} align="right" onClick={handleSort} />
             <ColHeader label="Rank" col="rank" active={sortCol === "rank"} dir={sortDir} align="right" onClick={handleSort} />
           </div>

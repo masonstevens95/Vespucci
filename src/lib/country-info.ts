@@ -5,7 +5,7 @@
  * No null, no exceptions, every if has an else.
  */
 
-import type { ParsedSave, RGB, CountryEconomyStats, RgoProductionEntry } from "./types";
+import type { ParsedSave, RGB, CountryEconomyStats, RgoProductionEntry, BuildingSummary } from "./types";
 import { rgbToHex } from "./colors";
 
 // =============================================================================
@@ -32,6 +32,8 @@ export interface CountryInfo {
   readonly lastMonthProduced: Readonly<Record<string, number>>;
   /** Global rank (1 = top producer) for each manufactured good. */
   readonly producedGoodsRankings: Readonly<Record<string, number>>;
+  /** Buildings owned by this country, sorted by monthly profit. */
+  readonly buildings: readonly BuildingSummary[];
 }
 
 // =============================================================================
@@ -133,6 +135,8 @@ export const buildCountryInfo = (
     }
   }
 
+  const buildings = parsed.countryBuildings[tag] ?? [];
+
   return {
     tag,
     displayName,
@@ -147,6 +151,7 @@ export const buildCountryInfo = (
     goodAvgPrices: parsed.goodAvgPrices,
     lastMonthProduced,
     producedGoodsRankings,
+    buildings,
   };
 };
 

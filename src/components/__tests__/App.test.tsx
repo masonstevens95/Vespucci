@@ -67,7 +67,7 @@ describe("DebugPanel rendering", () => {
           tagToPlayers: {},
           countryColors: {},
           overlordSubjects: {},
-          countryNames: {}, countryStats: {}, locationRgos: {}, countryProduction: {}, countryLastMonthProduced: {}, goodsRankings: {}, producedGoodsRankings: {}, goodAvgPrices: {}, wars: [], pastWars: [], warReparations: [], annulledTreaties: [], royalMarriages: [], activeCBs: [], trade: { producedGoods: {}, marketNames: {}, marketOwners: {}, markets: [] },
+          countryNames: {}, countryStats: {}, locationRgos: {}, countryProduction: {}, countryLastMonthProduced: {}, goodsRankings: {}, producedGoodsRankings: {}, goodAvgPrices: {}, countryBuildings: {}, wars: [], pastWars: [], warReparations: [], annulledTreaties: [], royalMarriages: [], activeCBs: [], trade: { producedGoods: {}, marketNames: {}, marketOwners: {}, markets: [] },
         }}
         locToProvince={{}}
         config={{

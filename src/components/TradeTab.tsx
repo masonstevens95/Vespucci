@@ -2,7 +2,6 @@ import { useState } from "react";
 import type { ParsedSave } from "../lib/types";
 import type { GoodSortMode, MarketSortMode, MarketType } from "../lib/trade-helpers";
 import { filterGoods, filterMarkets } from "../lib/trade-helpers";
-import { isRawGood, isProducedGood } from "../lib/goods-catalog";
 import { GoodsSubTab } from "./trade/GoodsSubTab";
 import { MarketsSubTab } from "./trade/MarketsSubTab";
 
@@ -11,7 +10,6 @@ interface Props {
 }
 
 type TradeSubTab = "goods" | "markets";
-type GoodsType = "rgo" | "produced";
 
 export const TradeTab = ({ parsed }: Props) => {
   const { trade } = parsed;
@@ -21,18 +19,10 @@ export const TradeTab = ({ parsed }: Props) => {
   const [marketSortMode, setMarketSortMode] = useState<MarketSortMode>("population");
   const [marketSortDir, setMarketSortDir] = useState<"desc" | "asc">("desc");
   const [selectedMarket, setSelectedMarket] = useState<MarketType | undefined>(undefined);
-  const [goodsType, setGoodsType] = useState<GoodsType>("rgo");
   const [selectedGood, setSelectedGood] = useState<string | undefined>(undefined);
   const [search, setSearch] = useState("");
 
-  const allFilteredGoods = filterGoods(trade.producedGoods, search);
-  const filteredGoods = Object.fromEntries(
-    Object.entries(allFilteredGoods).filter(([name]) =>
-      goodsType === "rgo" ? isRawGood(name) : isProducedGood(name),
-    ),
-  );
-  const rgoCount = Object.keys(allFilteredGoods).filter(isRawGood).length;
-  const producedCount = Object.keys(allFilteredGoods).filter(isProducedGood).length;
+  const filteredGoods = filterGoods(trade.producedGoods, search);
   const filteredMarkets = filterMarkets(
     trade.markets, trade.marketNames, trade.marketOwners, parsed.countryNames, search,
   );
@@ -61,22 +51,6 @@ export const TradeTab = ({ parsed }: Props) => {
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
-        {subTab === "goods" ? (
-          <div className="subtab-bar" style={{ marginBottom: "0.25rem" }}>
-            <button
-              className={`subtab-btn${goodsType === "rgo" ? " subtab-active" : ""}`}
-              onClick={() => { setGoodsType("rgo"); setSelectedGood(undefined); }}
-            >
-              RGOs ({rgoCount})
-            </button>
-            <button
-              className={`subtab-btn${goodsType === "produced" ? " subtab-active" : ""}`}
-              onClick={() => { setGoodsType("produced"); setSelectedGood(undefined); }}
-            >
-              Produced ({producedCount})
-            </button>
-          </div>
-        ) : (<></>)}
         {subTab === "goods" ? (
           <>
             <label className="option">
@@ -131,7 +105,6 @@ export const TradeTab = ({ parsed }: Props) => {
           markets={trade.markets}
           marketNames={trade.marketNames}
           countryProduction={parsed.countryProduction}
-          countryLastMonthProduced={parsed.countryLastMonthProduced}
           countryNames={parsed.countryNames}
           sortMode={goodSortMode}
           sortDir={goodSortDir}

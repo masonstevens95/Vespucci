@@ -111,7 +111,7 @@ describe("GoodsSubTab", () => {
         producedGoods={producedGoods}
         markets={markets}
         marketNames={marketNames}
-        countryProduction={{}} countryLastMonthProduced={{}} countryNames={{}} sortMode="production"
+        countryProduction={{}} countryNames={{}} sortMode="production"
         sortDir="desc"
         selectedGood={undefined}
         onSelectGood={() => {}}
@@ -127,7 +127,7 @@ describe("GoodsSubTab", () => {
         producedGoods={producedGoods}
         markets={markets}
         marketNames={marketNames}
-        countryProduction={{}} countryLastMonthProduced={{}} countryNames={{}} sortMode="production"
+        countryProduction={{}} countryNames={{}} sortMode="production"
         sortDir="desc"
         selectedGood={undefined}
         onSelectGood={() => {}}
@@ -144,7 +144,7 @@ describe("GoodsSubTab", () => {
         producedGoods={producedGoods}
         markets={markets}
         marketNames={marketNames}
-        countryProduction={{}} countryLastMonthProduced={{}} countryNames={{}} sortMode="production"
+        countryProduction={{}} countryNames={{}} sortMode="production"
         sortDir="desc"
         selectedGood="goods_grain"
         onSelectGood={onSelectGood}
@@ -161,7 +161,7 @@ describe("GoodsSubTab", () => {
         producedGoods={producedGoods}
         markets={markets}
         marketNames={marketNames}
-        countryProduction={{}} countryLastMonthProduced={{}} countryNames={{}} sortMode="production"
+        countryProduction={{}} countryNames={{}} sortMode="production"
         sortDir="desc"
         selectedGood={undefined}
         onSelectGood={onSelectGood}
@@ -181,7 +181,7 @@ describe("GoodsSubTab", () => {
         producedGoods={{ "goods_grain": 500 }}
         markets={markets}
         marketNames={marketNames}
-        countryProduction={{}} countryLastMonthProduced={{}} countryNames={{}} sortMode="production"
+        countryProduction={{}} countryNames={{}} sortMode="production"
         sortDir="desc"
         selectedGood="goods_grain"
         onSelectGood={onSelectGood}
@@ -198,7 +198,7 @@ describe("GoodsSubTab", () => {
         producedGoods={producedGoods}
         markets={markets}
         marketNames={marketNames}
-        countryProduction={{}} countryLastMonthProduced={{}} countryNames={{}} sortMode="production"
+        countryProduction={{}} countryNames={{}} sortMode="production"
         sortDir="desc"
         selectedGood="goods_grain"
         onSelectGood={() => {}}
@@ -213,7 +213,7 @@ describe("GoodsSubTab", () => {
         producedGoods={producedGoods}
         markets={markets}
         marketNames={marketNames}
-        countryProduction={{}} countryLastMonthProduced={{}} countryNames={{}} sortMode="production"
+        countryProduction={{}} countryNames={{}} sortMode="production"
         sortDir="desc"
         selectedGood={undefined}
         onSelectGood={() => {}}
@@ -229,7 +229,7 @@ describe("GoodsSubTab", () => {
         producedGoods={{ "goods_grain": 500 }}
         markets={markets}
         marketNames={marketNames}
-        countryProduction={{}} countryLastMonthProduced={{}} countryNames={{}} sortMode="production"
+        countryProduction={{}} countryNames={{}} sortMode="production"
         sortDir="desc"
         selectedGood="goods_grain"
         onSelectGood={onSelectGood}
@@ -438,14 +438,14 @@ describe("GoodModal", () => {
 
   it("shows formatted good name", () => {
     const { container } = render(
-      <GoodModal goodName="goods_grain" markets={markets} marketNames={marketNames} countryProduction={{}} countryLastMonthProduced={{}} countryNames={{}} onClose={() => {}} />
+      <GoodModal goodName="goods_grain" markets={markets} marketNames={marketNames} countryProduction={{}} countryNames={{}} onClose={() => {}} />
     );
     expect(container.querySelector(".modal-name")?.textContent).toBe("Grain");
   });
 
   it("shows 0.00 avg price when good is in no markets", () => {
     const { container } = render(
-      <GoodModal goodName="goods_silk" markets={markets} marketNames={marketNames} countryProduction={{}} countryLastMonthProduced={{}} countryNames={{}} onClose={() => {}} />
+      <GoodModal goodName="goods_silk" markets={markets} marketNames={marketNames} countryProduction={{}} countryNames={{}} onClose={() => {}} />
     );
     const avgStat = Array.from(container.querySelectorAll(".modal-stat")).find(
       s => s.textContent?.includes("Avg Price")
@@ -455,35 +455,35 @@ describe("GoodModal", () => {
 
   it("shows traded in N markets", () => {
     const { container } = render(
-      <GoodModal goodName="goods_grain" markets={markets} marketNames={marketNames} countryProduction={{}} countryLastMonthProduced={{}} countryNames={{}} onClose={() => {}} />
+      <GoodModal goodName="goods_grain" markets={markets} marketNames={marketNames} countryProduction={{}} countryNames={{}} onClose={() => {}} />
     );
     expect(container.textContent).toContain("Traded in 2 markets");
   });
 
   it("shows Total Production stat", () => {
     const { container } = render(
-      <GoodModal goodName="goods_grain" markets={markets} marketNames={marketNames} countryProduction={{}} countryLastMonthProduced={{}} countryNames={{}} onClose={() => {}} />
+      <GoodModal goodName="goods_grain" markets={markets} marketNames={marketNames} countryProduction={{}} countryNames={{}} onClose={() => {}} />
     );
     expect(container.textContent).toContain("Total Production");
   });
 
   it("shows Total Supply stat", () => {
     const { container } = render(
-      <GoodModal goodName="goods_grain" markets={markets} marketNames={marketNames} countryProduction={{}} countryLastMonthProduced={{}} countryNames={{}} onClose={() => {}} />
+      <GoodModal goodName="goods_grain" markets={markets} marketNames={marketNames} countryProduction={{}} countryNames={{}} onClose={() => {}} />
     );
     expect(container.textContent).toContain("Total Supply");
   });
 
   it("shows Total Demand stat", () => {
     const { container } = render(
-      <GoodModal goodName="goods_grain" markets={markets} marketNames={marketNames} countryProduction={{}} countryLastMonthProduced={{}} countryNames={{}} onClose={() => {}} />
+      <GoodModal goodName="goods_grain" markets={markets} marketNames={marketNames} countryProduction={{}} countryNames={{}} onClose={() => {}} />
     );
     expect(container.textContent).toContain("Total Demand");
   });
 
   it("default sort is supply: highest supply market row is first", () => {
     const { container } = render(
-      <GoodModal goodName="goods_grain" markets={markets} marketNames={marketNames} countryProduction={{}} countryLastMonthProduced={{}} countryNames={{}} onClose={() => {}} />
+      <GoodModal goodName="goods_grain" markets={markets} marketNames={marketNames} countryProduction={{}} countryNames={{}} onClose={() => {}} />
     );
     const rows = container.querySelectorAll(".trade-market-row");
     // Venice (market 1) has supply=200, London (market 2) has supply=100 → Venice first
@@ -496,7 +496,7 @@ describe("GoodModal", () => {
       mkMarket(2, { goods: [mkGood("goods_grain", { supply: 100, price: 5.0 })] }),
     ];
     const { container } = render(
-      <GoodModal goodName="goods_grain" markets={sortMarkets} marketNames={marketNames} countryProduction={{}} countryLastMonthProduced={{}} countryNames={{}} onClose={() => {}} />
+      <GoodModal goodName="goods_grain" markets={sortMarkets} marketNames={marketNames} countryProduction={{}} countryNames={{}} onClose={() => {}} />
     );
     // Default supply desc → Venice (supply 200) first
     expect(container.querySelectorAll(".trade-market-row")[0].textContent).toContain("Venice");
@@ -518,7 +518,7 @@ describe("GoodModal", () => {
       mkMarket(2, { goods: [mkGood("goods_grain", { supply: 100 })] }),
     ];
     const { container } = render(
-      <GoodModal goodName="goods_grain" markets={sortMarkets} marketNames={marketNames} countryProduction={{}} countryLastMonthProduced={{}} countryNames={{}} onClose={() => {}} />
+      <GoodModal goodName="goods_grain" markets={sortMarkets} marketNames={marketNames} countryProduction={{}} countryNames={{}} onClose={() => {}} />
     );
     const supplyHeader = Array.from(container.querySelectorAll(".trade-sort-header")).find(
       el => el.textContent?.startsWith("Supply")
@@ -536,7 +536,7 @@ describe("GoodModal", () => {
   it("close button click fires onClose", () => {
     const onClose = vi.fn();
     const { container } = render(
-      <GoodModal goodName="goods_grain" markets={markets} marketNames={marketNames} countryProduction={{}} countryLastMonthProduced={{}} countryNames={{}} onClose={onClose} />
+      <GoodModal goodName="goods_grain" markets={markets} marketNames={marketNames} countryProduction={{}} countryNames={{}} onClose={onClose} />
     );
     const closeBtn = container.querySelector(".modal-close")!;
     fireEvent.click(closeBtn);
@@ -546,7 +546,7 @@ describe("GoodModal", () => {
   it("clicking modal-overlay fires onClose", () => {
     const onClose = vi.fn();
     const { container } = render(
-      <GoodModal goodName="goods_grain" markets={markets} marketNames={marketNames} countryProduction={{}} countryLastMonthProduced={{}} countryNames={{}} onClose={onClose} />
+      <GoodModal goodName="goods_grain" markets={markets} marketNames={marketNames} countryProduction={{}} countryNames={{}} onClose={onClose} />
     );
     const overlay = container.querySelector(".modal-overlay")!;
     fireEvent.click(overlay);
@@ -556,7 +556,7 @@ describe("GoodModal", () => {
   it("clicking modal-content does NOT fire onClose (stopPropagation)", () => {
     const onClose = vi.fn();
     const { container } = render(
-      <GoodModal goodName="goods_grain" markets={markets} marketNames={marketNames} countryProduction={{}} countryLastMonthProduced={{}} countryNames={{}} onClose={onClose} />
+      <GoodModal goodName="goods_grain" markets={markets} marketNames={marketNames} countryProduction={{}} countryNames={{}} onClose={onClose} />
     );
     const content = container.querySelector(".modal-content")!;
     fireEvent.click(content);

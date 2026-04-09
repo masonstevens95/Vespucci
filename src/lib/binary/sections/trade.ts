@@ -33,6 +33,8 @@ export interface Market {
   readonly food: number;
   readonly capacity: number;
   readonly goods: readonly MarketGood[];
+  /** Building IDs (from building_manager.database) that belong to this market. */
+  readonly buildingIds: readonly number[];
 }
 
 export interface TradeData {
@@ -59,6 +61,7 @@ const FOOD = tokenId("food") ?? -1;
 const CAPACITY = tokenId("capacity") ?? -1;
 const CENTER_LOCATION = 0x32; // engine token for center_location
 const DIALECT = tokenId("dialect") ?? -1;
+const MARKET_LIST = tokenId("market") ?? -1; // list of building IDs in this market
 
 // =============================================================================
 // Helpers
@@ -161,10 +164,28 @@ const readMarketGoods = (r: TokenReader, data: Uint8Array): MarketGood[] => {
   return goods;
 };
 
+/** Read the market = { id id id ... } list of building IDs. */
+const readMarketBuildingIds = (r: TokenReader): number[] => {
+  const ids: number[] = [];
+  let d = 1;
+  while (!r.done && d > 0) {
+    const ft = r.readToken();
+    if (ft === BinaryToken.CLOSE) { d--; continue; }
+    else if (ft === BinaryToken.OPEN) { d++; continue; }
+    else if (ft === BinaryToken.EQUAL) { continue; }
+    else if (ft === BinaryToken.U32) { ids.push(r.readU32()); }
+    else if (ft === BinaryToken.I32) { ids.push(r.readI32()); }
+    else if (isValueToken(ft)) { r.skipValuePayload(ft); }
+    else { /* other token — skip */ }
+  }
+  return ids;
+};
+
 /** Read a single market entry. */
 const readMarketEntry = (r: TokenReader, data: Uint8Array, id: number): Market => {
   let centerLocation = 0, dialect = "", population = 0, price = 0, food = 0, capacity = 0;
   let goods: MarketGood[] = [];
+  let buildingIds: number[] = [];
   let d = 1;
   while (!r.done && d > 0) {
     const ft = r.readToken();
@@ -180,10 +201,11 @@ const readMarketEntry = (r: TokenReader, data: Uint8Array, id: number): Market =
       else if (ft === FOOD) { r.readToken(); food = readFixed5Val(r, data); }
       else if (ft === CAPACITY) { r.readToken(); capacity = readFixed5Val(r, data); }
       else if (ft === GOODS) { r.readToken(); if (r.expectOpen()) { goods = readMarketGoods(r, data); } else { r.skipValue(); } }
+      else if (ft === MARKET_LIST) { r.readToken(); if (r.expectOpen()) { buildingIds = readMarketBuildingIds(r); } else { r.skipValue(); } }
       else { r.readToken(); r.skipValue(); }
     } else { /* bare */ }
   }
-  return { id, centerLocation, dialect, population, price, food, capacity, goods };
+  return { id, centerLocation, dialect, population, price, food, capacity, goods, buildingIds };
 };
 
 // =============================================================================

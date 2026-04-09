@@ -36,8 +36,11 @@ import { readCountryForces } from "./sections/units";
 import { BinaryToken } from "./tokens";
 import { buildDisplayName } from "../country-names";
 import type { ParsedSave, RGB, RgoData } from "../types";
+import { readBuildingManager } from "./sections/buildings";
+import type { CountryBuildings } from "../types";
 import { buildCountryProduction, buildGoodsRankings, buildProducedGoodsRankings } from "../rgo-helpers";
 import { buildGoodAvgPrices } from "../trade-helpers";
+import { BUILDING_TO_GOOD } from "../building-goods";
 import { createLogger } from "../logger";
 
 const log = createLogger("parseBinarySave");
@@ -63,6 +66,7 @@ const emptyParsedSave = (): ParsedSave => ({
   goodsRankings: {},
   producedGoodsRankings: {},
   goodAvgPrices: {},
+  countryBuildings: {},
   wars: [],
   pastWars: [],
   warReparations: [],
@@ -230,11 +234,12 @@ const parseGamestate = (data: Uint8Array, dynStrings: string[]): ParsedSave => {
   // (integration_owner removed — too many false positives from partial conquest)
 
   const locationRgos: Record<number, RgoData> = {};
+  const locationMarkets: Record<number, number> = {};
 
   const locOff = findOwnershipLocations(data, T.locations, T.owner, r);
   if (locOff >= 0) {
     r.pos = locOff + 6;
-    readLocationOwnership(r, data, countryTags, locationOwners, locationRgos);
+    readLocationOwnership(r, data, countryTags, locationOwners, locationRgos, locationMarkets);
   } else {
     console.error(
       "[parseGamestate] ownership 'locations' section not found — locationOwners will be empty"
@@ -394,6 +399,31 @@ const parseGamestate = (data: Uint8Array, dynStrings: string[]): ParsedSave => {
     };
   }
 
+  // Read trade data first — needed for per-market good prices
+  const rawTrade = readTradeData(data, dynStrings);
+
+  // Build marketId → (goodName → price) from market goods lists
+  const marketGoodPrices: Record<number, Readonly<Record<string, number>>> = {};
+  for (const market of rawTrade.markets) {
+    const prices: Record<string, number> = {};
+    for (const g of market.goods) { prices[g.name] = g.price; }
+    marketGoodPrices[market.id] = Object.freeze(prices);
+  }
+
+  // Build locationId → (goodName → price) via locationMarkets
+  const locationMarketPrices: Record<number, Readonly<Record<string, number>>> = {};
+  for (const [locIdStr, marketId] of Object.entries(locationMarkets)) {
+    const prices = marketGoodPrices[marketId];
+    if (prices !== undefined) { locationMarketPrices[parseInt(locIdStr)] = prices; }
+    else { /* market not found for this location */ }
+  }
+
+  // Read building_manager — per-country aggregated building summaries with output
+  const countryBuildings: CountryBuildings = readBuildingManager(
+    r, data, countryTags, locationMarketPrices, BUILDING_TO_GOOD,
+  );
+  log.info(`countryBuildings — ${Object.keys(countryBuildings).length} countries`);
+
   // Build per-country last_month_produced map and produced goods rankings
   const countryLastMonthProduced: Record<string, Record<string, number>> = {};
   for (const [tag, cd] of Object.entries(countryDb)) {
@@ -455,9 +485,8 @@ const parseGamestate = (data: Uint8Array, dynStrings: string[]): ParsedSave => {
     })),
   }));
 
-  // Read trade data and resolve market names from center_location
+  // Resolve market names from center_location
   // The market center is typically one location after the capital city (capital=N, center=N+1)
-  const rawTrade = readTradeData(data, dynStrings);
   const marketNames: Record<number, string> = {};
   for (const m of rawTrade.markets) {
     const capitalName = locationNames[m.centerLocation - 1] ?? "";
@@ -530,6 +559,7 @@ const parseGamestate = (data: Uint8Array, dynStrings: string[]): ParsedSave => {
     goodsRankings,
     producedGoodsRankings,
     goodAvgPrices,
+    countryBuildings,
     wars,
     pastWars,
     warReparations,

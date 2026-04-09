@@ -581,5 +581,5 @@ export const parseMeltedSave = (text: string): ParsedSave => {
   const countryLocations = buildCountryLocations(locationOwners, locationNames);
   const tagToPlayers = buildTagToPlayers(playerCountries);
 
-  return { countryLocations, tagToPlayers, countryColors, overlordSubjects, countryNames: {}, countryStats: {}, locationRgos: {}, countryProduction: {}, countryLastMonthProduced: {}, goodsRankings: {}, producedGoodsRankings: {}, goodAvgPrices: {}, wars: [], pastWars: [], warReparations: [], annulledTreaties: [], royalMarriages: [], activeCBs: [], trade: { producedGoods: {}, marketNames: {}, marketOwners: {}, markets: [] } };
+  return { countryLocations, tagToPlayers, countryColors, overlordSubjects, countryNames: {}, countryStats: {}, locationRgos: {}, countryProduction: {}, countryLastMonthProduced: {}, goodsRankings: {}, producedGoodsRankings: {}, goodAvgPrices: {}, countryBuildings: {}, wars: [], pastWars: [], warReparations: [], annulledTreaties: [], royalMarriages: [], activeCBs: [], trade: { producedGoods: {}, marketNames: {}, marketOwners: {}, markets: [] } };
 };

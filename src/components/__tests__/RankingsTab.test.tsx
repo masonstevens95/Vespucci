@@ -45,6 +45,7 @@ const mockParsed: ParsedSave = {
   goodsRankings: {},
   producedGoodsRankings: {},
   goodAvgPrices: {},
+  countryBuildings: {},
   wars: [], pastWars: [], warReparations: [], annulledTreaties: [], royalMarriages: [], activeCBs: [],
   trade: { producedGoods: {}, marketNames: {}, marketOwners: {}, markets: [] },
 };
