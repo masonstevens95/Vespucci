@@ -160,10 +160,26 @@ export const MapTab = ({ config, parseTimeMs, onCountryClick, onReset, debugCont
           </div>
           <div className="toolbar-actions">
             <button className="btn primary" onClick={handleDownloadMap}>Download Map</button>
-            <button className="btn secondary" onClick={handleDownloadConfig}>Download Config</button>
+            <button
+              className="btn secondary"
+              onClick={handleDownloadConfig}
+              title="Targets MapChart's EU5 Locations map — not compatible with older province-map configs"
+            >
+              Download Config
+            </button>
             <button className="btn secondary" onClick={onReset}>New File</button>
           </div>
         </div>
+
+        {/* The config's path IDs and page identifier both changed with the move
+            to location granularity, so a config saved from this build will not
+            load onto the provinces map, or vice versa. Multiplayer groups keep
+            a MapChart project across sessions, and a PR note never reaches
+            them. */}
+        <p className="toolbar-note">
+          Config targets MapChart&apos;s <strong>EU5 Locations</strong> map — not compatible
+          with configs exported for the Provinces map.
+        </p>
 
         <div className="toolbar-style-row">
           {EDITABLE_COLOR_KEYS.map((key) => {

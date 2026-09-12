@@ -180,3 +180,35 @@ describe("downloadConfig", () => {
     expect(mockAnchor.href).toBe("blob:mock-url");
   });
 });
+
+describe("serializeConfig — exported artifact contract", () => {
+  const exportConfig: MapChartConfig = {
+    groups: { "#ff0000": { label: "FRA", paths: ["Bar_le_Duc", "Paris"] } },
+    title: "Test", hidden: [], background: "#ffffff", borders: "#000",
+    legendFont: "Helvetica", legendFontColor: "#000",
+    legendBorderColor: "#00000000", legendBgColor: "#00000000",
+    legendWidth: 150, legendBoxShape: "square", legendTitleMode: "attached",
+    areBordersShown: true, defaultColor: "#d1dbdd", labelsColor: "#6a0707",
+    labelsFont: "Arial", strokeWidth: "medium", areLabelsShown: false,
+    uncoloredScriptColor: "#ffff33", zoomLevel: "1.00", zoomX: "0.00",
+    zoomY: "0.00", v6: true, mapTitleScale: 1, page: "eu-v-locations",
+    mapVersion: null, legendPosition: "bottom_left", legendSize: "medium",
+    legendTranslateX: "0.00", legendStatus: "show", scalingPatterns: true,
+    legendRowsSameColor: true, legendColumnCount: 1,
+  };
+
+  it("round-trips through JSON with the locations page id", () => {
+    expect(JSON.parse(serializeConfig(exportConfig)).page).toBe("eu-v-locations");
+  });
+
+  it("round-trips group paths as canonical Title_Case ids", () => {
+    const parsed = JSON.parse(serializeConfig(exportConfig));
+    // mapchart.net matches path ids exactly; a lowercase save name would not
+    // load, and per-segment title-casing cannot reproduce "Bar_le_Duc".
+    expect(parsed.groups["#ff0000"].paths).toEqual(["Bar_le_Duc", "Paris"]);
+    const lowercased = parsed.groups["#ff0000"].paths.filter(
+      (p: string) => p === p.toLowerCase(),
+    );
+    expect(lowercased).toEqual([]);
+  });
+});

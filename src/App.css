@@ -1660,3 +1660,10 @@
   color: #fff;
   border-color: #48a;
 }
+
+/* Compatibility note under the map toolbar actions. */
+.toolbar-note {
+  margin: 0.25rem 0 0;
+  font-size: 0.78rem;
+  opacity: 0.72;
+}

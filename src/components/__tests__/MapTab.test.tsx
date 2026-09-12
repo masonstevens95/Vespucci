@@ -76,6 +76,17 @@ describe("MapTab", () => {
     expect(within(toolbar).getByText("Download Map")).toBeInTheDocument();
   });
 
+  it("warns that the config targets the Locations map", () => {
+    // The page id and every path id changed with location granularity, so a
+    // config from this build will not load onto the provinces map. Multiplayer
+    // groups keep a MapChart project across sessions and never read PR notes.
+    const { container } = render(
+      <MapTab config={baseConfig} parseTimeMs={500} onCountryClick={() => {}} onReset={() => {}} />,
+    );
+    expect(container.textContent).toContain("EU5 Locations");
+    expect(container.textContent).toContain("not compatible");
+  });
+
   it("renders Download Config button", () => {
     const { container } = render(
       <MapTab config={baseConfig} parseTimeMs={500} onCountryClick={() => {}} onReset={() => {}} />,
