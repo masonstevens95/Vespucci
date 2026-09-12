@@ -599,16 +599,25 @@
   display: block;
   filter: sepia(0.12) saturate(0.88);
 }
-.map-loading {
+/* Overlays the viewport rather than replacing it: the map container must stay
+   mounted so the load effect has an injection target. */
+.map-loading,
+.map-load-error {
+  position: absolute;
+  inset: 0;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  height: 400px;
   gap: 1rem;
   background: #b8c8c8;
-  border-radius: 8px;
   color: #5c4033;
+}
+
+.map-load-error p {
+  margin: 0;
+  max-width: 28rem;
+  text-align: center;
 }
 
 /* Map legend — parchment card */
