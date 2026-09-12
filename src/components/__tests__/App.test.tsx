@@ -94,7 +94,7 @@ describe("DebugPanel rendering", () => {
           zoomY: "0.00",
           v6: true,
           mapTitleScale: 1,
-          page: "eu-v-provinces",
+          page: "eu-v-locations",
           mapVersion: null,
           legendPosition: "bottom_left",
           legendSize: "medium",

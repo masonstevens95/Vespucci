@@ -19,7 +19,7 @@ export interface CountryInfo {
   readonly displayName: string;
   readonly players: readonly string[];
   readonly color: string;
-  readonly provinceCount: number;
+  readonly locationCount: number;
   readonly overlord: string;
   readonly subjects: readonly string[];
   readonly stats: CountryStats;
@@ -98,7 +98,7 @@ const EMPTY_STATS: CountryStats = {
 export const buildCountryInfo = (
   tag: string,
   parsed: ParsedSave,
-  provinceCount: number,
+  locationCount: number,
 ): CountryInfo => {
   const displayName = parsed.countryNames[tag] ?? tag;
   const players = parsed.tagToPlayers[tag] ?? [];
@@ -142,7 +142,7 @@ export const buildCountryInfo = (
     displayName,
     players,
     color,
-    provinceCount,
+    locationCount,
     overlord,
     subjects,
     stats,

@@ -1,7 +1,7 @@
 /**
  * Legend sorting helpers.
  *
- * Sorts legend entries alphabetically or by province count,
+ * Sorts legend entries alphabetically or by location count,
  * keeping subject entries immediately after their overlord.
  *
  * All functions are pure. No null, no exceptions, every if has an else.
@@ -9,7 +9,7 @@
 
 import type { MapChartGroup } from "./types";
 
-export type LegendSortMode = "alpha" | "provinces" | "total";
+export type LegendSortMode = "alpha" | "locations" | "total";
 
 export interface LegendEntry {
   readonly hex: string;
@@ -52,7 +52,7 @@ export const sortLegendEntries = (
     }
   }
 
-  // Build total province counts (direct + subject) for "total" sort
+  // Build total location counts (direct + subject) for "total" sort
   const totalCount = (entry: LegendEntry): number => {
     const tag = extractTag(entry.group.label);
     const sub = subjects.get(tag);
@@ -61,7 +61,7 @@ export const sortLegendEntries = (
 
   // Sort non-subjects
   const sorted = [...nonSubjects].sort((a, b) => {
-    if (mode === "provinces") {
+    if (mode === "locations") {
       const diff = b.group.paths.length - a.group.paths.length;
       return diff !== 0 ? diff : a.group.label.localeCompare(b.group.label);
     } else if (mode === "total") {

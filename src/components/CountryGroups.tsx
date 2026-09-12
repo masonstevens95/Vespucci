@@ -14,7 +14,7 @@ export function CountryGroups({ groups }: CountryGroupsProps) {
             <div className="color-swatch" style={{ backgroundColor: hex }} />
             <div className="group-info">
               <span className="group-label">{group.label}</span>
-              <span className="group-count">{group.paths.length} provinces</span>
+              <span className="group-count">{group.paths.length} locations</span>
             </div>
           </div>
         ))}

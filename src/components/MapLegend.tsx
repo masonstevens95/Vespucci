@@ -53,16 +53,16 @@ export const MapLegend = ({ config, mapStyle, styleOverrides, colorOverrides, on
             A-Z
           </button>
           <button
-            className={`legend-sort-btn ${sortMode === "provinces" ? "active" : ""}`}
-            onClick={() => setSortMode("provinces")}
-            title="Sort by direct province count"
+            className={`legend-sort-btn ${sortMode === "locations" ? "active" : ""}`}
+            onClick={() => setSortMode("locations")}
+            title="Sort by direct location count"
           >
             #
           </button>
           <button
             className={`legend-sort-btn ${sortMode === "total" ? "active" : ""}`}
             onClick={() => setSortMode("total")}
-            title="Sort by total provinces (direct + subjects)"
+            title="Sort by total locations (direct + subjects)"
           >
             ##
           </button>

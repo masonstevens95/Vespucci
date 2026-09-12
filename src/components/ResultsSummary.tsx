@@ -16,7 +16,7 @@ export function ResultsSummary({
   onDownload,
   onReset,
 }: ResultsSummaryProps) {
-  const provinceCount = Object.values(config.groups).reduce(
+  const locationCount = Object.values(config.groups).reduce(
     (n, g) => n + g.paths.length,
     0,
   );
@@ -28,7 +28,7 @@ export function ResultsSummary({
         <Stat label="File" value={`${fileSizeMb.toFixed(0)} MB`} />
         <Stat label="Parse time" value={`${(parseTimeMs / 1000).toFixed(1)}s`} />
         <Stat label="Countries" value={String(Object.keys(config.groups).length)} />
-        <Stat label="Provinces" value={String(provinceCount)} />
+        <Stat label="Locations" value={String(locationCount)} />
       </div>
       <div className="actions">
         <button className="btn primary" onClick={onDownload}>

@@ -12,7 +12,7 @@ import {
   MAP_STYLE_OPTIONS,
 } from "../lib/map-styles";
 import { downloadConfig } from "../lib/save-utils";
-import { computeProvinceCount } from "../lib/format";
+import { computeLocationCount } from "../lib/format";
 import { MapRenderer } from "./MapRenderer";
 import { MapLegend } from "./MapLegend";
 import { Stat } from "./Stat";
@@ -34,7 +34,7 @@ export const MapTab = ({ config, parseTimeMs, onCountryClick, onReset, debugCont
   const mapLayoutRef = useRef<HTMLDivElement>(null);
 
   const isCustom = hasCustomOverrides(getBaseStyleConfig(mapStyle), styleOverrides);
-  const provinceCount = computeProvinceCount(config.groups);
+  const locationCount = computeLocationCount(config.groups);
 
   const handleStyleChange = useCallback((newStyle: MapStyle) => {
     setMapStyle(newStyle);
@@ -137,7 +137,7 @@ export const MapTab = ({ config, parseTimeMs, onCountryClick, onReset, debugCont
         <div className="toolbar-row">
           <div className="toolbar-stats">
             <Stat label="Countries" value={String(Object.keys(config.groups).length)} />
-            <Stat label="Provinces" value={String(provinceCount)} />
+            <Stat label="Locations" value={String(locationCount)} />
             <Stat label="Parse" value={`${(parseTimeMs / 1000).toFixed(1)}s`} />
           </div>
           <div className="toolbar-controls">

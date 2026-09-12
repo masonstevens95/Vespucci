@@ -54,9 +54,17 @@ export const OverviewTab = ({
     ) : (
       <></>
     )}
-    <NumRow label="Provinces" value={info.provinceCount} />
+    <NumRow
+      label="Locations"
+      value={info.locationCount}
+      hint="Individual locations painted on the map"
+    />
     {stats.numProvinces > 0 ? (
-      <NumRow label="Provinces (parsed)" value={stats.numProvinces} />
+      <NumRow
+        label="Provinces (parsed)"
+        value={stats.numProvinces}
+        hint="Provinces from the save's country data — several locations make up one province"
+      />
     ) : (
       <></>
     )}

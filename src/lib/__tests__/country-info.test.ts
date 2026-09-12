@@ -64,7 +64,7 @@ describe("buildCountryInfo", () => {
     expect(info.displayName).toBe("Kingdom of Great Britain");
     expect(info.players).toEqual(["Alice"]);
     expect(info.color).toBe("#ff0000");
-    expect(info.provinceCount).toBe(10);
+    expect(info.locationCount).toBe(10);
     expect(info.overlord).toBe("");
     expect(info.subjects).toEqual(["SCO"]);
   });

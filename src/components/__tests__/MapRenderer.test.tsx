@@ -28,7 +28,7 @@ const baseConfig: MapChartConfig = {
   zoomY: "0.00",
   v6: true,
   mapTitleScale: 1,
-  page: "eu-v-provinces",
+  page: "eu-v-locations",
   mapVersion: null,
   legendPosition: "bottom_left",
   legendSize: "medium",
@@ -99,7 +99,7 @@ describe("MapRenderer", () => {
     expect(within(toolbar).getByText("100%")).toBeInTheDocument();
   });
 
-  it("applies province colors from config groups", async () => {
+  it("applies location colors from config groups", async () => {
     const config = {
       ...baseConfig,
       groups: { "#ff0000": { label: "ENG", paths: ["Uppland"] } },
@@ -110,7 +110,7 @@ describe("MapRenderer", () => {
     expect(html).toContain('fill="#ff0000"');
   });
 
-  it("does not color unmatched provinces", async () => {
+  it("does not color unmatched locations", async () => {
     const config = {
       ...baseConfig,
       groups: { "#ff0000": { label: "ENG", paths: ["Uppland"] } },
@@ -122,8 +122,8 @@ describe("MapRenderer", () => {
     expect(html).not.toContain('id="Middlesex" fill="#ff0000"');
   });
 
-  // Province strokes match fill (invisible internal borders)
-  it("sets province strokes to match fill", async () => {
+  // Location strokes match fill (invisible internal borders)
+  it("sets location strokes to match fill", async () => {
     const config = {
       ...baseConfig,
       groups: { "#ff0000": { label: "ENG", paths: ["Uppland"] } },
@@ -256,7 +256,7 @@ describe("MapRenderer", () => {
     expect(html).toContain('id="Red_Sea_Coast" fill="#ff0000"');
   });
 
-  // Province click tests
+  // Location click tests
   it("fires onProvinceClick with tag on single click", async () => {
     const onClick = vi.fn();
     const config = {

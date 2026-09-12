@@ -28,7 +28,7 @@ const baseConfig: MapChartConfig = {
   zoomY: "0.00",
   v6: true,
   mapTitleScale: 1,
-  page: "eu-v-provinces",
+  page: "eu-v-locations",
   mapVersion: null,
   legendPosition: "bottom_left",
   legendSize: "medium",
@@ -107,7 +107,7 @@ describe("MapLegend", () => {
     expect(texts).toContain("ENG - Alice");
   });
 
-  it("renders province counts", () => {
+  it("renders location counts", () => {
     const config = {
       ...baseConfig,
       groups: {

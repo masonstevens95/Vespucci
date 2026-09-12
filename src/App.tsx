@@ -16,7 +16,7 @@ import { TradeTab } from "./components/TradeTab";
 import { WarsTab } from "./components/WarsTab";
 import { buildCountryInfo } from "./lib/country-info";
 import type { CountryInfo } from "./lib/country-info";
-import { findTagProvinceCount } from "./lib/format";
+import { findTagLocationCount } from "./lib/format";
 import "./App.css";
 
 export type Status = "idle" | "reading" | "parsing" | "done" | "error";
@@ -75,7 +75,7 @@ export default function App() {
 
   const handleCountryClick = useCallback((tag: string) => {
     if (!debug) return;
-    const count = findTagProvinceCount(tag, debug.config.groups);
+    const count = findTagLocationCount(tag, debug.config.groups);
     const info = buildCountryInfo(tag, debug.parsed, count);
     setSelectedCountry(info);
   }, [debug]);

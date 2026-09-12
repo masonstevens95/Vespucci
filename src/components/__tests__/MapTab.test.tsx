@@ -38,7 +38,7 @@ const baseConfig: MapChartConfig = {
   zoomY: "0.00",
   v6: true,
   mapTitleScale: 1,
-  page: "eu-v-provinces",
+  page: "eu-v-locations",
   mapVersion: null,
   legendPosition: "bottom_left",
   legendSize: "medium",
@@ -56,7 +56,7 @@ describe("MapTab", () => {
     );
     expect(container.querySelector(".toolbar")).toBeInTheDocument();
     expect(container.textContent).toContain("Countries");
-    expect(container.textContent).toContain("Provinces");
+    expect(container.textContent).toContain("Locations");
   });
 
   it("renders style dropdown", () => {

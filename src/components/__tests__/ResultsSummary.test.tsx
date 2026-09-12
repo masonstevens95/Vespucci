@@ -16,7 +16,7 @@ const mockConfig: MapChartConfig = {
   areBordersShown: true, defaultColor: "#d1dbdd", labelsColor: "#6a0707",
   labelsFont: "Arial", strokeWidth: "medium", areLabelsShown: false,
   uncoloredScriptColor: "#ffff33", zoomLevel: "1.00", zoomX: "0.00",
-  zoomY: "0.00", v6: true, mapTitleScale: 1, page: "eu-v-provinces",
+  zoomY: "0.00", v6: true, mapTitleScale: 1, page: "eu-v-locations",
   mapVersion: null, legendPosition: "bottom_left", legendSize: "medium",
   legendTranslateX: "0.00", legendStatus: "show", scalingPatterns: true,
   legendRowsSameColor: true, legendColumnCount: 1,
@@ -46,7 +46,7 @@ describe("ResultsSummary", () => {
     expect(labels).toContain("File");
     expect(labels).toContain("Parse time");
     expect(labels).toContain("Countries");
-    expect(labels).toContain("Provinces");
+    expect(labels).toContain("Locations");
   });
 
   it("calls onDownload when download button clicked", async () => {

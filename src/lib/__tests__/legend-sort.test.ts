@@ -57,15 +57,15 @@ describe("sortLegendEntries", () => {
     expect(sorted.map((e) => e.group.label)).toEqual(["BOH", "FRA", "GBR"]);
   });
 
-  it("sorts by province count descending", () => {
+  it("sorts by location count descending", () => {
     const entries = [entry("FRA", 5), entry("BOH", 3), entry("GBR", 10)];
-    const sorted = sortLegendEntries(entries, "provinces");
+    const sorted = sortLegendEntries(entries, "locations");
     expect(sorted.map((e) => e.group.label)).toEqual(["GBR", "FRA", "BOH"]);
   });
 
-  it("breaks province count ties alphabetically", () => {
+  it("breaks location count ties alphabetically", () => {
     const entries = [entry("FRA", 5), entry("BOH", 5)];
-    const sorted = sortLegendEntries(entries, "provinces");
+    const sorted = sortLegendEntries(entries, "locations");
     expect(sorted.map((e) => e.group.label)).toEqual(["BOH", "FRA"]);
   });
 
@@ -80,13 +80,13 @@ describe("sortLegendEntries", () => {
     expect(labels).toEqual(["BOH - Alice", "GBR - Bob", "GBR - subjects"]);
   });
 
-  it("places subject after overlord in provinces mode", () => {
+  it("places subject after overlord in locations mode", () => {
     const entries = [
-      entry("GBR - subjects", 50),  // subjects have most provinces
+      entry("GBR - subjects", 50),  // subjects have most locations
       entry("BOH - Alice", 30),
       entry("GBR - Bob", 10),
     ];
-    const sorted = sortLegendEntries(entries, "provinces");
+    const sorted = sortLegendEntries(entries, "locations");
     const labels = sorted.map((e) => e.group.label);
     // BOH has 30, GBR has 10 — BOH first by count
     // But GBR's subjects (50) stay after GBR, not sorted to top
@@ -100,7 +100,7 @@ describe("sortLegendEntries", () => {
       entry("GBR - Bob", 10),
       entry("TUR - Ali", 30),
     ];
-    const sorted = sortLegendEntries(entries, "provinces");
+    const sorted = sortLegendEntries(entries, "locations");
     const labels = sorted.map((e) => e.group.label);
     expect(labels.indexOf("TUR - subjects")).toBe(labels.indexOf("TUR - Ali") + 1);
     expect(labels.indexOf("GBR - subjects")).toBe(labels.indexOf("GBR - Bob") + 1);

@@ -1,8 +1,8 @@
 import { describe, it, expect } from "vitest";
 import {
   fmtNum,
-  computeProvinceCount,
-  findTagProvinceCount,
+  computeLocationCount,
+  findTagLocationCount,
   fmtLanguage,
   fmtGovType,
 } from "../format";
@@ -37,34 +37,34 @@ describe("fmtNum", () => {
   });
 });
 
-describe("computeProvinceCount", () => {
+describe("computeLocationCount", () => {
   it("sums paths across all groups", () => {
-    expect(computeProvinceCount({
+    expect(computeLocationCount({
       "#ff0000": { paths: ["a", "b"] },
       "#0000ff": { paths: ["c"] },
     })).toBe(3);
   });
 
   it("returns 0 for empty groups", () => {
-    expect(computeProvinceCount({})).toBe(0);
+    expect(computeLocationCount({})).toBe(0);
   });
 });
 
-describe("findTagProvinceCount", () => {
+describe("findTagLocationCount", () => {
   it("finds count for matching tag", () => {
-    expect(findTagProvinceCount("ENG", {
+    expect(findTagLocationCount("ENG", {
       "#ff0000": { label: "ENG - Alice", paths: ["a", "b", "c"] },
     })).toBe(3);
   });
 
   it("returns 0 for no match", () => {
-    expect(findTagProvinceCount("FRA", {
+    expect(findTagLocationCount("FRA", {
       "#ff0000": { label: "ENG", paths: ["a"] },
     })).toBe(0);
   });
 
   it("returns 0 for empty groups", () => {
-    expect(findTagProvinceCount("ENG", {})).toBe(0);
+    expect(findTagLocationCount("ENG", {})).toBe(0);
   });
 });
 
