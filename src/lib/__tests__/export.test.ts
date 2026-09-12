@@ -10,11 +10,12 @@ import {
 import { buildMinimalSave } from "./fixtures/minimal-save";
 import type { RGB } from "../types";
 
-const provinceMapping: Record<string, string[]> = {
-  Uppland: ["Stockholm"],
-  Ile_de_France: ["Paris"],
-  Middlesex: ["London"],
-  Edinburgh: ["Edinburgh"],
+// Lowercase save name -> canonical MapChart path ID.
+const locationIndex: Record<string, string> = {
+  stockholm: "Stockholm",
+  paris: "Paris",
+  london: "London",
+  edinburgh: "Edinburgh",
 };
 
 // =============================================================================
@@ -138,7 +139,7 @@ describe("exportMapChartConfig", () => {
       ownership: { 0: 0, 1: 1, 2: 2 },
       players: [{ name: "Alice", country: 0 }],
     });
-    const config = exportMapChartConfig(save, provinceMapping);
+    const config = exportMapChartConfig(save, { locationIndex });
     const labels = Object.values(config.groups).map((g) => g.label);
     expect(labels).toContain("SWE - Alice");
     expect(labels).toContain("FRA");
@@ -152,7 +153,7 @@ describe("exportMapChartConfig", () => {
       ownership: { 0: 0, 1: 1, 2: 2 },
       players: [{ name: "Alice", country: 0 }],
     });
-    const config = exportMapChartConfig(save, provinceMapping, { playersOnly: true });
+    const config = exportMapChartConfig(save, { locationIndex, playersOnly: true });
     const labels = Object.values(config.groups).map((g) => g.label);
     expect(labels).toContain("SWE - Alice");
     expect(labels).not.toContain("FRA");
@@ -168,7 +169,7 @@ describe("exportMapChartConfig", () => {
       ioVassals: [{ leader: 0, members: [0, 1] }],
       players: [{ name: "Alice", country: 0 }],
     });
-    const config = exportMapChartConfig(save, provinceMapping, { playersOnly: true });
+    const config = exportMapChartConfig(save, { locationIndex, playersOnly: true });
     const labels = Object.values(config.groups).map((g) => g.label);
     expect(labels).toContain("ENG - Alice");
     expect(labels).toContain("ENG - subjects");
@@ -190,14 +191,14 @@ describe("exportMapChartConfig", () => {
         { name: "Bob", country: 0 },
       ],
     });
-    const config = exportMapChartConfig(save, provinceMapping);
+    const config = exportMapChartConfig(save, { locationIndex });
     const labels = Object.values(config.groups).map((g) => g.label);
     expect(labels).toContain("FRA - Alice, Bob");
   });
 
   it("sets title from options", () => {
     const save = buildMinimalSave();
-    const config = exportMapChartConfig(save, provinceMapping, { title: "Test Map" });
+    const config = exportMapChartConfig(save, { locationIndex, title: "Test Map" });
     expect(config.title).toBe("Test Map");
   });
 
@@ -208,7 +209,7 @@ describe("exportMapChartConfig", () => {
       ownership: { 0: 0 },
       players: [],
     });
-    const config = exportMapChartConfig(save, provinceMapping, { playersOnly: true });
+    const config = exportMapChartConfig(save, { locationIndex, playersOnly: true });
     const labels = Object.values(config.groups).map((g) => g.label);
     expect(labels).toContain("SWE");
   });
@@ -221,7 +222,7 @@ describe("exportMapChartConfig", () => {
       ioVassals: [{ leader: 0, members: [0, 1] }],
       players: [{ name: "Alice", country: 0 }],
     });
-    const config = exportMapChartConfig(save, provinceMapping, { playersOnly: true });
+    const config = exportMapChartConfig(save, { locationIndex, playersOnly: true });
     const labels = Object.values(config.groups).map((g) => g.label);
     expect(labels).not.toContain("ENG - subjects");
   });
@@ -234,7 +235,7 @@ describe("exportMapChartConfig", () => {
       overlordSubjects: {},
       countryNames: {}, countryStats: {}, locationRgos: {}, countryProduction: {}, countryLastMonthProduced: {}, goodsRankings: {}, producedGoodsRankings: {}, goodAvgPrices: {}, countryBuildings: {}, wars: [], pastWars: [], warReparations: [], annulledTreaties: [], royalMarriages: [], activeCBs: [], trade: { producedGoods: {}, marketNames: {}, marketOwners: {}, markets: [] },
     };
-    const config = exportMapChartConfig(parsed, provinceMapping);
+    const config = exportMapChartConfig(parsed, { locationIndex });
     const labels = Object.values(config.groups).map((g) => g.label);
     expect(labels).toContain("SWE - Alice");
   });

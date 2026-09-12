@@ -8,7 +8,6 @@
 import type { ExportOptions, MapChartConfig, ParsedSave, RGB } from "./types";
 import { lightenColor } from "./colors";
 import { parseMeltedSave } from "./save-parser";
-import { buildLocationToProvince } from "./province-mapping";
 import { generateMapChartConfig } from "./mapchart-config";
 
 // =============================================================================
@@ -108,14 +107,11 @@ export const resolveParsedSave = (saveOrText: ParsedSave | string): ParsedSave =
  */
 export const exportMapChartConfig = (
   saveOrText: ParsedSave | string,
-  provinceMapping: Record<string, string[]>,
   options: ExportOptions = {},
 ): MapChartConfig => {
   const parsed = resolveParsedSave(saveOrText);
   const { tagToPlayers, countryColors, overlordSubjects } = parsed;
   const allCountryLocations = parsed.countryLocations;
-
-  const locToProvince = buildLocationToProvince(provinceMapping);
 
   const baseLabels = buildAllTagLabels(
     Object.keys(allCountryLocations),
@@ -125,9 +121,8 @@ export const exportMapChartConfig = (
   const hasPlayers = Object.keys(tagToPlayers).length > 0;
   const shouldFilterPlayers = options.playersOnly === true && hasPlayers;
 
-  // Province majority voting ALWAYS uses all countries so non-player
-  // countries that own most of a province prevent player minorities
-  // from claiming it. Filtering happens AFTER province assignment.
+  // Overlays are built before filtering so a player overlord's subject
+  // locations are represented by a TAG_vassals key rather than dropped.
   const vassalOverlays = shouldFilterPlayers
     ? buildVassalOverlays(tagToPlayers, overlordSubjects, allCountryLocations, countryColors)
     : { locations: {}, labels: {}, colors: {} };
@@ -142,16 +137,16 @@ export const exportMapChartConfig = (
     : new Set<string>();
 
   // Remove subject tag locations (they're represented by overlay keys now)
-  // then merge overlay locations into the voting pool
+  // then merge overlay locations into the resolution pool
   const baseLocations = Object.fromEntries(
     Object.entries(allCountryLocations).filter(([tag]) => !vassalSubjectTags.has(tag)),
   );
-  const locationsForVoting = { ...baseLocations, ...vassalOverlays.locations };
+  const locationsToResolve = { ...baseLocations, ...vassalOverlays.locations };
 
   const finalLabels = { ...baseLabels, ...vassalOverlays.labels };
   const finalColors = { ...countryColors, ...vassalOverlays.colors };
 
-  // Filter province results after voting if playersOnly
+  // Filter resolved results if playersOnly
   const allowedTags = shouldFilterPlayers
     ? new Set([
         ...Object.keys(tagToPlayers),
@@ -159,7 +154,7 @@ export const exportMapChartConfig = (
       ])
     : undefined;
 
-  return generateMapChartConfig(locationsForVoting, finalColors, locToProvince, {
+  return generateMapChartConfig(locationsToResolve, finalColors, {
     ...options,
     tagLabels: finalLabels,
     allowedTags,

@@ -312,7 +312,8 @@ export interface MapChartConfig {
 export interface ExportOptions {
   title?: string;
   playersOnly?: boolean;
-  provinceMapping?: Record<string, string[]>;
+  /** Override the canonical location-ID index. Tests inject a small index here. */
+  locationIndex?: Record<string, string>;
 }
 
 export type MapStyle = "parchment" | "modern" | "dark" | "satellite" | "pastel";

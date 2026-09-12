@@ -69,7 +69,6 @@ describe("DebugPanel rendering", () => {
           overlordSubjects: {},
           countryNames: {}, countryStats: {}, locationRgos: {}, countryProduction: {}, countryLastMonthProduced: {}, goodsRankings: {}, producedGoodsRankings: {}, goodAvgPrices: {}, countryBuildings: {}, wars: [], pastWars: [], warReparations: [], annulledTreaties: [], royalMarriages: [], activeCBs: [], trade: { producedGoods: {}, marketNames: {}, marketOwners: {}, markets: [] },
         }}
-        locToProvince={{}}
         config={{
           groups: {},
           title: "",
@@ -105,7 +104,6 @@ describe("DebugPanel rendering", () => {
           legendRowsSameColor: true,
           legendColumnCount: 1,
         }}
-        provinceMapping={{}}
       />,
     );
     expect(container.querySelector(".debug-section")).toBeInTheDocument();

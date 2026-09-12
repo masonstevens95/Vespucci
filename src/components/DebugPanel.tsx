@@ -1,14 +1,15 @@
 import type { ParsedSave, MapChartConfig } from "../lib/types";
 import { Accordion } from "./Accordion";
+import { resolveCountryLocations } from "../lib/location-resolve";
 
 interface DebugPanelProps {
   parsed: ParsedSave;
-  locToProvince: Record<string, string>;
   config: MapChartConfig;
-  provinceMapping: Record<string, string[]>;
 }
 
-export function DebugPanel({ parsed, locToProvince, config, provinceMapping }: DebugPanelProps) {
+export function DebugPanel({ parsed, config }: DebugPanelProps) {
+  const resolution = resolveCountryLocations(parsed.countryLocations);
+  const painted = Object.values(config.groups).reduce((n, g) => n + g.paths.length, 0);
   return (
     <div className="debug-section">
       <h3>Debug Data</h3>
@@ -72,21 +73,21 @@ export function DebugPanel({ parsed, locToProvince, config, provinceMapping }: D
         </div>
       </Accordion>
 
-      <Accordion title={`Province Mapping (${Object.keys(provinceMapping).length} provinces)`}>
+      <Accordion title={`Location Resolution (${painted} painted)`}>
         <div className="debug-scroll">
           <p className="debug-hint">
-            {Object.keys(provinceMapping).length} MapChart provinces mapping to{" "}
-            {Object.keys(locToProvince).length} EU5 locations
+            {painted} canonical path IDs in config groups.{" "}
+            {resolution.droppedCount === 0
+              ? "Every owned location resolved to a shape."
+              : `${resolution.droppedCount} owned location name(s) matched no shape.`}
           </p>
-          {Object.entries(provinceMapping)
-            .slice(0, 50)
-            .map(([province, locs]) => (
-              <div key={province} className="debug-entry">
-                <strong>{province}</strong>: {locs.join(", ")}
+          {resolution.droppedCount > 0 && (
+            <div className="debug-entry">
+              <strong>Unresolved sample</strong>: {resolution.droppedSample.join(", ")}
+              <div className="debug-detail">
+                Run scripts/check-location-coverage.mjs to measure name alignment.
               </div>
-            ))}
-          {Object.keys(provinceMapping).length > 50 && (
-            <p className="debug-hint">... showing first 50 of {Object.keys(provinceMapping).length}</p>
+            </div>
           )}
         </div>
       </Accordion>

@@ -2,9 +2,7 @@ import { useState, useCallback } from "react";
 import { parseMeltedSave } from "./lib/save-parser";
 import { parseBinarySave } from "./lib/binary";
 import { exportMapChartConfig } from "./lib/export";
-import { buildLocationToProvince } from "./lib/province-mapping";
 import { isBinarySave } from "./lib/save-utils";
-import provinceMapping from "./lib/mapchart_province_mapping.json";
 import type { ParsedSave, MapChartConfig } from "./lib/types";
 import { DropZone } from "./components/DropZone";
 import { CountryGroups } from "./components/CountryGroups";
@@ -26,7 +24,6 @@ export type AppTab = "map" | "rankings" | "trade" | "military" | "wars";
 
 export interface DebugData {
   parsed: ParsedSave;
-  locToProvince: Record<string, string>;
   config: MapChartConfig;
   parseTimeMs: number;
   fileSizeMb: number;
@@ -60,14 +57,13 @@ export default function App() {
           ? parseBinarySave(bytes)
           : parseMeltedSave(new TextDecoder().decode(bytes));
 
-        const locToProvince = buildLocationToProvince(provinceMapping);
-        const config = exportMapChartConfig(parsed, provinceMapping, {
+        const config = exportMapChartConfig(parsed, {
           playersOnly,
           title,
         });
         const parseTimeMs = performance.now() - t0;
 
-        setDebug({ parsed, locToProvince, config, parseTimeMs, fileSizeMb: sizeMb });
+        setDebug({ parsed, config, parseTimeMs, fileSizeMb: sizeMb });
         setStatus("done");
       } catch (e) {
         setError(e instanceof Error ? e.message : String(e));
@@ -152,9 +148,7 @@ export default function App() {
                     <CountryGroups groups={debug.config.groups} />
                     <DebugPanel
                       parsed={debug.parsed}
-                      locToProvince={debug.locToProvince}
                       config={debug.config}
-                      provinceMapping={provinceMapping}
                     />
                   </div>
                 ) : undefined}
