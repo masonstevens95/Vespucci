@@ -85,8 +85,10 @@ export const MapRenderer = ({ config, mapStyle, styleOverrides, colorOverrides, 
   // ---------------------------------------------------------------------------
   useEffect(() => {
     let cancelled = false;
-    setReady(false);
-    setLoadError("");
+    // No state reset here: `ready` and `loadError` already hold their initial
+    // values on mount, and the retry handler clears them before bumping
+    // reloadKey. Resetting synchronously inside the effect would queue a
+    // cascading render on every mount for no benefit.
 
     const loadSvg = async () => {
       const text = await fetch(MAP_ASSET)
@@ -300,6 +302,8 @@ export const MapRenderer = ({ config, mapStyle, styleOverrides, colorOverrides, 
   }, []);
 
   const handleRetry = useCallback(() => {
+    setReady(false);
+    setLoadError("");
     setReloadKey((k) => k + 1);
   }, []);
 
