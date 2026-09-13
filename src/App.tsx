@@ -25,6 +25,8 @@ export type AppTab = "map" | "rankings" | "trade" | "military" | "wars";
 export interface DebugData {
   parsed: ParsedSave;
   config: MapChartConfig;
+  /** Subject tag -> root overlord tag; drives subject hatching. */
+  subjectOverlords: Readonly<Record<string, string>>;
   parseTimeMs: number;
   fileSizeMb: number;
 }
@@ -57,13 +59,13 @@ export default function App() {
           ? parseBinarySave(bytes)
           : parseMeltedSave(new TextDecoder().decode(bytes));
 
-        const config = exportMapChartConfig(parsed, {
+        const { config, subjectOverlords } = exportMapChartConfig(parsed, {
           playersOnly,
           title,
         });
         const parseTimeMs = performance.now() - t0;
 
-        setDebug({ parsed, config, parseTimeMs, fileSizeMb: sizeMb });
+        setDebug({ parsed, config, subjectOverlords, parseTimeMs, fileSizeMb: sizeMb });
         setStatus("done");
       } catch (e) {
         setError(e instanceof Error ? e.message : String(e));
@@ -140,6 +142,7 @@ export default function App() {
             {activeTab === "map" && (
               <MapTab
                 config={debug.config}
+                subjectOverlords={debug.subjectOverlords}
                 parseTimeMs={debug.parseTimeMs}
                 onCountryClick={handleCountryClick}
                 onReset={handleReset}

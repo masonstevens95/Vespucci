@@ -21,6 +21,8 @@ export const SHOW_DEBUG = import.meta.env.DEV;
 
 interface Props {
   config: MapChartConfig;
+  /** Subject tag -> root overlord tag; drives subject hatching. */
+  subjectOverlords: Readonly<Record<string, string>>;
   parseTimeMs: number;
   onCountryClick: (tag: string) => void;
   onReset: () => void;

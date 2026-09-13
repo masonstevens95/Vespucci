@@ -309,6 +309,17 @@ export interface MapChartConfig {
   legendColumnCount: number;
 }
 
+/**
+ * What exportMapChartConfig returns: the MapChart config (unchanged in
+ * structure, since it is mapchart.net's own format) plus the paint-time
+ * subject relationship the renderer and legend need.
+ */
+export interface MapExport {
+  readonly config: MapChartConfig;
+  /** Subject tag -> root overlord tag. Paint-time only; no group changes. */
+  readonly subjectOverlords: Readonly<Record<string, string>>;
+}
+
 export interface ExportOptions {
   title?: string;
   playersOnly?: boolean;

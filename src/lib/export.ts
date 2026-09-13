@@ -5,7 +5,7 @@
  * No null, no exceptions, every if has an else.
  */
 
-import type { ExportOptions, MapChartConfig, ParsedSave, RGB } from "./types";
+import type { ExportOptions, MapExport, ParsedSave, RGB } from "./types";
 import { lightenColor } from "./colors";
 import { parseMeltedSave } from "./save-parser";
 import { generateMapChartConfig } from "./mapchart-config";
@@ -89,6 +89,57 @@ export const buildVassalOverlays = (
   return { locations, labels, colors };
 };
 
+/**
+ * Map every subject tag to the ROOT overlord whose colour its locations
+ * should carry, flattening chains (A -> B -> C means C carries A's colour).
+ *
+ * `overlordSubjects` holds flat pairs written by four independent sources
+ * (dependencies, io-manager, war-subjects, and the capital-owner pass), none
+ * of which guarantees acyclicity — so the walk is bounded. A cycle resolves
+ * each member to a deterministic member of the cycle rather than looping,
+ * because hanging here would stop the app loading a save at all.
+ *
+ * This is a paint-time relationship only. No location changes groups.
+ */
+export const buildSubjectOverlords = (
+  overlordSubjects: Readonly<Record<string, ReadonlySet<string>>>,
+): Record<string, string> => {
+  // Direct subject -> overlord. Sorted so a tag claimed by two overlords
+  // resolves the same way on every run.
+  const direct: Record<string, string> = {};
+  for (const overlordTag of Object.keys(overlordSubjects).sort()) {
+    for (const subjectTag of overlordSubjects[overlordTag]) {
+      if (direct[subjectTag] === undefined && subjectTag !== overlordTag) {
+        direct[subjectTag] = overlordTag;
+      } else {
+        /* already claimed, or self-reference — keep the first */
+      }
+    }
+  }
+
+  const rootOf = (tag: string): string => {
+    const seen = new Set<string>([tag]);
+    let current = tag;
+    while (direct[current] !== undefined && !seen.has(direct[current])) {
+      current = direct[current];
+      seen.add(current);
+    }
+    return current;
+  };
+
+  const result: Record<string, string> = {};
+  for (const subjectTag of Object.keys(direct)) {
+    const root = rootOf(subjectTag);
+    if (root !== subjectTag) {
+      result[subjectTag] = root;
+    } else {
+      // Only reachable inside a cycle, where the walk returns to its start.
+      result[subjectTag] = direct[subjectTag];
+    }
+  }
+  return result;
+};
+
 /** Resolve a ParsedSave from either a ParsedSave or raw text string. */
 export const resolveParsedSave = (saveOrText: ParsedSave | string): ParsedSave =>
   typeof saveOrText === "string"
@@ -108,7 +159,7 @@ export const resolveParsedSave = (saveOrText: ParsedSave | string): ParsedSave =
 export const exportMapChartConfig = (
   saveOrText: ParsedSave | string,
   options: ExportOptions = {},
-): MapChartConfig => {
+): MapExport => {
   const parsed = resolveParsedSave(saveOrText);
   const { tagToPlayers, countryColors, overlordSubjects } = parsed;
   const allCountryLocations = parsed.countryLocations;
@@ -154,9 +205,13 @@ export const exportMapChartConfig = (
       ])
     : undefined;
 
-  return generateMapChartConfig(locationsToResolve, finalColors, {
+  const config = generateMapChartConfig(locationsToResolve, finalColors, {
     ...options,
     tagLabels: finalLabels,
     allowedTags,
   });
+
+  // Additive: group membership above is untouched in both modes. This only
+  // tells the renderer which colour a subject's locations should be painted.
+  return { config, subjectOverlords: buildSubjectOverlords(overlordSubjects) };
 };
