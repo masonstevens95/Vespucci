@@ -180,7 +180,7 @@ export const MapTab = ({ config, subjectOverlords, parseTimeMs, onCountryClick, 
       link.click();
     };
     img.src = svgUrl;
-  }, [mapStyle, styleOverrides, config]);
+  }, [mapStyle, styleOverrides, config, colorOverrides, subjectOverlords]);
 
   return (
     <>
