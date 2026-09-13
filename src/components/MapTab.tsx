@@ -228,6 +228,7 @@ export const MapTab = ({ config, subjectOverlords, parseTimeMs, onCountryClick, 
         <div className="legend-panel">
           <MapLegend
             config={config}
+            subjectOverlords={subjectOverlords}
             mapStyle={mapStyle}
             styleOverrides={styleOverrides}
             colorOverrides={colorOverrides}
