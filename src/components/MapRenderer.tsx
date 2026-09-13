@@ -10,15 +10,36 @@ import {
 import type { Transform, StyleOverrides, ColorOverrides } from "../lib/map-styles";
 import { applyColorOverrides } from "../lib/map-styles";
 import { createLogger } from "../lib/logger";
+import { isSubjectEntry } from "../lib/legend-sort";
 
 const log = createLogger("MapRenderer");
 
 const MAP_ASSET = "/eu-v-locations.svg";
 const SVG_NS = "http://www.w3.org/2000/svg";
 const OUTLINE_CLASS = "outline-layer";
+const DEFS_CLASS = "hatch-defs";
+
+/** Hatch geometry, in viewBox units (locations average ~6 units across). */
+const HATCH_PERIOD = 1.6;
+const HATCH_STRIPE = 0.55;
+const HATCH_ANGLE = 45;
+
+/** Darken a hex for the hatch stripe and the seam stroke. */
+const shadeHex = (hex: string, factor: number): string => {
+  const n = parseInt(hex.replace("#", ""), 16);
+  if (Number.isNaN(n)) return hex;
+  const ch = [(n >> 16) & 255, (n >> 8) & 255, n & 255]
+    .map((c) => Math.max(0, Math.min(255, Math.round(c * factor))));
+  return `#${ch.map((c) => c.toString(16).padStart(2, "0")).join("")}`;
+};
+
+/** Stable, selector-safe pattern id for a resolved colour. */
+const hatchIdFor = (hex: string): string => `hatch-${hex.replace("#", "")}`;
 
 interface Props {
   config: MapChartConfig;
+  /** Subject tag -> root overlord tag. Paint-time only; no group changes. */
+  subjectOverlords: Readonly<Record<string, string>>;
   mapStyle: MapStyle;
   styleOverrides: StyleOverrides;
   colorOverrides: ColorOverrides;
@@ -41,12 +62,13 @@ interface Props {
  *    Resetting only `fill` would accumulate outline clones and leave stale
  *    shrink transforms behind as permanent hairline gaps.
  */
-export const MapRenderer = ({ config, mapStyle, styleOverrides, colorOverrides, onProvinceClick }: Props) => {
+export const MapRenderer = ({ config, subjectOverlords, mapStyle, styleOverrides, colorOverrides, onProvinceClick }: Props) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const svgHostRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<SVGSVGElement | null>(null);
   const pathMapRef = useRef<Map<string, SVGPathElement>>(new Map());
   const strokeStyleRef = useRef<SVGStyleElement | null>(null);
+  const defsRef = useRef<SVGDefsElement | null>(null);
   const [ready, setReady] = useState(false);
   const [loadError, setLoadError] = useState("");
   const [reloadKey, setReloadKey] = useState(0);
@@ -145,7 +167,13 @@ export const MapRenderer = ({ config, mapStyle, styleOverrides, colorOverrides, 
       const strokeStyle = svg.ownerDocument.createElementNS(SVG_NS, "style") as SVGStyleElement;
       svg.insertBefore(strokeStyle, svg.firstChild);
 
+      // Hatch pattern definitions live here; the recolor pass rebuilds them.
+      const defs = svg.ownerDocument.createElementNS(SVG_NS, "defs") as SVGDefsElement;
+      defs.setAttribute("class", DEFS_CLASS);
+      svg.insertBefore(defs, svg.firstChild);
+
       svgRef.current = svg;
+      defsRef.current = defs;
       pathMapRef.current = map;
       strokeStyleRef.current = strokeStyle;
       host.replaceChildren(svg);
@@ -180,7 +208,17 @@ export const MapRenderer = ({ config, mapStyle, styleOverrides, colorOverrides, 
     const paths = pathMapRef.current;
     for (const p of paths.values()) {
       p.removeAttribute("style");
+      p.removeAttribute("data-hatch-base");
       p.setAttribute("fill", style.defaultFill);
+    }
+
+    // Patterns are regenerated every pass; an add-only pass would accumulate
+    // definitions exactly as the outline layer would.
+    const defs = defsRef.current;
+    if (defs) {
+      defs.replaceChildren();
+    } else {
+      /* defs missing — hatching degrades to flat fills below */
     }
 
     const strokeStyle = strokeStyleRef.current;
@@ -191,13 +229,77 @@ export const MapRenderer = ({ config, mapStyle, styleOverrides, colorOverrides, 
     }
 
     // --- APPLY ---------------------------------------------------------------
+    // Resolve each group's display colour first, so a subject can look up its
+    // overlord's colour after overrides rather than before.
+    const tagOf = (label: string): string =>
+      label.includes(" - ") ? label.split(" - ")[0] : label;
+    const hexByTag = new Map<string, string>();
+    for (const [hex, group] of Object.entries(groups)) {
+      if (!isSubjectEntry(group.label)) {
+        hexByTag.set(tagOf(group.label), hex);
+      } else {
+        /* overlay rows never define a country's own colour */
+      }
+    }
+
+    /** The overlord whose colour this group should carry, or "" for none. */
+    const overlordHexFor = (label: string): string => {
+      const tag = tagOf(label);
+      const overlordTag = isSubjectEntry(label) ? tag : subjectOverlords[tag] ?? "";
+      if (overlordTag === "") return "";
+      return hexByTag.get(overlordTag) ?? "";
+    };
+
+    const ensureHatch = (baseHex: string): string => {
+      const id = hatchIdFor(baseHex);
+      if (!defs) return "";
+      if (!defs.querySelector(`#${id}`)) {
+        const pattern = svg.ownerDocument.createElementNS(SVG_NS, "pattern");
+        pattern.setAttribute("id", id);
+        // userSpaceOnUse: the SVG default scales the pattern per shape, giving
+        // one stripe on a small location and dense banding on a large one.
+        pattern.setAttribute("patternUnits", "userSpaceOnUse");
+        pattern.setAttribute("width", String(HATCH_PERIOD));
+        pattern.setAttribute("height", String(HATCH_PERIOD));
+        pattern.setAttribute("patternTransform", `rotate(${HATCH_ANGLE})`);
+
+        // Opaque by construction: the asset has no background rect and the
+        // ocean is painted by the container, so gaps would read as water.
+        const bg = svg.ownerDocument.createElementNS(SVG_NS, "rect");
+        bg.setAttribute("width", String(HATCH_PERIOD));
+        bg.setAttribute("height", String(HATCH_PERIOD));
+        bg.setAttribute("fill", baseHex);
+        pattern.appendChild(bg);
+
+        const stripe = svg.ownerDocument.createElementNS(SVG_NS, "rect");
+        stripe.setAttribute("width", String(HATCH_STRIPE));
+        stripe.setAttribute("height", String(HATCH_PERIOD));
+        stripe.setAttribute("fill", shadeHex(baseHex, 0.62));
+        pattern.appendChild(stripe);
+
+        defs.appendChild(pattern);
+      } else {
+        /* one definition per resolved colour — reuse it */
+      }
+      return `url(#${id})`;
+    };
+
+    const hatchedIds = new Set<string>();
     const coloredIds = new Set<string>();
     let misses = 0;
     for (const [hex, group] of Object.entries(groups)) {
+      const overlordHex = overlordHexFor(group.label);
+      const hatchRef = overlordHex !== "" ? ensureHatch(overlordHex) : "";
       for (const pathId of group.paths) {
         const el = paths.get(pathId);
         if (el) {
-          el.setAttribute("fill", hex);
+          if (hatchRef !== "") {
+            el.setAttribute("fill", hatchRef);
+            el.setAttribute("data-hatch-base", overlordHex);
+            hatchedIds.add(pathId);
+          } else {
+            el.setAttribute("fill", hex);
+          }
           coloredIds.add(pathId);
         } else {
           misses++;
@@ -217,9 +319,17 @@ export const MapRenderer = ({ config, mapStyle, styleOverrides, colorOverrides, 
       /* every config path resolved to a shape */
     }
 
-    // Strokes match their own fill, hiding internal borders.
+    // Strokes match their own fill, hiding internal borders. A hatched path
+    // instead takes a darker seam colour: copying its fill would put a
+    // url(...) reference in the stroke, and using the overlord's flat colour
+    // would erase the boundary between held and subject territory.
     for (const p of paths.values()) {
-      p.setAttribute("stroke", p.getAttribute("fill") ?? style.defaultFill);
+      const base = p.getAttribute("data-hatch-base") ?? "";
+      if (base !== "") {
+        p.setAttribute("stroke", shadeHex(base, 0.45));
+      } else {
+        p.setAttribute("stroke", p.getAttribute("fill") ?? style.defaultFill);
+      }
     }
 
     // --- OUTLINE (opt-in) ----------------------------------------------------
@@ -256,7 +366,7 @@ export const MapRenderer = ({ config, mapStyle, styleOverrides, colorOverrides, 
     } else {
       /* outline disabled — the reset above already removed any stale layer */
     }
-  }, [ready, config, mapStyle, styleOverrides, colorOverrides]);
+  }, [ready, config, subjectOverlords, mapStyle, styleOverrides, colorOverrides]);
 
   const handleWheel = useCallback((e: React.WheelEvent) => {
     e.preventDefault();

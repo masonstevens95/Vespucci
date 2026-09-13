@@ -82,17 +82,17 @@ const waitForMapReady = async (container: HTMLElement) => {
 
 describe("MapRenderer", () => {
   it("shows loading state initially", () => {
-    const { container } = render(<MapRenderer config={baseConfig} mapStyle="parchment" styleOverrides={{}} colorOverrides={{}} />);
+    const { container } = render(<MapRenderer config={baseConfig} subjectOverlords={{}} mapStyle="parchment" styleOverrides={{}} colorOverrides={{}} />);
     expect(within(container).getByText("Loading map...")).toBeInTheDocument();
   });
 
   it("renders map after SVG loads", async () => {
-    const { container } = render(<MapRenderer config={baseConfig} mapStyle="parchment" styleOverrides={{}} colorOverrides={{}} />);
+    const { container } = render(<MapRenderer config={baseConfig} subjectOverlords={{}} mapStyle="parchment" styleOverrides={{}} colorOverrides={{}} />);
     await waitForMapReady(container);
   });
 
   it("shows toolbar with Reset View and zoom", async () => {
-    const { container } = render(<MapRenderer config={baseConfig} mapStyle="parchment" styleOverrides={{}} colorOverrides={{}} />);
+    const { container } = render(<MapRenderer config={baseConfig} subjectOverlords={{}} mapStyle="parchment" styleOverrides={{}} colorOverrides={{}} />);
     await waitForMapReady(container);
     const toolbar = container.querySelector(".map-toolbar")! as HTMLElement;
     expect(within(toolbar).getByText("Reset View")).toBeInTheDocument();
@@ -104,7 +104,7 @@ describe("MapRenderer", () => {
       ...baseConfig,
       groups: { "#ff0000": { label: "ENG", paths: ["Uppland"] } },
     };
-    const { container } = render(<MapRenderer config={config} mapStyle="parchment" styleOverrides={{}} colorOverrides={{}} />);
+    const { container } = render(<MapRenderer config={config} subjectOverlords={{}} mapStyle="parchment" styleOverrides={{}} colorOverrides={{}} />);
     await waitForMapReady(container);
     const html = container.querySelector(".map-transform")?.innerHTML ?? "";
     expect(html).toContain('fill="#ff0000"');
@@ -115,7 +115,7 @@ describe("MapRenderer", () => {
       ...baseConfig,
       groups: { "#ff0000": { label: "ENG", paths: ["Uppland"] } },
     };
-    const { container } = render(<MapRenderer config={config} mapStyle="parchment" styleOverrides={{}} colorOverrides={{}} />);
+    const { container } = render(<MapRenderer config={config} subjectOverlords={{}} mapStyle="parchment" styleOverrides={{}} colorOverrides={{}} />);
     await waitForMapReady(container);
     const html = container.querySelector(".map-transform")?.innerHTML ?? "";
     expect(html).toContain('id="Middlesex"');
@@ -128,7 +128,7 @@ describe("MapRenderer", () => {
       ...baseConfig,
       groups: { "#ff0000": { label: "ENG", paths: ["Uppland"] } },
     };
-    const { container } = render(<MapRenderer config={config} mapStyle="parchment" styleOverrides={{}} colorOverrides={{}} />);
+    const { container } = render(<MapRenderer config={config} subjectOverlords={{}} mapStyle="parchment" styleOverrides={{}} colorOverrides={{}} />);
     await waitForMapReady(container);
     const html = container.querySelector(".map-transform")?.innerHTML ?? "";
     expect(html).toContain('fill="#ff0000" stroke="#ff0000"');
@@ -141,7 +141,7 @@ describe("MapRenderer", () => {
       ...baseConfig,
       groups: { "#ff0000": { label: "ENG", paths: ["Uppland"] } },
     };
-    const { container } = render(<MapRenderer config={config} mapStyle="parchment" styleOverrides={{ outlineWidth: "0.6" }} colorOverrides={{}} />);
+    const { container } = render(<MapRenderer config={config} subjectOverlords={{}} mapStyle="parchment" styleOverrides={{ outlineWidth: "0.6" }} colorOverrides={{}} />);
     await waitForMapReady(container);
     const html = container.querySelector(".map-transform")?.innerHTML ?? "";
     expect(html).toContain("outline-layer");
@@ -155,7 +155,7 @@ describe("MapRenderer", () => {
       ...baseConfig,
       groups: { "#ff0000": { label: "ENG", paths: ["Uppland"] } },
     };
-    const { container } = render(<MapRenderer config={config} mapStyle="parchment" styleOverrides={{}} colorOverrides={{}} />);
+    const { container } = render(<MapRenderer config={config} subjectOverlords={{}} mapStyle="parchment" styleOverrides={{}} colorOverrides={{}} />);
     await waitForMapReady(container);
     const html = container.querySelector(".map-transform")?.innerHTML ?? "";
     expect(html).not.toContain("outline-layer");
@@ -163,7 +163,7 @@ describe("MapRenderer", () => {
 
   it("does not create outline layer when width is 0", async () => {
     const { container } = render(
-      <MapRenderer config={baseConfig} mapStyle="parchment" styleOverrides={{ outlineWidth: "0" }} colorOverrides={{}} />,
+      <MapRenderer config={baseConfig} subjectOverlords={{}} mapStyle="parchment" styleOverrides={{ outlineWidth: "0" }} colorOverrides={{}} />,
     );
     await waitForMapReady(container);
     const html = container.querySelector(".map-transform")?.innerHTML ?? "";
@@ -176,7 +176,7 @@ describe("MapRenderer", () => {
       groups: { "#ff0000": { label: "ENG", paths: ["Uppland"] } },
     };
     const { container } = render(
-      <MapRenderer config={config} mapStyle="parchment" styleOverrides={{ outlineColor: "#ff00ff", outlineWidth: "0.6" }} colorOverrides={{}} />,
+      <MapRenderer config={config} subjectOverlords={{}} mapStyle="parchment" styleOverrides={{ outlineColor: "#ff00ff", outlineWidth: "0.6" }} colorOverrides={{}} />,
     );
     await waitForMapReady(container);
     const html = container.querySelector(".map-transform")?.innerHTML ?? "";
@@ -184,27 +184,27 @@ describe("MapRenderer", () => {
   });
 
   it("applies parchment default fill in parchment style", async () => {
-    const { container } = render(<MapRenderer config={baseConfig} mapStyle="parchment" styleOverrides={{}} colorOverrides={{}} />);
+    const { container } = render(<MapRenderer config={baseConfig} subjectOverlords={{}} mapStyle="parchment" styleOverrides={{}} colorOverrides={{}} />);
     await waitForMapReady(container);
     const html = container.querySelector(".map-transform")?.innerHTML ?? "";
     expect(html).toContain('fill="#e8dcc8"');
   });
 
   it("applies gray default fill in modern style", async () => {
-    const { container } = render(<MapRenderer config={baseConfig} mapStyle="modern" styleOverrides={{}} colorOverrides={{}} />);
+    const { container } = render(<MapRenderer config={baseConfig} subjectOverlords={{}} mapStyle="modern" styleOverrides={{}} colorOverrides={{}} />);
     await waitForMapReady(container);
     const html = container.querySelector(".map-transform")?.innerHTML ?? "";
     expect(html).toContain('fill="#d1dbdd"');
   });
 
   it("adds style-specific class to renderer", async () => {
-    const { container } = render(<MapRenderer config={baseConfig} mapStyle="modern" styleOverrides={{}} colorOverrides={{}} />);
+    const { container } = render(<MapRenderer config={baseConfig} subjectOverlords={{}} mapStyle="modern" styleOverrides={{}} colorOverrides={{}} />);
     await waitForMapReady(container);
     expect(container.querySelector(".map-renderer-modern")).toBeInTheDocument();
   });
 
   it("resets transform on Reset View click", async () => {
-    const { container } = render(<MapRenderer config={baseConfig} mapStyle="parchment" styleOverrides={{}} colorOverrides={{}} />);
+    const { container } = render(<MapRenderer config={baseConfig} subjectOverlords={{}} mapStyle="parchment" styleOverrides={{}} colorOverrides={{}} />);
     await waitForMapReady(container);
     const toolbar = container.querySelector(".map-toolbar")! as HTMLElement;
     const viewport = container.querySelector(".map-viewport")!;
@@ -214,7 +214,7 @@ describe("MapRenderer", () => {
   });
 
   it("removes width/height and adds map-svg class", async () => {
-    const { container } = render(<MapRenderer config={baseConfig} mapStyle="parchment" styleOverrides={{}} colorOverrides={{}} />);
+    const { container } = render(<MapRenderer config={baseConfig} subjectOverlords={{}} mapStyle="parchment" styleOverrides={{}} colorOverrides={{}} />);
     await waitForMapReady(container);
     const svg = container.querySelector(".map-svg");
     expect(svg).toBeInTheDocument();
@@ -225,7 +225,7 @@ describe("MapRenderer", () => {
   // Style override tests
   it("applies custom defaultFill from overrides", async () => {
     const { container } = render(
-      <MapRenderer config={baseConfig} mapStyle="parchment" styleOverrides={{ defaultFill: "#aabbcc" }} colorOverrides={{}} />,
+      <MapRenderer config={baseConfig} subjectOverlords={{}} mapStyle="parchment" styleOverrides={{ defaultFill: "#aabbcc" }} colorOverrides={{}} />,
     );
     await waitForMapReady(container);
     const html = container.querySelector(".map-transform")?.innerHTML ?? "";
@@ -234,7 +234,7 @@ describe("MapRenderer", () => {
 
   it("applies custom bgColor to viewport inline style", async () => {
     const { container } = render(
-      <MapRenderer config={baseConfig} mapStyle="parchment" styleOverrides={{ bgColor: "#112233" }} colorOverrides={{}} />,
+      <MapRenderer config={baseConfig} subjectOverlords={{}} mapStyle="parchment" styleOverrides={{ bgColor: "#112233" }} colorOverrides={{}} />,
     );
     await waitForMapReady(container);
     const viewport = container.querySelector(".map-viewport") as HTMLElement;
@@ -247,7 +247,7 @@ describe("MapRenderer", () => {
       ...baseConfig,
       groups: { "#ff0000": { label: "TUR", paths: ["Red_Sea_Coast"] } },
     };
-    const { container } = render(<MapRenderer config={config} mapStyle="parchment" styleOverrides={{}} colorOverrides={{}} />);
+    const { container } = render(<MapRenderer config={config} subjectOverlords={{}} mapStyle="parchment" styleOverrides={{}} colorOverrides={{}} />);
     await waitForMapReady(container);
     const html = container.querySelector(".map-transform")?.innerHTML ?? "";
     // The path had style="fill:#d1dbdd" which would override the fill attribute.
@@ -264,7 +264,7 @@ describe("MapRenderer", () => {
       groups: { "#ff0000": { label: "ENG - Alice", paths: ["Uppland"] } },
     };
     const { container } = render(
-      <MapRenderer config={config} mapStyle="parchment" styleOverrides={{}} colorOverrides={{}} onProvinceClick={onClick} />,
+      <MapRenderer config={config} subjectOverlords={{}} mapStyle="parchment" styleOverrides={{}} colorOverrides={{}} onProvinceClick={onClick} />,
     );
     await waitForMapReady(container);
     const viewport = container.querySelector(".map-viewport")!;
@@ -284,7 +284,7 @@ describe("MapRenderer", () => {
       groups: { "#ff0000": { label: "ENG", paths: ["Uppland"] } },
     };
     const { container } = render(
-      <MapRenderer config={config} mapStyle="parchment" styleOverrides={{}} colorOverrides={{}} onProvinceClick={onClick} />,
+      <MapRenderer config={config} subjectOverlords={{}} mapStyle="parchment" styleOverrides={{}} colorOverrides={{}} onProvinceClick={onClick} />,
     );
     await waitForMapReady(container);
     const viewport = container.querySelector(".map-viewport")!;
@@ -302,7 +302,7 @@ describe("MapRenderer", () => {
       groups: { "#ff0000": { label: "ENG", paths: ["Uppland"] } },
     };
     const { container } = render(
-      <MapRenderer config={config} mapStyle="parchment" styleOverrides={{}} colorOverrides={{}} onProvinceClick={onClick} />,
+      <MapRenderer config={config} subjectOverlords={{}} mapStyle="parchment" styleOverrides={{}} colorOverrides={{}} onProvinceClick={onClick} />,
     );
     await waitForMapReady(container);
     const viewport = container.querySelector(".map-viewport")!;
@@ -315,7 +315,7 @@ describe("MapRenderer", () => {
   });
 
   it("uses default cursor, not grab", async () => {
-    const { container } = render(<MapRenderer config={baseConfig} mapStyle="parchment" styleOverrides={{}} colorOverrides={{}} />);
+    const { container } = render(<MapRenderer config={baseConfig} subjectOverlords={{}} mapStyle="parchment" styleOverrides={{}} colorOverrides={{}} />);
     await waitForMapReady(container);
     const viewport = container.querySelector(".map-viewport") as HTMLElement;
     const style = window.getComputedStyle(viewport);
@@ -337,7 +337,7 @@ describe("MapRenderer — load and recolor split", () => {
     // The recolor effect is gated on readiness. Without that gate it would run
     // once against an empty path map and never re-run, leaving a grey map.
     const { container } = render(
-      <MapRenderer config={redConfig} mapStyle="parchment" styleOverrides={{}} colorOverrides={{}} />,
+      <MapRenderer config={redConfig} subjectOverlords={{}} mapStyle="parchment" styleOverrides={{}} colorOverrides={{}} />,
     );
     await waitForMapReady(container);
     expect(container.querySelector("#Uppland")?.getAttribute("fill")).toBe("#ff0000");
@@ -345,13 +345,13 @@ describe("MapRenderer — load and recolor split", () => {
 
   it("does not refetch the document when only colors change", async () => {
     const { container, rerender } = render(
-      <MapRenderer config={redConfig} mapStyle="parchment" styleOverrides={{}} colorOverrides={{}} />,
+      <MapRenderer config={redConfig} subjectOverlords={{}} mapStyle="parchment" styleOverrides={{}} colorOverrides={{}} />,
     );
     await waitForMapReady(container);
     const callsAfterLoad = vi.mocked(globalThis.fetch).mock.calls.length;
 
     rerender(
-      <MapRenderer config={redConfig} mapStyle="parchment" styleOverrides={{}} colorOverrides={{ "#ff0000": "#00ff00" }} />,
+      <MapRenderer config={redConfig} subjectOverlords={{}} mapStyle="parchment" styleOverrides={{}} colorOverrides={{ "#ff0000": "#00ff00" }} />,
     );
     await waitFor(() => {
       expect(container.querySelector("#Uppland")?.getAttribute("fill")).toBe("#00ff00");
@@ -361,7 +361,7 @@ describe("MapRenderer — load and recolor split", () => {
 
   it("clears a previous owner's color when a location changes hands", async () => {
     const { container, rerender } = render(
-      <MapRenderer config={redConfig} mapStyle="parchment" styleOverrides={{}} colorOverrides={{}} />,
+      <MapRenderer config={redConfig} subjectOverlords={{}} mapStyle="parchment" styleOverrides={{}} colorOverrides={{}} />,
     );
     await waitForMapReady(container);
     expect(container.querySelector("#Uppland")?.getAttribute("fill")).toBe("#ff0000");
@@ -370,6 +370,7 @@ describe("MapRenderer — load and recolor split", () => {
     rerender(
       <MapRenderer
         config={{ ...baseConfig, groups: { "#ff0000": { label: "ENG", paths: ["Middlesex"] } } }}
+        subjectOverlords={{}}
         mapStyle="parchment"
         styleOverrides={{}}
         colorOverrides={{}}
@@ -384,7 +385,7 @@ describe("MapRenderer — load and recolor split", () => {
 
   it("keeps exactly one outline layer across repeated recolors", async () => {
     const { container, rerender } = render(
-      <MapRenderer config={redConfig} mapStyle="parchment" styleOverrides={{ outlineWidth: "0.6" }} colorOverrides={{}} />,
+      <MapRenderer config={redConfig} subjectOverlords={{}} mapStyle="parchment" styleOverrides={{ outlineWidth: "0.6" }} colorOverrides={{}} />,
     );
     await waitForMapReady(container);
     expect(container.querySelectorAll(`.outline-layer`)).toHaveLength(1);
@@ -392,7 +393,7 @@ describe("MapRenderer — load and recolor split", () => {
     // The outline width is a live slider, so one drag fires many recolors.
     for (const w of ["0.7", "0.8", "0.9", "1.0"]) {
       rerender(
-        <MapRenderer config={redConfig} mapStyle="parchment" styleOverrides={{ outlineWidth: w }} colorOverrides={{}} />,
+        <MapRenderer config={redConfig} subjectOverlords={{}} mapStyle="parchment" styleOverrides={{ outlineWidth: w }} colorOverrides={{}} />,
       );
     }
     await waitFor(() => {
@@ -403,13 +404,13 @@ describe("MapRenderer — load and recolor split", () => {
 
   it("removes the outline layer and its shrink transform when width returns to 0", async () => {
     const { container, rerender } = render(
-      <MapRenderer config={redConfig} mapStyle="parchment" styleOverrides={{ outlineWidth: "0.6" }} colorOverrides={{}} />,
+      <MapRenderer config={redConfig} subjectOverlords={{}} mapStyle="parchment" styleOverrides={{ outlineWidth: "0.6" }} colorOverrides={{}} />,
     );
     await waitForMapReady(container);
     expect(container.querySelector("#Uppland")?.getAttribute("style") ?? "").toContain("scale(0.995)");
 
     rerender(
-      <MapRenderer config={redConfig} mapStyle="parchment" styleOverrides={{ outlineWidth: "0" }} colorOverrides={{}} />,
+      <MapRenderer config={redConfig} subjectOverlords={{}} mapStyle="parchment" styleOverrides={{ outlineWidth: "0" }} colorOverrides={{}} />,
     );
     await waitFor(() => {
       expect(container.querySelector(".outline-layer")).toBeNull();
@@ -420,7 +421,7 @@ describe("MapRenderer — load and recolor split", () => {
 
   it("puts stroke-width in a stylesheet scoped away from outline clones", async () => {
     const { container } = render(
-      <MapRenderer config={redConfig} mapStyle="parchment" styleOverrides={{ outlineWidth: "0.6" }} colorOverrides={{}} />,
+      <MapRenderer config={redConfig} subjectOverlords={{}} mapStyle="parchment" styleOverrides={{ outlineWidth: "0.6" }} colorOverrides={{}} />,
     );
     await waitForMapReady(container);
 
@@ -436,7 +437,7 @@ describe("MapRenderer — load and recolor split", () => {
   it("shows an error with retry when the document fails to load", async () => {
     vi.mocked(globalThis.fetch).mockRejectedValueOnce(new Error("offline"));
     const { container } = render(
-      <MapRenderer config={redConfig} mapStyle="parchment" styleOverrides={{}} colorOverrides={{}} />,
+      <MapRenderer config={redConfig} subjectOverlords={{}} mapStyle="parchment" styleOverrides={{}} colorOverrides={{}} />,
     );
     await waitFor(() => {
       expect(container.querySelector(".map-load-error")).toBeInTheDocument();
@@ -456,10 +457,214 @@ describe("MapRenderer — load and recolor split", () => {
       groups: { "#ff0000": { label: "ENG", paths: ["Uppland", "Not_On_The_Map"] } },
     };
     const { container } = render(
-      <MapRenderer config={config} mapStyle="parchment" styleOverrides={{}} colorOverrides={{}} />,
+      <MapRenderer config={config} subjectOverlords={{}} mapStyle="parchment" styleOverrides={{}} colorOverrides={{}} />,
     );
     await waitForMapReady(container);
     expect(container.querySelector("#Uppland")?.getAttribute("fill")).toBe("#ff0000");
     expect(container.querySelector("#Middlesex")?.getAttribute("fill")).toBe("#e8dcc8");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Subject hatching: subjects take the OVERLORD's colour, textured.
+// ---------------------------------------------------------------------------
+
+describe("MapRenderer — subject hatching", () => {
+  const FRA = "#0000ff";
+  const LIGHTENED = "#5555ff"; // what the config stores for the overlay
+
+  const patternRefOf = (container: HTMLElement, id: string): string =>
+    container.querySelector(`#${id}`)?.getAttribute("fill") ?? "";
+
+  const patternIdFromFill = (fill: string): string =>
+    fill.replace(/^url\(#/, "").replace(/\)$/, "");
+
+  it("paints a players-only subject overlay with the overlord's colour", async () => {
+    const config: MapChartConfig = {
+      ...baseConfig,
+      groups: {
+        [FRA]: { label: "FRA", paths: ["Uppland"] },
+        [LIGHTENED]: { label: "FRA - subjects", paths: ["Middlesex"] },
+      },
+    };
+    const { container } = render(
+      <MapRenderer config={config} subjectOverlords={{}} mapStyle="parchment" styleOverrides={{}} colorOverrides={{}} />,
+    );
+    await waitForMapReady(container);
+
+    const subjectFill = patternRefOf(container, "Middlesex");
+    expect(subjectFill).toMatch(/^url\(#/);
+
+    const pattern = container.querySelector(`#${patternIdFromFill(subjectFill)}`);
+    expect(pattern).not.toBeNull();
+    // The overlord's colour, NOT the lightened shade stored in the config.
+    expect(pattern?.innerHTML ?? "").toContain(FRA);
+    expect(pattern?.innerHTML ?? "").not.toContain(LIGHTENED);
+  });
+
+  it("paints a full-map subject group with its overlord's colour", async () => {
+    const config: MapChartConfig = {
+      ...baseConfig,
+      groups: {
+        [FRA]: { label: "FRA", paths: ["Uppland"] },
+        "#00ff00": { label: "BUR", paths: ["Middlesex"] },
+      },
+    };
+    const { container } = render(
+      <MapRenderer config={config} subjectOverlords={{ BUR: "FRA" }} mapStyle="parchment" styleOverrides={{}} colorOverrides={{}} />,
+    );
+    await waitForMapReady(container);
+
+    const subjectFill = patternRefOf(container, "Middlesex");
+    expect(subjectFill).toMatch(/^url\(#/);
+    const pattern = container.querySelector(`#${patternIdFromFill(subjectFill)}`);
+    expect(pattern?.innerHTML ?? "").toContain(FRA);
+  });
+
+  it("leaves directly-held locations on a flat fill", async () => {
+    const config: MapChartConfig = {
+      ...baseConfig,
+      groups: { [FRA]: { label: "FRA", paths: ["Uppland"] } },
+    };
+    const { container } = render(
+      <MapRenderer config={config} subjectOverlords={{}} mapStyle="parchment" styleOverrides={{}} colorOverrides={{}} />,
+    );
+    await waitForMapReady(container);
+    expect(container.querySelector("#Uppland")?.getAttribute("fill")).toBe(FRA);
+  });
+
+  it("uses userSpaceOnUse so the hatch does not scale per shape", async () => {
+    // The SVG default is objectBoundingBox, which gives one stripe on a small
+    // location and dense banding on a large one.
+    const config: MapChartConfig = {
+      ...baseConfig,
+      groups: {
+        [FRA]: { label: "FRA", paths: ["Uppland"] },
+        [LIGHTENED]: { label: "FRA - subjects", paths: ["Middlesex"] },
+      },
+    };
+    const { container } = render(
+      <MapRenderer config={config} subjectOverlords={{}} mapStyle="parchment" styleOverrides={{}} colorOverrides={{}} />,
+    );
+    await waitForMapReady(container);
+    const pattern = container.querySelector("pattern");
+    expect(pattern?.getAttribute("patternUnits")).toBe("userSpaceOnUse");
+  });
+
+  it("makes the hatch opaque so the ocean cannot show through", async () => {
+    // The asset has no background rect; the ocean is a CSS background on the
+    // container, so transparent gaps would read as water.
+    const config: MapChartConfig = {
+      ...baseConfig,
+      groups: {
+        [FRA]: { label: "FRA", paths: ["Uppland"] },
+        [LIGHTENED]: { label: "FRA - subjects", paths: ["Middlesex"] },
+      },
+    };
+    const { container } = render(
+      <MapRenderer config={config} subjectOverlords={{}} mapStyle="parchment" styleOverrides={{}} colorOverrides={{}} />,
+    );
+    await waitForMapReady(container);
+    expect(container.querySelector("pattern rect")).not.toBeNull();
+  });
+
+  it("gives a hatched path a real stroke, not a url() reference", async () => {
+    const config: MapChartConfig = {
+      ...baseConfig,
+      groups: {
+        [FRA]: { label: "FRA", paths: ["Uppland"] },
+        [LIGHTENED]: { label: "FRA - subjects", paths: ["Middlesex"] },
+      },
+    };
+    const { container } = render(
+      <MapRenderer config={config} subjectOverlords={{}} mapStyle="parchment" styleOverrides={{}} colorOverrides={{}} />,
+    );
+    await waitForMapReady(container);
+    const stroke = container.querySelector("#Middlesex")?.getAttribute("stroke") ?? "";
+    expect(stroke).not.toMatch(/^url\(/);
+    // And not the overlord's flat fill, or the seam between them vanishes.
+    expect(stroke).not.toBe(FRA);
+  });
+
+  it("moves the subject hatch when the overlord's colour is overridden", async () => {
+    const config: MapChartConfig = {
+      ...baseConfig,
+      groups: {
+        [FRA]: { label: "FRA", paths: ["Uppland"] },
+        [LIGHTENED]: { label: "FRA - subjects", paths: ["Middlesex"] },
+      },
+    };
+    const { container, rerender } = render(
+      <MapRenderer config={config} subjectOverlords={{}} mapStyle="parchment" styleOverrides={{}} colorOverrides={{}} />,
+    );
+    await waitForMapReady(container);
+
+    rerender(
+      <MapRenderer config={config} subjectOverlords={{}} mapStyle="parchment" styleOverrides={{}} colorOverrides={{ [FRA]: "#ff0000" }} />,
+    );
+    await waitFor(() => {
+      expect(container.querySelector("#Uppland")?.getAttribute("fill")).toBe("#ff0000");
+    });
+    const subjectFill = patternRefOf(container, "Middlesex");
+    const pattern = container.querySelector(`#${patternIdFromFill(subjectFill)}`);
+    expect(pattern?.innerHTML ?? "").toContain("#ff0000");
+  });
+
+  it("does not accumulate pattern definitions across recolors", async () => {
+    const config: MapChartConfig = {
+      ...baseConfig,
+      groups: {
+        [FRA]: { label: "FRA", paths: ["Uppland"] },
+        [LIGHTENED]: { label: "FRA - subjects", paths: ["Middlesex"] },
+      },
+    };
+    const { container, rerender } = render(
+      <MapRenderer config={config} subjectOverlords={{}} mapStyle="parchment" styleOverrides={{}} colorOverrides={{}} />,
+    );
+    await waitForMapReady(container);
+    for (const style of ["modern", "dark", "pastel"] as const) {
+      rerender(
+        <MapRenderer config={config} subjectOverlords={{}} mapStyle={style} styleOverrides={{}} colorOverrides={{}} />,
+      );
+    }
+    await waitFor(() => {
+      expect(container.querySelectorAll("pattern").length).toBeGreaterThan(0);
+    });
+    expect(container.querySelectorAll("pattern")).toHaveLength(1);
+  });
+
+  it("shares one pattern between overlords resolved to the same colour", async () => {
+    const config: MapChartConfig = {
+      ...baseConfig,
+      groups: {
+        [FRA]: { label: "FRA", paths: ["Uppland"] },
+        [LIGHTENED]: { label: "FRA - subjects", paths: ["Middlesex"] },
+        "#0000fe": { label: "ENG", paths: [] },
+        "#5555fe": { label: "ENG - subjects", paths: ["Red_Sea_Coast"] },
+      },
+    };
+    const { container } = render(
+      <MapRenderer
+        config={config}
+        subjectOverlords={{}}
+        mapStyle="parchment"
+        styleOverrides={{}}
+        colorOverrides={{ "#0000fe": FRA }}
+      />,
+    );
+    await waitForMapReady(container);
+    expect(container.querySelectorAll("pattern")).toHaveLength(1);
+  });
+
+  it("falls back to a flat fill when the overlord has no group", async () => {
+    const config: MapChartConfig = {
+      ...baseConfig,
+      groups: { [LIGHTENED]: { label: "GONE - subjects", paths: ["Middlesex"] } },
+    };
+    const { container } = render(
+      <MapRenderer config={config} subjectOverlords={{}} mapStyle="parchment" styleOverrides={{}} colorOverrides={{}} />,
+    );
+    await waitForMapReady(container);
+    expect(container.querySelector("#Middlesex")?.getAttribute("fill")).toBe(LIGHTENED);
   });
 });

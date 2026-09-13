@@ -29,7 +29,7 @@ interface Props {
   debugContent?: React.ReactNode;
 }
 
-export const MapTab = ({ config, parseTimeMs, onCountryClick, onReset, debugContent }: Props) => {
+export const MapTab = ({ config, subjectOverlords, parseTimeMs, onCountryClick, onReset, debugContent }: Props) => {
   const [mapStyle, setMapStyle] = useState<MapStyle>("parchment");
   const [styleOverrides, setStyleOverrides] = useState<StyleOverrides>({});
   const [colorOverrides, setColorOverrides] = useState<Record<string, string>>({});
@@ -218,6 +218,7 @@ export const MapTab = ({ config, parseTimeMs, onCountryClick, onReset, debugCont
         <div className="map-panel">
           <MapRenderer
             config={config}
+            subjectOverlords={subjectOverlords}
             mapStyle={mapStyle}
             styleOverrides={styleOverrides}
             colorOverrides={colorOverrides}
