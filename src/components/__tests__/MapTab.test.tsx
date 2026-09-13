@@ -87,6 +87,16 @@ describe("MapTab", () => {
     expect(container.textContent).toContain("not compatible");
   });
 
+  it("warns that subjects export as a lighter shade", () => {
+    // The PNG and the screen hatch; the config cannot, so users who paste it
+    // into mapchart.net must not read the difference as a bug.
+    const { container } = render(
+      <MapTab config={baseConfig} subjectOverlords={{}} parseTimeMs={500} onCountryClick={() => {}} onReset={() => {}} />,
+    );
+    expect(container.textContent).toContain("lighter shade");
+    expect(container.textContent).toContain("hatching");
+  });
+
   it("renders Download Config button", () => {
     const { container } = render(
       <MapTab config={baseConfig} subjectOverlords={{}} parseTimeMs={500} onCountryClick={() => {}} onReset={() => {}} />,

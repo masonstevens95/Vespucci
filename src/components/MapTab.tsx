@@ -13,11 +13,21 @@ import {
 } from "../lib/map-styles";
 import { downloadConfig } from "../lib/save-utils";
 import { computeLocationCount } from "../lib/format";
+import { isSubjectEntry, extractTag } from "../lib/legend-sort";
 import { MapRenderer } from "./MapRenderer";
 import { MapLegend } from "./MapLegend";
 import { Stat } from "./Stat";
 
 export const SHOW_DEBUG = import.meta.env.DEV;
+
+/** Darken a hex, matching the renderer's hatch stripe and the legend swatch. */
+const shadeHex = (hex: string, factor: number): string => {
+  const n = parseInt(hex.replace("#", ""), 16);
+  if (Number.isNaN(n)) return hex;
+  const ch = [(n >> 16) & 255, (n >> 8) & 255, n & 255]
+    .map((c) => Math.max(0, Math.min(255, Math.round(c * factor))));
+  return `#${ch.map((c) => c.toString(16).padStart(2, "0")).join("")}`;
+};
 
 interface Props {
   config: MapChartConfig;
@@ -106,15 +116,54 @@ export const MapTab = ({ config, subjectOverlords, parseTimeMs, onCountryClick, 
         ctx.stroke();
 
         const entries = Object.entries(config.groups);
+
+        // The PNG draws its own legend, so it needs the same colour source as
+        // the map. Filling with the group's own hex would put the export-only
+        // lightened shade beside hatched territory in the same image.
+        const overlordHexByTag = new Map<string, string>();
+        for (const [hex, group] of entries) {
+          if (!isSubjectEntry(group.label)) {
+            overlordHexByTag.set(extractTag(group.label), colorOverrides[hex] ?? hex);
+          } else {
+            /* overlay rows never define a country's own colour */
+          }
+        }
+        const subjectBaseHex = (label: string): string => {
+          const tag = extractTag(label);
+          const overlordTag = isSubjectEntry(label) ? tag : subjectOverlords[tag] ?? "";
+          return overlordTag === "" ? "" : overlordHexByTag.get(overlordTag) ?? "";
+        };
+
         let ey = dl.legendY + 38 * dl.scale;
         const rowH = 11 * dl.scale;
         for (const [hex, group] of entries) {
           if (ey + rowH > dl.canvasHeight - 40) break;
-          ctx.fillStyle = hex;
-          ctx.fillRect(dl.legendX + 10 * dl.scale, ey, 8 * dl.scale, 8 * dl.scale);
+          const sw = 8 * dl.scale;
+          const sx = dl.legendX + 10 * dl.scale;
+          const hatchBase = subjectBaseHex(group.label);
+          if (hatchBase !== "") {
+            ctx.fillStyle = hatchBase;
+            ctx.fillRect(sx, ey, sw, sw);
+            ctx.save();
+            ctx.beginPath();
+            ctx.rect(sx, ey, sw, sw);
+            ctx.clip();
+            ctx.strokeStyle = shadeHex(hatchBase, 0.62);
+            ctx.lineWidth = Math.max(1, 1.2 * dl.scale);
+            for (let d = -sw; d < sw * 2; d += 3 * dl.scale) {
+              ctx.beginPath();
+              ctx.moveTo(sx + d, ey);
+              ctx.lineTo(sx + d + sw, ey + sw);
+              ctx.stroke();
+            }
+            ctx.restore();
+          } else {
+            ctx.fillStyle = colorOverrides[hex] ?? hex;
+            ctx.fillRect(sx, ey, sw, sw);
+          }
           ctx.strokeStyle = style.legendBorder;
           ctx.lineWidth = 1;
-          ctx.strokeRect(dl.legendX + 10 * dl.scale, ey, 8 * dl.scale, 8 * dl.scale);
+          ctx.strokeRect(sx, ey, sw, sw);
           ctx.fillStyle = style.labelColor;
           ctx.font = `${7 * dl.scale}px Crimson Pro, Georgia, serif`;
           ctx.fillText(group.label, dl.legendX + 22 * dl.scale, ey + 7 * dl.scale);
@@ -180,7 +229,8 @@ export const MapTab = ({ config, subjectOverlords, parseTimeMs, onCountryClick, 
             them. */}
         <p className="toolbar-note">
           Config targets MapChart&apos;s <strong>EU5 Locations</strong> map — not compatible
-          with configs exported for the Provinces map.
+          with configs exported for the Provinces map. Subjects export as a lighter
+          shade of the overlord&apos;s colour; MapChart cannot carry the on-screen hatching.
         </p>
 
         <div className="toolbar-style-row">
