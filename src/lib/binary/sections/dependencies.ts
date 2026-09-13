@@ -15,6 +15,17 @@ const FIRST_TOK = tokenId("first");
 const SECOND_TOK = tokenId("second");
 const SUBJECT_TYPE_TOK = 0x2ffa; // subject_type
 
+/** The save flags the field with this literal string inside named_targets. */
+const SUBJECT_TYPE_FLAG = "subject_type";
+
+/** True when a token introduces a string value. */
+const isStringToken = (tok: number): boolean =>
+  tok === BinaryToken.QUOTED ||
+  tok === BinaryToken.UNQUOTED ||
+  tok === BinaryToken.LOOKUP_U8 ||
+  tok === BinaryToken.LOOKUP_U16 ||
+  tok === BinaryToken.LOOKUP_U24;
+
 /** Check whether a tag starts with an uppercase letter. */
 const isValidSubjectTag = (tag: string): boolean =>
   /^[A-Z]/.test(tag);
@@ -114,6 +125,7 @@ export const findDependencies = (
     let first = -1;
     let second = -1;
     let subType = "";
+    let sawSubjectTypeFlag = false;
     let depth = 1;
 
     while (r.pos < endPos && depth > 0) {
@@ -139,12 +151,34 @@ export const findDependencies = (
       } else if (depth === 1 && tok === SECOND_TOK) {
         r.expectEqual();
         second = r.readIntValue() ?? -1;
-      } else if (depth === 1 && tok === SUBJECT_TYPE_TOK) {
-        r.expectEqual();
+      } else if (tok === SUBJECT_TYPE_TOK && r.peekToken() === BinaryToken.EQUAL) {
+        // Flat shape: subject_type = "vassal" as a direct key.
+        r.readToken();
         subType = r.readStringValue() ?? "";
       } else if (r.peekToken() === BinaryToken.EQUAL) {
-        r.readToken();
-        r.skipValue();
+        r.readToken(); // consume =
+        const next = r.peekToken();
+        if (next === BinaryToken.OPEN) {
+          // Descend rather than skip. subject_type sits several blocks deep
+          // inside named_targets, so skipping sub-blocks wholesale steps
+          // straight over it. Dependency blocks are small, so walking every
+          // token inside one is cheap.
+          continue;
+        } else if (isStringToken(next)) {
+          // The save marks the field with a "subject_type" string and gives
+          // the type name as a later string in the same nest:
+          //   named_targets = { { flag = "subject_type" ... = "fiefdom" } }
+          const str = r.readStringValue() ?? "";
+          if (str === SUBJECT_TYPE_FLAG) {
+            sawSubjectTypeFlag = true;
+          } else if (sawSubjectTypeFlag && str !== "") {
+            subType = str;
+          } else {
+            /* unrelated string */
+          }
+        } else {
+          r.skipValue();
+        }
       } else {
         /* unrecognised key at nested depth — skip */
       }
