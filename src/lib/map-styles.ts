@@ -338,13 +338,23 @@ export interface DownloadLayout {
   readonly hasLegend: boolean;
 }
 
+/**
+ * Legend panel width as a fraction of the map's own width.
+ *
+ * The panel was a flat 300 units against a 1200-unit map, which is exactly a
+ * quarter. Expressing it as the ratio leaves a full-map export byte-identical
+ * while letting a cropped export keep the same proportions instead of handing
+ * a narrow crop a legend as wide as the map.
+ */
+const LEGEND_WIDTH_RATIO = 0.25;
+
 /** Compute the canvas layout for a map + legend download image. */
 export const computeDownloadLayout = (
   mapDims: ViewBoxDimensions,
   hasLegend: boolean,
   renderScale: number,
 ): DownloadLayout => {
-  const legendPanelWidth = hasLegend ? 300 : 0;
+  const legendPanelWidth = hasLegend ? mapDims.width * LEGEND_WIDTH_RATIO : 0;
   const canvasWidth = (mapDims.width + legendPanelWidth) * renderScale;
   const canvasHeight = mapDims.height * renderScale;
   const legendX = mapDims.width * renderScale + 20;

@@ -811,7 +811,9 @@ describe("fitting the view to player territory", () => {
     expect(zoomText(container)).toBe("100%");
   });
 
-  it("clamps a single tiny holding at the maximum zoom", async () => {
+  it("gives a single tiny holding surrounding context instead of filling the frame", async () => {
+    // framedRegion widens below its floor, so a one-province player gets the
+    // minimum region rather than a wall of colour at maximum zoom.
     const restore = stubGeometry({ Middlesex: [600, 340, 0.5, 0.5] });
     try {
       const { container } = render(
@@ -819,7 +821,9 @@ describe("fitting the view to player territory", () => {
           mapStyle="parchment" styleOverrides={{}} colorOverrides={{}} />,
       );
       await waitForMapReady(container);
-      await waitFor(() => expect(zoomText(container)).toBe("2000%"));
+      // Minimum region is a quarter of the map's width: 300 units against a
+      // 600px viewport at 0.5 px/unit fits at 4x.
+      await waitFor(() => expect(zoomText(container)).toBe("400%"));
     } finally {
       restore();
     }

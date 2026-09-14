@@ -226,8 +226,9 @@ describe("fitTransform", () => {
 
 describe("framedRegion", () => {
   it("unions then pads in one step", () => {
-    const region = framedRegion([stub(100, 100, 100, 100)], MAP, 0.1);
-    expect(region).toEqual({ x: 90, y: 90, width: 120, height: 120 });
+    // Large enough to clear the minimum, so padding is the only effect.
+    const region = framedRegion([stub(100, 100, 500, 300)], MAP, 0.1);
+    expect(region).toEqual({ x: 50, y: 70, width: 600, height: 360 });
   });
 
   it("returns the sentinel when nothing is measurable", () => {
@@ -239,7 +240,34 @@ describe("framedRegion", () => {
   });
 
   it("applies the default margin when none is given", () => {
-    const region = framedRegion([stub(100, 100, 100, 100)], MAP);
-    expect(region.width).toBeGreaterThan(100);
+    const region = framedRegion([stub(100, 100, 500, 300)], MAP);
+    expect(region.width).toBeGreaterThan(500);
+  });
+
+  it("widens a tiny holding to the minimum region", () => {
+    // One province would otherwise frame a few viewBox units: a wall of colour
+    // on screen and a few dozen pixels in the PNG.
+    const region = framedRegion([stub(600, 340, 2, 2)], MAP);
+    expect(region.width).toBeCloseTo(MAP.width * 0.25);
+    expect(region.height).toBeCloseTo(MAP.width * 0.25 * (MAP.height / MAP.width));
+  });
+
+  it("keeps a widened region centred on the holding", () => {
+    const region = framedRegion([stub(600, 340, 2, 2)], MAP);
+    expect(region.x + region.width / 2).toBeCloseTo(601);
+    expect(region.y + region.height / 2).toBeCloseTo(341);
+  });
+
+  it("shifts a widened region inside the map rather than clipping it", () => {
+    // A holding in the corner: the region keeps its full size and slides in.
+    const region = framedRegion([stub(0, 0, 2, 2)], MAP);
+    expect(region.x).toBe(0);
+    expect(region.y).toBe(0);
+    expect(region.width).toBeCloseTo(MAP.width * 0.25);
+  });
+
+  it("leaves a region already above the minimum alone", () => {
+    const region = framedRegion([stub(0, 0, 1000, 600)], MAP, 0);
+    expect(region).toEqual({ x: 0, y: 0, width: 1000, height: 600 });
   });
 });

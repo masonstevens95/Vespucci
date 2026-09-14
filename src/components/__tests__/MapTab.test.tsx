@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, within, waitFor } from "@testing-library/react";
+import { render, within, waitFor, fireEvent } from "@testing-library/react";
 import { MapTab } from "../MapTab";
 import type { MapChartConfig } from "../../lib/types";
 
@@ -150,5 +150,131 @@ describe("MapTab", () => {
     );
     const colorInputs = container.querySelectorAll(".style-color-input");
     expect(colorInputs.length).toBeGreaterThan(0);
+  });
+});
+
+// =============================================================================
+// Cropped PNG export
+// =============================================================================
+
+describe("downloading a cropped map", () => {
+  /**
+   * Capture the cloned SVG the download serialises, which is where the crop
+   * lands. jsdom has no canvas or image decoding, so the draw itself cannot
+   * run — the viewBox on the serialised clone is the observable outcome.
+   */
+  const captureClone = () => {
+    const serialised: string[] = [];
+    const priorBlob = globalThis.Blob;
+    class CapturingBlob {
+      constructor(parts: string[]) {
+        serialised.push(parts.join(""));
+      }
+    }
+    (globalThis as unknown as Record<string, unknown>).Blob = CapturingBlob;
+
+    const priorCreate = URL.createObjectURL;
+    URL.createObjectURL = () => "blob:stub";
+
+    const proto = SVGElement.prototype as unknown as Record<string, unknown>;
+    const hadBBox = "getBBox" in proto;
+    const priorBBox = proto.getBBox;
+    proto.getBBox = function (this: SVGElement) {
+      if (this.id === "Uppland") return { x: 100, y: 100, width: 200, height: 100 };
+      throw new Error("no geometry");
+    };
+
+    // jsdom has no 2D context, and the handler bails without one before it ever
+    // reaches the clone. A no-op context lets the crop path run.
+    const priorContext = HTMLCanvasElement.prototype.getContext;
+    const noopCtx = new Proxy(
+      {},
+      {
+        get: () => () => undefined,
+        set: () => true,
+      },
+    );
+    HTMLCanvasElement.prototype.getContext = (() => noopCtx) as unknown as typeof priorContext;
+
+    return {
+      serialised,
+      restore: () => {
+        (globalThis as unknown as Record<string, unknown>).Blob = priorBlob;
+        URL.createObjectURL = priorCreate;
+        HTMLCanvasElement.prototype.getContext = priorContext;
+        if (hadBBox) proto.getBBox = priorBBox;
+        else delete proto.getBBox;
+      },
+    };
+  };
+
+  const clickDownload = async (container: HTMLElement) => {
+    const toolbar = container.querySelector(".toolbar") as HTMLElement;
+    fireEvent.click(within(toolbar).getByText("Download Map"));
+    await waitFor(() => {
+      expect(container.querySelector(".map-svg")).toBeInTheDocument();
+    });
+  };
+
+  it("crops the exported SVG to the player region", async () => {
+    const cap = captureClone();
+    try {
+      const { container } = render(
+        <MapTab config={baseConfig} subjectOverlords={{}} playerPaths={["Uppland"]}
+          parseTimeMs={500} onCountryClick={() => {}} onReset={() => {}} />,
+      );
+      await waitFor(() => expect(container.querySelector(".map-svg")).toBeInTheDocument());
+      await clickDownload(container);
+      await waitFor(() => expect(cap.serialised.length).toBeGreaterThan(0));
+      // A viewBox other than the asset's own means the crop was applied.
+      expect(cap.serialised[0]).toContain("viewBox");
+      expect(cap.serialised[0]).not.toContain('viewBox="0 0 1200 680"');
+    } finally {
+      cap.restore();
+    }
+  });
+
+  it("exports the whole map when the save has no players", async () => {
+    const cap = captureClone();
+    try {
+      const { container } = render(
+        <MapTab config={baseConfig} subjectOverlords={{}} playerPaths={[]}
+          parseTimeMs={500} onCountryClick={() => {}} onReset={() => {}} />,
+      );
+      await waitFor(() => expect(container.querySelector(".map-svg")).toBeInTheDocument());
+      await clickDownload(container);
+      await waitFor(() => expect(cap.serialised.length).toBeGreaterThan(0));
+      // The mock asset carries no viewBox, so an uncropped clone gains none.
+      expect(cap.serialised[0]).not.toContain("viewBox");
+    } finally {
+      cap.restore();
+    }
+  });
+
+  it("crops identically regardless of the on-screen view", async () => {
+    const cap = captureClone();
+    try {
+      const { container } = render(
+        <MapTab config={baseConfig} subjectOverlords={{}} playerPaths={["Uppland"]}
+          parseTimeMs={500} onCountryClick={() => {}} onReset={() => {}} />,
+      );
+      await waitFor(() => expect(container.querySelector(".map-svg")).toBeInTheDocument());
+      await clickDownload(container);
+      await waitFor(() => expect(cap.serialised.length).toBeGreaterThan(0));
+      const viewBoxOf = (svg: string) => /viewBox="([^"]*)"/.exec(svg)?.[1] ?? "";
+      const before = viewBoxOf(cap.serialised[0]);
+      expect(before).not.toBe("");
+
+      // Zoom the viewport, then export again: the framing must not move.
+      // Compared by viewBox rather than by the whole serialised document,
+      // which is the actual claim and is immune to unrelated attribute churn.
+      const viewport = container.querySelector(".map-viewport")!;
+      fireEvent.wheel(viewport, { deltaY: -100, clientX: 50, clientY: 50 });
+      await clickDownload(container);
+      await waitFor(() => expect(cap.serialised.length).toBeGreaterThan(1));
+      expect(viewBoxOf(cap.serialised[1])).toBe(before);
+    } finally {
+      cap.restore();
+    }
   });
 });

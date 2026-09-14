@@ -14,6 +14,7 @@ import {
 import { downloadConfig } from "../lib/save-utils";
 import { computeLocationCount } from "../lib/format";
 import { isSubjectEntry, extractTag } from "../lib/legend-sort";
+import { framedRegion, hasBounds } from "../lib/map-bounds";
 import { MapRenderer } from "./MapRenderer";
 import { MapLegend } from "./MapLegend";
 import { Stat } from "./Stat";
@@ -79,7 +80,26 @@ export const MapTab = ({ config, subjectOverlords, playerPaths = NO_PATHS, parse
     if (!mapSvg) return;
 
     const dims = getMapDimensions(mapSvg.getAttribute("viewBox") ?? undefined);
-    const dl = computeDownloadLayout(dims, hasLegend, 2);
+
+    // Measured on the live document, not the clone: the clone is never laid
+    // out, so its geometry cannot be read. Always the fitted region rather
+    // than the on-screen transform, so the same save exports the same image
+    // however the user has been panning around.
+    const playerEls: SVGGraphicsElement[] = [];
+    for (const id of playerPaths) {
+      const el = mapSvg.querySelector(`[id="${id}"]`);
+      if (el) {
+        playerEls.push(el as SVGGraphicsElement);
+      } else {
+        /* id with no shape in the asset — nothing to measure */
+      }
+    }
+    const region = framedRegion(playerEls, dims);
+    const cropped = hasBounds(region)
+      ? { width: region.width, height: region.height }
+      : dims;
+
+    const dl = computeDownloadLayout(cropped, hasLegend, 2);
     const style = getStyleConfig(mapStyle, styleOverrides);
 
     const canvas = document.createElement("canvas");
@@ -92,6 +112,16 @@ export const MapTab = ({ config, subjectOverlords, playerPaths = NO_PATHS, parse
     ctx.fillRect(0, 0, dl.canvasWidth, dl.canvasHeight);
 
     const svgClone = mapSvg.cloneNode(true) as SVGSVGElement;
+    // viewBox does the cropping natively, so the output stays vector-sharp and
+    // the canvas needs no clipping of its own.
+    if (hasBounds(region)) {
+      svgClone.setAttribute(
+        "viewBox",
+        `${region.x} ${region.y} ${region.width} ${region.height}`,
+      );
+    } else {
+      /* nothing to frame — export the whole map, as before */
+    }
     svgClone.setAttribute("width", String(dl.mapWidth));
     svgClone.setAttribute("height", String(dl.mapHeight));
     const svgBlob = new Blob([new XMLSerializer().serializeToString(svgClone)], { type: "image/svg+xml" });
@@ -185,7 +215,7 @@ export const MapTab = ({ config, subjectOverlords, playerPaths = NO_PATHS, parse
       link.click();
     };
     img.src = svgUrl;
-  }, [mapStyle, styleOverrides, config, colorOverrides, subjectOverlords]);
+  }, [mapStyle, styleOverrides, config, colorOverrides, subjectOverlords, playerPaths]);
 
   return (
     <>

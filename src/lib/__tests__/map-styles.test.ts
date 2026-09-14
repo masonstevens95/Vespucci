@@ -445,10 +445,26 @@ describe("computeDownloadLayout", () => {
   });
 
   it("scales correctly at 1x", () => {
+    // Legend panel is a quarter of the map's width: 800 * 0.25 = 200.
     const layout = computeDownloadLayout({ width: 800, height: 400 }, true, 1);
-    expect(layout.canvasWidth).toBe(1100); // (800 + 300) * 1
+    expect(layout.canvasWidth).toBe(1000); // (800 + 200) * 1
     expect(layout.canvasHeight).toBe(400);
     expect(layout.legendX).toBe(820); // 800 * 1 + 20
+  });
+
+  it("keeps the legend a quarter of the map width for a cropped export", () => {
+    // A narrow crop must not be handed a legend as wide as the map itself.
+    const layout = computeDownloadLayout({ width: 400, height: 300 }, true, 2);
+    expect(layout.canvasWidth).toBe((400 + 100) * 2);
+    expect(layout.legendWidth).toBe((100 - 40) * 2);
+  });
+
+  it("leaves a full-map export at its previous dimensions", () => {
+    // 1200 * 0.25 is exactly the 300 the panel used to be hard-coded to, so
+    // the common case is unchanged by the switch to a ratio.
+    const layout = computeDownloadLayout({ width: 1200, height: 680 }, true, 2);
+    expect(layout.canvasWidth).toBe(3000);
+    expect(layout.legendWidth).toBe(520);
   });
 
   it("handles custom dimensions", () => {

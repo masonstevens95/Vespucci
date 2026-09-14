@@ -123,6 +123,40 @@ export const padBounds = (
 export const DEFAULT_MARGIN = 0.1;
 
 /**
+ * Narrowest region worth framing, as a fraction of the map's width.
+ *
+ * A player holding one province would otherwise frame a few viewBox units:
+ * on screen that is a wall of colour with no context, and in the exported PNG
+ * it is a few dozen pixels. Widening to a floor gives the holding somewhere to
+ * sit, and keeps the two consumers agreeing rather than each clamping in its
+ * own way afterwards.
+ */
+export const MIN_REGION_FRACTION = 0.25;
+
+/** Widen a region to the floor, keeping its centre and the map's aspect. */
+const atLeastMinimum = (region: Bounds, map: ViewBoxDimensions): Bounds => {
+  const minWidth = map.width * MIN_REGION_FRACTION;
+  const minHeight = minWidth * (map.height / map.width);
+  if (region.width >= minWidth && region.height >= minHeight) {
+    return region;
+  } else {
+    /* too tight to read — widen around the centre below */
+  }
+
+  const width = Math.max(region.width, minWidth);
+  const height = Math.max(region.height, minHeight);
+  const centerX = region.x + region.width / 2;
+  const centerY = region.y + region.height / 2;
+
+  // Shift rather than overflow when the centre sits near an edge, so the
+  // region keeps its full size instead of being clipped to a sliver.
+  const x = Math.min(Math.max(0, centerX - width / 2), Math.max(0, map.width - width));
+  const y = Math.min(Math.max(0, centerY - height / 2), Math.max(0, map.height - height));
+
+  return { x, y, width: Math.min(width, map.width), height: Math.min(height, map.height) };
+};
+
+/**
  * The padded region to frame, from the elements that should be inside it.
  *
  * The single definition of "where the players are" — the opening view and the
@@ -133,7 +167,10 @@ export const framedRegion = (
   elements: Iterable<SVGGraphicsElement>,
   map: ViewBoxDimensions,
   margin: number = DEFAULT_MARGIN,
-): Bounds => padBounds(unionBounds(elements), margin, map);
+): Bounds => {
+  const padded = padBounds(unionBounds(elements), margin, map);
+  return hasBounds(padded) ? atLeastMinimum(padded, map) : NO_BOUNDS;
+};
 
 /**
  * The transform that frames a region in the viewport.
