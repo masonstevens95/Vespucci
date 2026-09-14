@@ -9,6 +9,8 @@ import {
 } from "../lib/map-styles";
 import type { Transform, StyleOverrides, ColorOverrides } from "../lib/map-styles";
 import { applyColorOverrides } from "../lib/map-styles";
+import { framedRegion, fitTransform } from "../lib/map-bounds";
+import { getMapDimensions } from "../lib/map-styles";
 import { createLogger } from "../lib/logger";
 import { isSubjectEntry } from "../lib/legend-sort";
 
@@ -17,6 +19,15 @@ const log = createLogger("MapRenderer");
 const MAP_ASSET = "/eu-v-locations.svg";
 const SVG_NS = "http://www.w3.org/2000/svg";
 const OUTLINE_CLASS = "outline-layer";
+
+/**
+ * Stable empty default for `playerPaths`.
+ *
+ * A literal `= []` in the destructure would allocate a new array on every
+ * render, and the fit effect keys on this prop — it would re-frame the map
+ * continuously and fight the user's panning.
+ */
+const NO_PATHS: readonly string[] = [];
 const DEFS_CLASS = "hatch-defs";
 
 /** Hatch geometry, in viewBox units (locations average ~6 units across). */
@@ -67,7 +78,7 @@ interface Props {
  *    Resetting only `fill` would accumulate outline clones and leave stale
  *    shrink transforms behind as permanent hairline gaps.
  */
-export const MapRenderer = ({ config, subjectOverlords, mapStyle, styleOverrides, colorOverrides, onProvinceClick }: Props) => {
+export const MapRenderer = ({ config, subjectOverlords, playerPaths = NO_PATHS, mapStyle, styleOverrides, colorOverrides, onProvinceClick }: Props) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const svgHostRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<SVGSVGElement | null>(null);
@@ -78,6 +89,12 @@ export const MapRenderer = ({ config, subjectOverlords, mapStyle, styleOverrides
   const [loadError, setLoadError] = useState("");
   const [reloadKey, setReloadKey] = useState(0);
   const [transform, setTransform] = useState<Transform>(IDENTITY_TRANSFORM);
+  // Where "Reset View" goes back to. Identity until a fit succeeds, so a save
+  // with no players keeps today's reset behaviour.
+  const fittedRef = useRef<Transform>(IDENTITY_TRANSFORM);
+  // The paths the current frame was computed from, so an identical set arriving
+  // as a fresh array does not re-frame the map.
+  const fittedPathsRef = useRef<readonly string[] | undefined>(undefined);
   const dragRef = useRef<{ startX: number; startY: number; originX: number; originY: number } | null>(null);
   const mouseDownPosRef = useRef<{ x: number; y: number } | null>(null);
   const locationToTagRef = useRef<Map<string, string>>(new Map());
@@ -373,6 +390,58 @@ export const MapRenderer = ({ config, subjectOverlords, mapStyle, styleOverrides
     }
   }, [ready, config, subjectOverlords, mapStyle, styleOverrides, colorOverrides]);
 
+  /**
+   * Frame the map on the player countries once the document is ready.
+   *
+   * Deliberately separate from the recolor effect above, which re-runs on every
+   * style change, colour override and outline-width drag — re-framing there
+   * would yank the view out from under a user who had panned. This keys only on
+   * readiness and the player paths, so it re-frames when a new save loads and
+   * not otherwise.
+   */
+  useEffect(() => {
+    if (!ready) return;
+    const svg = svgRef.current;
+    const container = containerRef.current;
+    if (!svg || !container) return;
+
+    // Content comparison, not identity: a parent that rebuilds the array on
+    // every render would otherwise re-frame the map continuously and undo the
+    // user's panning. Only runs when the reference actually changed, so the
+    // cost is one pass per save rather than one per render.
+    const previous = fittedPathsRef.current;
+    const unchanged =
+      previous !== undefined &&
+      previous.length === playerPaths.length &&
+      previous.every((id, i) => id === playerPaths[i]);
+    if (unchanged) return;
+    fittedPathsRef.current = playerPaths;
+
+    const map = getMapDimensions(svg.getAttribute("viewBox") ?? undefined);
+    const paths = pathMapRef.current;
+    const elements: SVGPathElement[] = [];
+    for (const id of playerPaths) {
+      const el = paths.get(id);
+      if (el) {
+        elements.push(el);
+      } else {
+        /* id with no shape in the asset — nothing to measure */
+      }
+    }
+
+    // Every failure mode lands on identity: no players, no measurable geometry
+    // (jsdom, where getBBox is unimplemented), or an unmeasured container.
+    const fitted = fitTransform(
+      framedRegion(elements, map),
+      map,
+      container.clientWidth,
+      { width: container.clientWidth, height: container.clientHeight },
+    );
+
+    fittedRef.current = fitted;
+    setTransform(fitted);
+  }, [ready, playerPaths]);
+
   const handleWheel = useCallback((e: React.WheelEvent) => {
     e.preventDefault();
     const rect = containerRef.current?.getBoundingClientRect();
@@ -413,7 +482,9 @@ export const MapRenderer = ({ config, subjectOverlords, mapStyle, styleOverrides
   }, [handleMapClick]);
 
   const handleReset = useCallback(() => {
-    setTransform(IDENTITY_TRANSFORM);
+    // Back to how the map opened, which is the fitted player view when there
+    // was one and the whole map otherwise.
+    setTransform(fittedRef.current);
   }, []);
 
   const handleRetry = useCallback(() => {

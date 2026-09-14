@@ -29,6 +29,9 @@ const shadeHex = (hex: string, factor: number): string => {
   return `#${ch.map((c) => c.toString(16).padStart(2, "0")).join("")}`;
 };
 
+/** Stable empty default — a fresh array each render would re-frame the map. */
+const NO_PATHS: readonly string[] = [];
+
 interface Props {
   config: MapChartConfig;
   /** Subject tag -> root overlord tag; drives subject hatching. */
@@ -41,7 +44,7 @@ interface Props {
   debugContent?: React.ReactNode;
 }
 
-export const MapTab = ({ config, subjectOverlords, playerPaths = [], parseTimeMs, onCountryClick, onReset, debugContent }: Props) => {
+export const MapTab = ({ config, subjectOverlords, playerPaths = NO_PATHS, parseTimeMs, onCountryClick, onReset, debugContent }: Props) => {
   const [mapStyle, setMapStyle] = useState<MapStyle>("parchment");
   const [styleOverrides, setStyleOverrides] = useState<StyleOverrides>({});
   const [colorOverrides, setColorOverrides] = useState<Record<string, string>>({});

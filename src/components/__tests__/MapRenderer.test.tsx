@@ -668,3 +668,228 @@ describe("MapRenderer — subject hatching", () => {
     expect(container.querySelector("#Middlesex")?.getAttribute("fill")).toBe(LIGHTENED);
   });
 });
+
+// =============================================================================
+// Fitted opening view
+// =============================================================================
+
+describe("fitting the view to player territory", () => {
+  const owned: MapChartConfig = {
+    ...baseConfig,
+    groups: {
+      "#ff0000": { label: "ENG - Alice", paths: ["Middlesex"] },
+      "#0000ff": { label: "SWE", paths: ["Uppland"] },
+    },
+  };
+
+  /**
+   * jsdom implements neither getBBox nor layout, so without these the fit has
+   * nothing to measure and falls back to identity. Stubbing both is what makes
+   * the fitted path observable at all — a test that omits them is exercising
+   * the fallback, which is asserted separately below.
+   */
+  const stubGeometry = (boxes: Record<string, [number, number, number, number]>) => {
+    const proto = SVGElement.prototype as unknown as Record<string, unknown>;
+    const hadBBox = "getBBox" in proto;
+    const priorBBox = proto.getBBox;
+    proto.getBBox = function (this: SVGElement) {
+      const box = boxes[this.id];
+      if (!box) throw new Error("no geometry");
+      return { x: box[0], y: box[1], width: box[2], height: box[3] };
+    };
+
+    const priorW = Object.getOwnPropertyDescriptor(HTMLElement.prototype, "clientWidth");
+    const priorH = Object.getOwnPropertyDescriptor(HTMLElement.prototype, "clientHeight");
+    Object.defineProperty(HTMLElement.prototype, "clientWidth", { configurable: true, value: 600 });
+    Object.defineProperty(HTMLElement.prototype, "clientHeight", { configurable: true, value: 340 });
+
+    return () => {
+      if (hadBBox) proto.getBBox = priorBBox;
+      else delete proto.getBBox;
+      if (priorW) Object.defineProperty(HTMLElement.prototype, "clientWidth", priorW);
+      else delete (HTMLElement.prototype as unknown as Record<string, unknown>).clientWidth;
+      if (priorH) Object.defineProperty(HTMLElement.prototype, "clientHeight", priorH);
+      else delete (HTMLElement.prototype as unknown as Record<string, unknown>).clientHeight;
+    };
+  };
+
+  const zoomText = (container: HTMLElement) =>
+    container.querySelector(".zoom-level")?.textContent ?? "";
+
+  it("opens zoomed in on the player's territory", async () => {
+    // Middlesex occupies a small corner, so framing it magnifies the view.
+    const restore = stubGeometry({ Middlesex: [100, 100, 60, 40] });
+    try {
+      const { container } = render(
+        <MapRenderer config={owned} subjectOverlords={{}} playerPaths={["Middlesex"]}
+          mapStyle="parchment" styleOverrides={{}} colorOverrides={{}} />,
+      );
+      await waitForMapReady(container);
+      await waitFor(() => {
+        expect(zoomText(container)).not.toBe("100%");
+      });
+      expect(parseInt(zoomText(container), 10)).toBeGreaterThan(100);
+    } finally {
+      restore();
+    }
+  });
+
+  it("frames both players when there are several", async () => {
+    const restore = stubGeometry({ Middlesex: [100, 100, 50, 50], Uppland: [900, 400, 50, 50] });
+    try {
+      const { container } = render(
+        <MapRenderer config={owned} subjectOverlords={{}} playerPaths={["Middlesex", "Uppland"]}
+          mapStyle="parchment" styleOverrides={{}} colorOverrides={{}} />,
+      );
+      await waitForMapReady(container);
+      // A region spanning most of the map cannot magnify as much as one corner.
+      await waitFor(() => expect(zoomText(container)).not.toBe(""));
+      expect(parseInt(zoomText(container), 10)).toBeLessThan(200);
+    } finally {
+      restore();
+    }
+  });
+
+  it("returns to the fitted view on Reset View, not to 100%", async () => {
+    const restore = stubGeometry({ Middlesex: [100, 100, 60, 40] });
+    try {
+      const { container } = render(
+        <MapRenderer config={owned} subjectOverlords={{}} playerPaths={["Middlesex"]}
+          mapStyle="parchment" styleOverrides={{}} colorOverrides={{}} />,
+      );
+      await waitForMapReady(container);
+      await waitFor(() => expect(zoomText(container)).not.toBe("100%"));
+      const fitted = zoomText(container);
+
+      const viewport = container.querySelector(".map-viewport")!;
+      fireEvent.wheel(viewport, { deltaY: 100, clientX: 10, clientY: 10 });
+      await waitFor(() => expect(zoomText(container)).not.toBe(fitted));
+
+      fireEvent.click(within(container).getByText("Reset View"));
+      await waitFor(() => expect(zoomText(container)).toBe(fitted));
+    } finally {
+      restore();
+    }
+  });
+
+  it("opens on the whole map when the save has no players", async () => {
+    const restore = stubGeometry({ Middlesex: [100, 100, 60, 40] });
+    try {
+      const { container } = render(
+        <MapRenderer config={owned} subjectOverlords={{}} playerPaths={[]}
+          mapStyle="parchment" styleOverrides={{}} colorOverrides={{}} />,
+      );
+      await waitForMapReady(container);
+      expect(zoomText(container)).toBe("100%");
+    } finally {
+      restore();
+    }
+  });
+
+  it("opens on the whole map when player paths name ids the asset lacks", async () => {
+    const restore = stubGeometry({ Middlesex: [100, 100, 60, 40] });
+    try {
+      const { container } = render(
+        <MapRenderer config={owned} subjectOverlords={{}} playerPaths={["Nowhere_At_All"]}
+          mapStyle="parchment" styleOverrides={{}} colorOverrides={{}} />,
+      );
+      await waitForMapReady(container);
+      expect(zoomText(container)).toBe("100%");
+    } finally {
+      restore();
+    }
+  });
+
+  it("opens on the whole map when geometry cannot be measured", async () => {
+    // No stub at all: jsdom's own behaviour. The fit must degrade rather than
+    // throw, which is what keeps the component usable in this environment.
+    const { container } = render(
+      <MapRenderer config={owned} subjectOverlords={{}} playerPaths={["Middlesex"]}
+        mapStyle="parchment" styleOverrides={{}} colorOverrides={{}} />,
+    );
+    await waitForMapReady(container);
+    expect(zoomText(container)).toBe("100%");
+  });
+
+  it("clamps a single tiny holding at the maximum zoom", async () => {
+    const restore = stubGeometry({ Middlesex: [600, 340, 0.5, 0.5] });
+    try {
+      const { container } = render(
+        <MapRenderer config={owned} subjectOverlords={{}} playerPaths={["Middlesex"]}
+          mapStyle="parchment" styleOverrides={{}} colorOverrides={{}} />,
+      );
+      await waitForMapReady(container);
+      await waitFor(() => expect(zoomText(container)).toBe("2000%"));
+    } finally {
+      restore();
+    }
+  });
+
+  it("does not re-frame when only the style changes", async () => {
+    const restore = stubGeometry({ Middlesex: [100, 100, 60, 40] });
+    try {
+      const { container, rerender } = render(
+        <MapRenderer config={owned} subjectOverlords={{}} playerPaths={["Middlesex"]}
+          mapStyle="parchment" styleOverrides={{}} colorOverrides={{}} />,
+      );
+      await waitForMapReady(container);
+      await waitFor(() => expect(zoomText(container)).not.toBe("100%"));
+
+      // Pan away, then change style: the view must stay where the user put it.
+      const viewport = container.querySelector(".map-viewport")!;
+      fireEvent.wheel(viewport, { deltaY: 100, clientX: 10, clientY: 10 });
+      await waitFor(() => expect(zoomText(container)).not.toBe(""));
+      const afterPan = zoomText(container);
+
+      rerender(
+        <MapRenderer config={owned} subjectOverlords={{}} playerPaths={["Middlesex"]}
+          mapStyle="dark" styleOverrides={{ outlineWidth: "0.6" }} colorOverrides={{}} />,
+      );
+      await waitFor(() => {
+        expect(container.querySelector(".outline-layer")).toBeInTheDocument();
+      });
+      expect(zoomText(container)).toBe(afterPan);
+    } finally {
+      restore();
+    }
+  });
+
+  it("re-frames when a different save's players arrive", async () => {
+    const restore = stubGeometry({ Middlesex: [100, 100, 60, 40], Uppland: [0, 0, 1100, 600] });
+    try {
+      const { container, rerender } = render(
+        <MapRenderer config={owned} subjectOverlords={{}} playerPaths={["Middlesex"]}
+          mapStyle="parchment" styleOverrides={{}} colorOverrides={{}} />,
+      );
+      await waitForMapReady(container);
+      await waitFor(() => expect(zoomText(container)).not.toBe("100%"));
+      const first = zoomText(container);
+
+      rerender(
+        <MapRenderer config={owned} subjectOverlords={{}} playerPaths={["Uppland"]}
+          mapStyle="parchment" styleOverrides={{}} colorOverrides={{}} />,
+      );
+      await waitFor(() => expect(zoomText(container)).not.toBe(first));
+    } finally {
+      restore();
+    }
+  });
+
+  it("still paints and outlines correctly at the fitted scale", async () => {
+    // The fit and the recolor are separate effects; neither may clobber the
+    // other's work.
+    const restore = stubGeometry({ Middlesex: [100, 100, 60, 40] });
+    try {
+      const { container } = render(
+        <MapRenderer config={owned} subjectOverlords={{}} playerPaths={["Middlesex"]}
+          mapStyle="parchment" styleOverrides={{ outlineWidth: "0.6" }} colorOverrides={{}} />,
+      );
+      await waitForMapReady(container);
+      await waitFor(() => expect(zoomText(container)).not.toBe("100%"));
+      expect(container.querySelector("#Middlesex")?.getAttribute("fill")).toBe("#ff0000");
+      expect(container.querySelectorAll(".outline-layer")).toHaveLength(1);
+    } finally {
+      restore();
+    }
+  });
+});

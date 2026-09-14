@@ -4,6 +4,7 @@ import {
   hasBounds,
   unionBounds,
   padBounds,
+  framedRegion,
   fitTransform,
   type Bounds,
 } from "../map-bounds";
@@ -220,5 +221,25 @@ describe("fitTransform", () => {
     expect(top).toBeGreaterThanOrEqual(-0.01);
     expect(right).toBeLessThanOrEqual(viewport.width + 0.01);
     expect(bottom).toBeLessThanOrEqual(viewport.height + 0.01);
+  });
+});
+
+describe("framedRegion", () => {
+  it("unions then pads in one step", () => {
+    const region = framedRegion([stub(100, 100, 100, 100)], MAP, 0.1);
+    expect(region).toEqual({ x: 90, y: 90, width: 120, height: 120 });
+  });
+
+  it("returns the sentinel when nothing is measurable", () => {
+    expect(framedRegion([unmeasurable()], MAP)).toBe(NO_BOUNDS);
+  });
+
+  it("returns the sentinel for no elements", () => {
+    expect(framedRegion([], MAP)).toBe(NO_BOUNDS);
+  });
+
+  it("applies the default margin when none is given", () => {
+    const region = framedRegion([stub(100, 100, 100, 100)], MAP);
+    expect(region.width).toBeGreaterThan(100);
   });
 });

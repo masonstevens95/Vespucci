@@ -115,6 +115,27 @@ export const padBounds = (
 };
 
 /**
+ * Breathing room around the framed territory, as a fraction of its own size.
+ *
+ * Proportional rather than absolute so a one-province minor and a continental
+ * empire both get a margin that looks deliberate at their own scale.
+ */
+export const DEFAULT_MARGIN = 0.1;
+
+/**
+ * The padded region to frame, from the elements that should be inside it.
+ *
+ * The single definition of "where the players are" — the opening view and the
+ * downloaded PNG both frame this exact region, so the image matches the screen
+ * by construction rather than by two calculations happening to agree.
+ */
+export const framedRegion = (
+  elements: Iterable<SVGGraphicsElement>,
+  map: ViewBoxDimensions,
+  margin: number = DEFAULT_MARGIN,
+): Bounds => padBounds(unionBounds(elements), margin, map);
+
+/**
  * The transform that frames a region in the viewport.
  *
  * `.map-svg` is `width: 100%`, so the map's on-screen size follows the
