@@ -329,11 +329,19 @@ export const MapTab = ({ config, subjectOverlords, playerPaths = NO_PATHS, borde
                 {isCustom && <option value="__custom" disabled>Custom</option>}
               </select>
             </label>
-            <label className="option">
+            <label
+              className="option"
+              title={
+                wastelandPaths.length === 0
+                  ? "This save reports no wastelands. Melted text saves do not classify them."
+                  : "Paint a wasteland in a country's colour when that one country owns every land neighbour of it"
+              }
+            >
               <input
                 type="checkbox"
-                checked={fillWastelands}
+                checked={fillWastelands && wastelandPaths.length > 0}
                 onChange={(e) => setFillWastelands(e.target.checked)}
+                disabled={wastelandPaths.length === 0}
               />
               Fill wastelands
             </label>

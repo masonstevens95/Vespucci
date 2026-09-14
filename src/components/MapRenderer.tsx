@@ -370,9 +370,19 @@ export const MapRenderer = ({ config, subjectOverlords, wastelandFills = NO_FILL
      */
     const fillFor = (label: string, ownHex: string): { fill: string; hatchBase: string } => {
       const overlordHex = overlordHexFor(label);
-      return overlordHex !== ""
-        ? { fill: ensureHatch(overlordHex), hatchBase: overlordHex }
-        : { fill: ownHex, hatchBase: "" };
+      if (overlordHex === "") {
+        return { fill: ownHex, hatchBase: "" };
+      } else {
+        /* a subject — hatch it in its overlord's colour if we can */
+      }
+      // ensureHatch yields "" when the defs node is missing, which is the
+      // documented degrade-to-flat-fill path. Falling through to the flat
+      // colour here keeps that promise; returning the empty string would
+      // write fill="" onto every subject path instead.
+      const hatch = ensureHatch(overlordHex);
+      return hatch === ""
+        ? { fill: ownHex, hatchBase: "" }
+        : { fill: hatch, hatchBase: overlordHex };
     };
 
     const paint = (el: SVGPathElement, fill: string, hatchBase: string): void => {

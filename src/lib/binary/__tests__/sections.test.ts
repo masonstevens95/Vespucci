@@ -607,6 +607,18 @@ describe("readLocationEntry uninhabitable classification", () => {
     expect(uninhabitable.has(5)).toBe(false);
   });
 
+  it("does not classify an unresolvable owner with no population either", () => {
+    // The case that matters: an owner field the tags cannot resolve AND no
+    // population. Classifying this as a wasteland would let a neighbour paint
+    // a location the save says somebody holds. Presence of `owner` is the
+    // signal, not whether the tag resolved.
+    const data = bytes(u16(OWNER), eq(), uintVal(99), close());
+    const r = new TokenReader(data);
+    const uninhabitable = new Set<number>();
+    readLocationEntry(r, data, 5, { 0: "SWE" }, {}, {}, {}, uninhabitable);
+    expect(uninhabitable.has(5)).toBe(false);
+  });
+
   it("collects ids across a run of entries", () => {
     const data = bytes(
       uintVal(1), eq(), open(), u16(OWNER), eq(), uintVal(0), close(),

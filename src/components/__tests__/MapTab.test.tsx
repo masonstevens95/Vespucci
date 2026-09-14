@@ -469,6 +469,16 @@ describe("MapTab — wasteland fill", () => {
     });
   });
 
+  it("disables the toggle when the save reports no wastelands", () => {
+    // A melted text save: the parser does not classify wastelands there, so
+    // the checkbox could never do anything. Better to say so than to offer a
+    // control that silently does nothing.
+    const { container } = renderTab({ wastelandPaths: [] });
+    const toggle = toggleOf(container);
+    expect(toggle.disabled).toBe(true);
+    expect(toggle.checked).toBe(false);
+  });
+
   it("paints nothing before the graph arrives", () => {
     const { container } = renderTab();
     // Synchronous first paint, before the mocked fetch resolves.

@@ -196,9 +196,13 @@ export const readLocationEntry = (
         r.expectEqual();
         const ownerId = r.readIntValue() ?? -1;
         const tag = resolveOwnerTag(ownerId, countryTags);
+        // Owned on the presence of the field, not on resolving the tag. A
+        // wasteland never carries `owner` at all, so an entry that does is
+        // somebody's even when the id cannot be matched to a country — and
+        // calling it uninhabitable would let a neighbour paint it.
+        owned = true;
         if (tag !== "") {
           locationOwners[locId] = tag;
-          owned = true;
         } else {
           /* unknown or missing owner */
         }
