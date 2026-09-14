@@ -26,6 +26,15 @@ const square = (x: number, y: number, size: number, step = 1): Point[] => {
   return pts;
 };
 
+/** Count drawn segments lying along the vertical line x = at. */
+const edgesAlongX = (lines: readonly (readonly Point[])[], at: number): number =>
+  lines.reduce(
+    (total, line) =>
+      total +
+      line.filter((p, i) => i > 0 && p[0] === at && line[i - 1][0] === at).length,
+    0,
+  );
+
 describe("sharedBorders", () => {
   it("finds the shared edge of two touching squares", () => {
     const a = square(0, 0, 10);
@@ -139,11 +148,12 @@ describe("coastline", () => {
   });
 
   it("excludes the stretch shared with a neighbour", () => {
-    // A coastal province with land to its east: the x = 10 edge is not coast.
+    // A coastal province with land to its east: no line runs along x = 10.
+    // The run still reaches the corner vertex there, so that the coast meets
+    // the border rather than stopping an edge short of it.
     const lines = coastline(square(0, 0, 10), [vertexIndex(square(10, 0, 10))]);
-    const xs = lines.flat().map(([x]) => x);
     expect(lines.length).toBeGreaterThan(0);
-    expect(Math.max(...xs)).toBeLessThan(10);
+    expect(edgesAlongX(lines, 10)).toBe(0);
   });
 
   it("returns nothing when neighbours cover the whole perimeter", () => {
@@ -156,9 +166,8 @@ describe("coastline", () => {
     // Wilderness is an ordinary path, so it turns up among the neighbours and
     // its edge is not coast — it just goes unlined.
     const lines = coastline(square(0, 0, 10), [vertexIndex(square(10, 0, 10)), vertexIndex(square(-10, 0, 10))]);
-    const xs = lines.flat().map(([x]) => x);
-    expect(Math.max(...xs)).toBeLessThan(10);
-    expect(Math.min(...xs)).toBeGreaterThan(0);
+    expect(edgesAlongX(lines, 10)).toBe(0);
+    expect(edgesAlongX(lines, 0)).toBe(0);
   });
 
   it("splits coast into separate runs around an intervening neighbour", () => {
@@ -178,8 +187,44 @@ describe("coastline", () => {
 
   it("treats a neighbour within epsilon as touching", () => {
     const lines = coastline(square(0, 0, 10), [vertexIndex(square(10 + BORDER_EPSILON / 2, 0, 10))]);
-    const xs = lines.flat().map(([x]) => x);
-    expect(Math.max(...xs)).toBeLessThan(10);
+    expect(edgesAlongX(lines, 10)).toBe(0);
+  });
+
+  it("draws the notch at a lone seaward vertex between two borders", () => {
+    // One vertex pokes into the water between two land borders. It is a run
+    // of one, which describes no stretch by itself, but the edges leading to
+    // and from it both face the water and belong to the coast.
+    const a: Point[] = [[0, 0], [1, 0], [2, 1], [3, 0], [4, 0], [4, 4], [0, 4], [0, 0]];
+    const neighbour = a.filter(([x, y]) => !(x === 2 && y === 1));
+    const lines = coastline(a, [vertexIndex(neighbour)]);
+    expect(lines).toEqual([[[1, 0], [2, 1], [3, 0]]]);
+  });
+
+  it("leaves no undrawn edge where the coast meets a border", () => {
+    // The junction vertex is shared with the neighbour, so it counts as
+    // border rather than coast. Without the coast reaching out to it, the
+    // edge from it to open water belongs to neither run and goes undrawn —
+    // a nick in the outline at every point where a border hits the sea.
+    const a = square(0, 0, 10);
+    const b = square(10, 0, 10);
+    const key = (p: Point, q: Point) =>
+      [`${p[0]},${p[1]}`, `${q[0]},${q[1]}`].sort().join("|");
+
+    const drawn = new Set<string>();
+    for (const line of [...sharedBorders(a, b), ...coastline(a, [vertexIndex(b)])]) {
+      line.forEach((p, i) => {
+        if (i > 0) {
+          drawn.add(key(line[i - 1], p));
+        } else {
+          /* first point of a run starts no edge */
+        }
+      });
+    }
+
+    const undrawn = a.filter(
+      (p, i) => i > 0 && !(p[0] === 10 && a[i - 1][0] === 10) && !drawn.has(key(a[i - 1], p)),
+    );
+    expect(undrawn).toEqual([]);
   });
 
   it("complements sharedBorders — together they cover the perimeter", () => {
