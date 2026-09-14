@@ -64,6 +64,7 @@ describe("DebugPanel rendering", () => {
       <DebugPanel
         parsed={{
           countryLocations: {},
+          uninhabitableLocations: [],
           tagToPlayers: {},
           countryColors: {},
           overlordSubjects: {},

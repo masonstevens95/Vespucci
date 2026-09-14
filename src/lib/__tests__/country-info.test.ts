@@ -53,6 +53,7 @@ describe("buildCountryInfo", () => {
   it("builds info from parsed save", () => {
     const parsed = {
       countryLocations: { GBR: ["london", "york"] },
+      uninhabitableLocations: [],
       tagToPlayers: { GBR: ["Alice"] },
       countryColors: { GBR: [255, 0, 0] as [number, number, number] },
       overlordSubjects: { GBR: new Set(["SCO"]) },
@@ -72,6 +73,7 @@ describe("buildCountryInfo", () => {
   it("falls back to tag when no country name", () => {
     const parsed = {
       countryLocations: {},
+      uninhabitableLocations: [],
       tagToPlayers: {},
       countryColors: {},
       overlordSubjects: {},
@@ -85,6 +87,7 @@ describe("buildCountryInfo", () => {
   it("finds overlord for subject", () => {
     const parsed = {
       countryLocations: {},
+      uninhabitableLocations: [],
       tagToPlayers: {},
       countryColors: {},
       overlordSubjects: { GBR: new Set(["SCO"]) },

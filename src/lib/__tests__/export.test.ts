@@ -232,6 +232,7 @@ describe("exportMapChartConfig", () => {
   it("accepts ParsedSave directly", () => {
     const parsed = {
       countryLocations: { SWE: ["stockholm"] },
+      uninhabitableLocations: [],
       tagToPlayers: { SWE: ["Alice"] },
       countryColors: { SWE: [0, 0, 255] as RGB },
       overlordSubjects: {},

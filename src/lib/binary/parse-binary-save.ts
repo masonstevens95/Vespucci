@@ -55,6 +55,7 @@ const NO_CAPITAL = -1;
 /** Returns a fresh empty ParsedSave (no shared mutable state). */
 const emptyParsedSave = (): ParsedSave => ({
   countryLocations: {},
+  uninhabitableLocations: [],
   tagToPlayers: {},
   countryColors: {},
   overlordSubjects: {},
@@ -235,11 +236,14 @@ const parseGamestate = (data: Uint8Array, dynStrings: string[]): ParsedSave => {
 
   const locationRgos: Record<number, RgoData> = {};
   const locationMarkets: Record<number, number> = {};
+  const uninhabitableIds = new Set<number>();
 
   const locOff = findOwnershipLocations(data, T.locations, T.owner, r);
   if (locOff >= 0) {
     r.pos = locOff + 6;
-    readLocationOwnership(r, data, countryTags, locationOwners, locationRgos, locationMarkets);
+    readLocationOwnership(
+      r, data, countryTags, locationOwners, locationRgos, locationMarkets, uninhabitableIds,
+    );
   } else {
     console.error(
       "[parseGamestate] ownership 'locations' section not found — locationOwners will be empty"
@@ -287,6 +291,12 @@ const parseGamestate = (data: Uint8Array, dynStrings: string[]): ParsedSave => {
   );
 
   const countryLocations = buildCountryLocations(locationOwners, locationNames);
+
+  // Names rather than ids, so this stays in the same namespace as
+  // countryLocations and can go through location-resolve.ts unchanged.
+  const uninhabitableLocations = [...uninhabitableIds]
+    .map((locId) => locationNames[locId] ?? "")
+    .filter((name) => name !== "");
   const countryProduction = buildCountryProduction(locationRgos, locationOwners);
   const goodsRankings = buildGoodsRankings(countryProduction);
 
@@ -543,6 +553,7 @@ const parseGamestate = (data: Uint8Array, dynStrings: string[]): ParsedSave => {
 
   return {
     countryLocations,
+    uninhabitableLocations,
     tagToPlayers,
     countryColors,
     overlordSubjects,

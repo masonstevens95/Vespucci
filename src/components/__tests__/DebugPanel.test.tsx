@@ -6,6 +6,7 @@ import type { ParsedSave } from "../../lib/types";
 
 const mockParsed: ParsedSave = {
   countryLocations: { ENG: ["london", "york"], FRA: ["paris"] },
+  uninhabitableLocations: [],
   tagToPlayers: { ENG: ["Alice"] },
   countryColors: { ENG: [255, 0, 0], FRA: [0, 0, 255] },
   overlordSubjects: { ENG: new Set(["SCO", "WLS"]) },
