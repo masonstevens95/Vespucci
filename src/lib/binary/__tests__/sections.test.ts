@@ -33,7 +33,32 @@ describe("readMetadataLocations", () => {
     const r = new TokenReader(data, ["stockholm", "paris", "london"]);
     const names: Record<number, string> = {};
     readMetadataLocations(r, names);
-    expect(names).toEqual({ 0: "stockholm", 1: "paris", 2: "london" });
+    // Keyed by location id: the gamestate's location database numbers from 1.
+    expect(names).toEqual({ 1: "stockholm", 2: "paris", 3: "london" });
+  });
+
+  it("keys names by location id, not array position", () => {
+    // The gamestate's location database is keyed 1..N against an N-entry name
+    // array, so reading the array 0-based shifts every owner onto the wrong
+    // location. This asserts the offset directly so it cannot regress.
+    const COMPAT = T.compatibility!;
+    const LOC = T.locations!;
+    const data = bytes(
+      u16(COMPAT), eq(), open(),
+        u16(LOC), eq(), open(),
+          quotedStr("eckernforde"),
+          quotedStr("amrum_island_wasteland"),
+          quotedStr("husum"),
+        close(),
+      close(),
+      close(),
+    );
+    const r = new TokenReader(data, []);
+    const names: Record<number, string> = {};
+    readMetadataLocations(r, names);
+    expect(names[0]).toBeUndefined();
+    expect(names[1]).toBe("eckernforde");
+    expect(names[3]).toBe("husum");
   });
 
   it("skips unknown fields in metadata", () => {
@@ -52,7 +77,7 @@ describe("readMetadataLocations", () => {
     const r = new TokenReader(data, ["rome"]);
     const names: Record<number, string> = {};
     readMetadataLocations(r, names);
-    expect(names[0]).toBe("rome");
+    expect(names[1]).toBe("rome");
   });
 
   it("skips unknown fields in compatibility block", () => {
@@ -71,7 +96,7 @@ describe("readMetadataLocations", () => {
     const r = new TokenReader(data, ["berlin"]);
     const names: Record<number, string> = {};
     readMetadataLocations(r, names);
-    expect(names[0]).toBe("berlin");
+    expect(names[1]).toBe("berlin");
   });
 
   it("handles empty locations block", () => {

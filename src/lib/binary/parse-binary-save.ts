@@ -485,13 +485,12 @@ const parseGamestate = (data: Uint8Array, dynStrings: string[]): ParsedSave => {
     })),
   }));
 
-  // Resolve market names from center_location
-  // The market center is typically one location after the capital city (capital=N, center=N+1)
+  // Resolve market names from center_location.
+  // locationNames is keyed by location id (1-based, matching the gamestate's
+  // own numbering), so center_location indexes it directly.
   const marketNames: Record<number, string> = {};
   for (const m of rawTrade.markets) {
-    const capitalName = locationNames[m.centerLocation - 1] ?? "";
-    const centerName = locationNames[m.centerLocation] ?? "";
-    const name = capitalName !== "" ? capitalName : centerName;
+    const name = locationNames[m.centerLocation] ?? "";
     if (name !== "") {
       marketNames[m.id] = name
         .replace(/_/g, " ")
@@ -500,11 +499,7 @@ const parseGamestate = (data: Uint8Array, dynStrings: string[]): ParsedSave => {
   }
   const marketOwners: Record<number, string> = {};
   for (const m of rawTrade.markets) {
-    // Try the center location itself, then one before (capital city pattern)
-    const owner =
-      locationOwners[m.centerLocation] ??
-      locationOwners[m.centerLocation - 1] ??
-      "";
+    const owner = locationOwners[m.centerLocation] ?? "";
     if (owner !== "") {
       marketOwners[m.id] = owner;
     }

@@ -144,14 +144,15 @@ describe("parseLocationNames", () => {
   it("extracts location names from metadata", () => {
     const lines = ["metadata={", "\tcompatibility={", "\t\tlocations={",
       "\t\t\tstockholm paris london", "\t\t}", "\t}", "}"];
-    expect(parseLocationNames(lines)).toEqual({ 0: "stockholm", 1: "paris", 2: "london" });
+    // Keyed by location id: the save's location database numbers from 1.
+    expect(parseLocationNames(lines)).toEqual({ 1: "stockholm", 2: "paris", 3: "london" });
   });
   it("handles locations on same line as brace", () => {
     const lines = ["metadata={", "\tlocations={ rome vienna", "\t\tberlin }", "}"];
-    expect(parseLocationNames(lines)).toEqual({ 0: "rome", 1: "vienna", 2: "berlin" });
+    expect(parseLocationNames(lines)).toEqual({ 1: "rome", 2: "vienna", 3: "berlin" });
   });
   it("strips quotes", () => {
-    expect(parseLocationNames(['locations={ "moscow" "tokyo" }'])).toEqual({ 0: "moscow", 1: "tokyo" });
+    expect(parseLocationNames(['locations={ "moscow" "tokyo" }'])).toEqual({ 1: "moscow", 2: "tokyo" });
   });
   it("returns empty for no locations block", () => {
     expect(parseLocationNames(["metadata={", "}"])).toEqual({});
@@ -340,7 +341,7 @@ describe("parseMeltedSave", () => {
     const save = buildMinimalSave({
       locationNames: ["stockholm", "paris", "london"],
       tags: { 0: "SWE", 1: "FRA", 2: "ENG" },
-      ownership: { 0: 0, 1: 1, 2: 2 },
+      ownership: { 1: 0, 2: 1, 3: 2 },
       colors: { SWE: [0, 0, 255], FRA: [33, 33, 173], ENG: [255, 0, 0] },
       players: [{ name: "Alice", country: 0 }, { name: "Bob", country: 1 }],
     });
@@ -361,7 +362,7 @@ describe("parseMeltedSave", () => {
     const save = buildMinimalSave({
       locationNames: ["rome"],
       tags: { 0: "PAP" },
-      ownership: { 0: 0, 5: 0 },
+      ownership: { 1: 0, 5: 0 },
     });
     const result = parseMeltedSave(save);
     expect(result.countryLocations["PAP"]).toContain("rome");
@@ -372,9 +373,9 @@ describe("parseMeltedSave", () => {
     const save = buildMinimalSave({
       locationNames: ["london", "cardiff"],
       tags: { 0: "ENG", 1: "WLS" },
-      ownership: { 0: 0, 1: 0 },
+      ownership: { 1: 0, 2: 0 },
       colors: { ENG: [255, 0, 0], WLS: [0, 255, 0] },
-      capitals: { 0: 0, 1: 1 },
+      capitals: { 0: 1, 1: 2 },
       diplomacySubjects: [{ countryId: 1, libertyDesire: -14, relations: [] }],
     });
     const result = parseMeltedSave(save);

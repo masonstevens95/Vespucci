@@ -30,12 +30,22 @@ const skipUnknownField = (r: TokenReader): void => {
 // Internal readers
 // ---------------------------------------------------------------------------
 
-/** Walk the locations array inside compatibility, recording index -> name. */
+/**
+ * Walk the locations array inside compatibility, recording location id -> name.
+ *
+ * The array itself is positional, but the gamestate's own location database is
+ * keyed 1-based: its keys run 1..N against an array of N names, so the entry
+ * for key k describes the name at array position k-1. Storing the names under
+ * the database's numbering rather than the array's makes every downstream
+ * `locationNames[locId]` lookup correct by construction — the alternative is
+ * every call site remembering to subtract one, which is exactly the bug this
+ * indexing replaced.
+ */
 const readLocationNameList = (
   r: TokenReader,
   locationNames: Record<number, string>,
 ): void => {
-  let idx = 0;
+  let idx = 1;
   while (!r.done && r.peekToken() !== BinaryToken.CLOSE) {
     const name = r.readStringValue() ?? "";
     if (name !== "") {

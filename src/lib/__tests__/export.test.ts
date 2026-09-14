@@ -138,7 +138,7 @@ describe("exportMapChartConfig", () => {
     const save = buildMinimalSave({
       locationNames: ["stockholm", "paris", "london"],
       tags: { 0: "SWE", 1: "FRA", 2: "ENG" },
-      ownership: { 0: 0, 1: 1, 2: 2 },
+      ownership: { 1: 0, 2: 1, 3: 2 },
       players: [{ name: "Alice", country: 0 }],
     });
     const config = exportMapChartConfig(save, { locationIndex }).config;
@@ -152,7 +152,7 @@ describe("exportMapChartConfig", () => {
     const save = buildMinimalSave({
       locationNames: ["stockholm", "paris", "london"],
       tags: { 0: "SWE", 1: "FRA", 2: "ENG" },
-      ownership: { 0: 0, 1: 1, 2: 2 },
+      ownership: { 1: 0, 2: 1, 3: 2 },
       players: [{ name: "Alice", country: 0 }],
     });
     const config = exportMapChartConfig(save, { locationIndex, playersOnly: true }).config;
@@ -166,7 +166,7 @@ describe("exportMapChartConfig", () => {
     const save = buildMinimalSave({
       locationNames: ["stockholm", "edinburgh"],
       tags: { 0: "ENG", 1: "SCO" },
-      ownership: { 0: 0, 1: 1 },
+      ownership: { 1: 0, 2: 1 },
       colors: { ENG: [255, 0, 0], SCO: [0, 0, 255] },
       ioVassals: [{ leader: 0, members: [0, 1] }],
       players: [{ name: "Alice", country: 0 }],
@@ -187,7 +187,7 @@ describe("exportMapChartConfig", () => {
     const save = buildMinimalSave({
       locationNames: ["paris"],
       tags: { 0: "FRA" },
-      ownership: { 0: 0 },
+      ownership: { 1: 0 },
       players: [
         { name: "Alice", country: 0 },
         { name: "Bob", country: 0 },
@@ -208,7 +208,7 @@ describe("exportMapChartConfig", () => {
     const save = buildMinimalSave({
       locationNames: ["stockholm"],
       tags: { 0: "SWE" },
-      ownership: { 0: 0 },
+      ownership: { 1: 0 },
       players: [],
     });
     const config = exportMapChartConfig(save, { locationIndex, playersOnly: true }).config;
@@ -220,7 +220,7 @@ describe("exportMapChartConfig", () => {
     const save = buildMinimalSave({
       locationNames: ["stockholm"],
       tags: { 0: "ENG", 1: "SCO" },
-      ownership: { 0: 0 },
+      ownership: { 1: 0 },
       ioVassals: [{ leader: 0, members: [0, 1] }],
       players: [{ name: "Alice", country: 0 }],
     });
@@ -366,7 +366,7 @@ describe("exportMapChartConfig player paths", () => {
     buildMinimalSave({
       locationNames: ["stockholm", "paris", "london"],
       tags: { 0: "SWE", 1: "FRA", 2: "ENG" },
-      ownership: { 0: 0, 1: 1, 2: 2 },
+      ownership: { 1: 0, 2: 1, 3: 2 },
       players: [{ name: "Alice", country: 0 }],
     });
 
@@ -380,7 +380,7 @@ describe("exportMapChartConfig player paths", () => {
     const noPlayers = buildMinimalSave({
       locationNames: ["stockholm"],
       tags: { 0: "SWE" },
-      ownership: { 0: 0 },
+      ownership: { 1: 0 },
     });
     expect(exportMapChartConfig(noPlayers, { locationIndex }).playerPaths).toEqual([]);
   });
@@ -407,15 +407,12 @@ describe("exportMapChartConfig player paths", () => {
 // =============================================================================
 
 describe("exportMapChartConfig border ownership", () => {
-  // Location ids are 0-based here because this baseline builds locationNames
-  // 0-based while the gamestate's database is keyed from 1 — the attribution
-  // off-by-one fixed on feat/subject-hatching. Using the keys the current code
-  // actually resolves keeps the fixture honest about what it exercises.
+  // Location ids are 1-based, matching the gamestate's own location database.
   const save = () =>
     buildMinimalSave({
       locationNames: ["stockholm", "paris", "london"],
       tags: { 0: "SWE", 1: "FRA", 2: "ENG" },
-      ownership: { 0: 0, 1: 1, 2: 2 },
+      ownership: { 1: 0, 2: 1, 3: 2 },
       players: [{ name: "Alice", country: 0 }],
     });
 
@@ -444,7 +441,7 @@ describe("exportMapChartConfig border ownership", () => {
     const noPlayers = buildMinimalSave({
       locationNames: ["stockholm"],
       tags: { 0: "SWE" },
-      ownership: { 0: 0 },
+      ownership: { 1: 0 },
     });
     const out = exportMapChartConfig(noPlayers, { locationIndex });
     expect(out.borderOwnership.playerTags.size).toBe(0);

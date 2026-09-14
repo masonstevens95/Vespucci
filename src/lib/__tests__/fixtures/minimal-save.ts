@@ -18,7 +18,9 @@ export function buildMinimalSave(overrides: {
 } = {}): string {
   const locNames = overrides.locationNames ?? ["stockholm", "paris", "london"];
   const tags = overrides.tags ?? { 0: "SWE", 1: "FRA", 2: "ENG" };
-  const ownership = overrides.ownership ?? { 0: 0, 1: 1, 2: 2 };
+  // Location ids are 1-based, matching the gamestate's own location database:
+  // its keys run 1..N against an N-entry name array.
+  const ownership = overrides.ownership ?? { 1: 0, 2: 1, 3: 2 };
   const colors = overrides.colors ?? { SWE: [0, 0, 255], FRA: [0, 0, 200], ENG: [255, 0, 0] };
   const capitals = overrides.capitals ?? {};
   const ioVassals = overrides.ioVassals ?? [];

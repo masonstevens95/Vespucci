@@ -124,12 +124,20 @@ const extractLocationNamesFrom = (
   return indexCleanNames(rawNames);
 };
 
+/**
+ * Key names by location id, not array position.
+ *
+ * The save's location database numbers its entries from 1, so the name at
+ * array position i belongs to location id i+1. Indexing from 1 here keeps
+ * `locationNames[locId]` correct for every consumer; see the matching note in
+ * binary/sections/metadata.ts.
+ */
 const indexCleanNames = (rawNames: readonly string[]): Record<number, string> =>
   Object.fromEntries(
     rawNames
       .map(cleanLocationName)
       .filter((name) => name.length > 0)
-      .map((name, idx) => [idx, name]),
+      .map((name, idx) => [idx + 1, name]),
   );
 
 // =============================================================================
