@@ -1,7 +1,7 @@
 ---
 title: "feat: Fill wastelands only when one country encloses them"
 type: feat
-status: active
+status: completed
 date: 2026-09-14
 ---
 
