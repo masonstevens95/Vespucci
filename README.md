@@ -54,6 +54,8 @@ If port 5173 is already taken, Vite picks the next free one and prints the actua
 
 **Players only** (on by default) limits the map to player-controlled nations. Turn it off to paint every country in the save.
 
+**Fill wastelands** (on by default) paints over the grey holes that deserts, mountains and other uninhabitable land leave inside a country — but only where a single country owns every land neighbour of them. A wasteland bordered by two countries, or by land nobody has claimed, stays grey. Filled wastelands are never added to any country's location count, and never reach the exported MapChart config.
+
 ### Where your saves live
 
 Saves are in your Paradox user directory, under `Europa Universalis V/save games/`:
@@ -97,12 +99,12 @@ A healthy save reports something like:
 ```
 asset ids matched          22710 (100.00%)
 unmatched asset ids        1
-save names with no shape   5863 (expected: lakes/seas/wastelands)
+save names with no shape   5863 (expected: lakes and sea zones)
 
   OK: name alignment healthy.
 ```
 
-The ~5,863 unmatched save names are lakes, sea zones, and wastelands, which the land map correctly omits. Those are expected, not errors.
+The ~5,863 unmatched save names are lakes and sea zones, which the land map has no shape for — the ocean is the container's background. Those are expected, not errors. Wastelands are a different case: they do have shapes (1,895 of them), they are simply owned by nobody, so they never appear in a country's location list.
 
 If you replace `public/eu-v-locations.svg` with a newer version, regenerate the ID list and re-check:
 

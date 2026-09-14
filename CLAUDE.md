@@ -20,6 +20,7 @@ File Upload (.eu5 or .txt)
   → MapRenderer (SVG coloring + pan/zoom) + MapLegend (interactive)
   → map-bounds: player path geometry → framed region → opening view + PNG crop
   → border-rule + border-segments: ownership + adjacency → country border layer
+  → wasteland-rule: ownership + adjacency → wastelands one country encloses
 ```
 
 ### Binary Parser Pipeline
@@ -46,6 +47,7 @@ File Upload (.eu5 or .txt)
 - **Country modal**: `src/lib/country-info.ts` + `src/components/CountryModal.tsx`
 - **Map framing**: `src/lib/map-bounds.ts` (union player bboxes → padded region → fit transform)
 - **Country borders**: `src/lib/border-rule.ts` (which pairs qualify, which locations are coastal) + `src/lib/border-segments.ts` (shared border and coastline polylines)
+- **Wasteland fill**: `src/lib/wasteland-rule.ts` (which wastelands one country completely encloses); classification of what is uninhabitable lives in `src/lib/binary/sections/locations.ts`
 - **SVG path parsing**: `src/lib/svg-path.ts` (shared by the browser and the adjacency generator)
 - **Location adjacency**: `src/lib/location-adjacency.json` (735 KB, neighbour indices parallel to `location-ids.json`) + `src/lib/location-adjacency.ts` (code-split loader)
 - **Hand-drawn export**: `src/lib/hand-drawn.ts` (SVG filters + barrel distortion)
@@ -77,12 +79,14 @@ File Upload (.eu5 or .txt)
 - MapRenderer strips inline `style` attributes from SVG paths before setting fills (some paths have `style="fill:..."` that overrides `fill` attribute)
 - `playersOnly` filtering happens AFTER location resolution
 - Vassal subject locations are moved to overlay keys (`TAG_vassals`) in the resolution pool
-- Unresolvable names (lakes, sea zones, wastelands, `loc_<id>` placeholders) are dropped at config-build time, so every count from `paths.length` equals shapes actually painted
+- Unresolvable names (lakes, sea zones, `loc_<id>` placeholders) are dropped at config-build time, so every count from `paths.length` equals shapes actually painted. Wastelands are dropped from the *groups* too — nobody owns them — but the ones a country encloses are painted separately by the view layer
 - The map opens framed on player territory rather than the whole world, and `Reset View` returns to that frame. `MapExport.playerPaths` carries the ids; `config.groups` and the exported MapChart JSON are untouched
 - The downloaded PNG crops to the **same** region via `framedRegion`, always — never the current on-screen transform, so one save exports one image however the user has panned
 - `Outline Width` defaults to **0.3** (borders on), a few steps up from the slider's finest (`min=0 max=2 step=0.1`) and 3x the hairline the SVG asset uses for its own location paths. Because it is non-zero, the adjacency chunk is fetched as soon as a map is shown rather than on demand; the code split still keeps it off the initial page load
 - `Outline Width` means **country borders and coastline**, not per-location outlines. A player's territory is lined where it meets a different country and where it meets the sea — never on internal edges, and never against unclaimed land
 - Border ownership comes from `ParsedSave.countryLocations`, **not** `config.groups`: the config is filtered by `playersOnly`, so reading ownership from it would hide every player-versus-AI border in the default mode
+- **A wasteland is filled only when one country owns every land neighbour of it.** A second owner anywhere on that border, or a single unowned neighbour, leaves it grey. Deliberately stricter than a plurality vote, which fills nearly everything but invents ownership the save never asserts. The fill is view-time only: wastelands never enter `config.groups`, so legend counts and the exported MapChart JSON are identical with it on or off
+- A filled wasteland is folded into the ownership the outline layer gets, so the country border wraps the enclave. That can add no border — every neighbour shares its tag by the rule that filled it — only coastline
 - Stale dependency entries (non-canonical country IDs) are filtered out
 
 ## Gotchas
@@ -97,6 +101,10 @@ File Upload (.eu5 or .txt)
 - Anything layered into `.map-svg` must sit inside a `<g>`: the asset's stylesheet scopes `.map-svg > path { stroke-width }`, and author CSS beats a presentation attribute, so a direct-child path is forced to the location stroke width
 - `src/lib/location-adjacency.json` is 735 KB, over half the app bundle. It is code-split behind `location-adjacency.ts` and fetched only when borders are switched on; **never import it statically**
 - `scripts/generate-location-adjacency.mjs` imports a `.ts` module and relies on Node's native type stripping (>= 23.6). It is the one script that will not run on older Node
+- **The sea is not a neighbour of a wasteland.** The asset holds land paths only, so a coastal wasteland simply has fewer entries in the adjacency graph and open water never disqualifies it. There is no way to tell "borders the sea" from "borders nothing" in the graph alone
+- **Wastelands resolve as connected components, not one at a time.** A chain member's neighbours are mostly other wastelands, so per-location resolution leaves every chain interior unfilled (nothing owned borders it) and lets two touching wastelands take different colours. On both sample saves the 1,895 wasteland shapes form 1,351 components, 150 of which border nothing at all and can never fill
+- **`MapTab`'s `wastelandFills` and `outlineOwnership` must stay memoised.** `MapRenderer` compares the ownership object by *identity* to decide whether to re-extract border geometry, which costs over a second on a large save — a fresh-but-equal object each render pays that on every colour tweak. No DOM assertion can see the difference, which is why `MapTab.ownership.test.tsx` stubs the renderer and asserts on the props
+- Uninhabitable classification is derived from the *shape* of a location's database entry — unowned with no depth-1 `population` field — because saves carry no wasteland flag and names are no help (`Alaska_Range`, `Kyzylkum_Desert` carry no marker substring). It yields the same 1,895 shaped locations on saves 191 years apart, as static map topology should. Sea zones and lakes classify as uninhabitable too and are dropped when their names resolve to no shape
 - **jsdom implements neither `getBBox` nor layout**, so geometry-measuring code needs a fallback in production and a prototype stub in tests. `map-bounds.ts` reads `getBBox` inside a try/catch and degrades to the whole-map view; a component test that forgets the stub silently exercises that fallback instead of the feature, so assert both paths deliberately
 - jsdom's `canvas.getContext("2d")` returns **null**, and `handleDownloadMap` bails on it before reaching the clone — a download test has to stub the context or it observes nothing
 - `.map-svg` is `width: 100%` inside the transformed `.map-transform` wrapper, so viewBox→pixel conversion derives from the **container's** width. Measuring the SVG's own bounding rect folds the live transform back in and makes the fit depend on its own output
@@ -106,7 +114,7 @@ File Upload (.eu5 or .txt)
 - **Saves emit lowercase location names (`stockholm`); MapChart path IDs are Title_Case (`Stockholm`). Exact-case matching finds ZERO of 22,711 — resolution must go through `location-resolve.ts`.** 128 ids carry lowercase particles (`Bar_le_Duc`, `Halle_an_der_Saale`) that per-segment title-casing cannot reproduce, which is why the id list is stored rather than derived
 - `MapRenderer` parses the 13 MB document once on mount and recolors live nodes; the recolor pass must stay idempotent over fill, the inline `style` attribute and the `.outline-layer`, or repeated runs accumulate DOM
 - `stroke-width` lives in a `<style>` inside the SVG scoped `.map-svg > path`; a descendant selector would override the outline clones' own stroke-width (author CSS beats SVG presentation attributes)
-- Vitest runs with `globals: false`, so RTL auto-cleanup does NOT register — call `cleanup()` explicitly or `#id` selectors resolve to stale trees
+- Vitest runs with `globals: false`, so RTL auto-cleanup does NOT register — call `cleanup()` explicitly or `#id` selectors resolve to stale trees. A suite that forgets it also breaks `waitFor`: with every previous tree still mounted, a poll for a painted path never settles and the test times out looking like a product bug
 - Some SVG paths have inline `style="fill:..."` — must `removeAttribute("style")` before coloring
 - `countryNames` field on `ParsedSave` stores full display names (e.g., "Kingdom of Bohemia"), not raw tags
 - Dynamic countries (AAA/ABA/ACA/ADA/AEA prefixes) are game-created nations with `country_name` like "usolye_province"
