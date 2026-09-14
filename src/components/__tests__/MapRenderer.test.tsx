@@ -136,7 +136,11 @@ describe("MapRenderer", () => {
   });
 
   // Outline layer tests
-  it("creates outline layer when outlineWidth > 0", async () => {
+  it("no longer outlines every location when outlineWidth > 0", async () => {
+    // Outline width now means country borders. Without ownership and an
+    // adjacency graph there is nothing to border, so a raised width alone
+    // draws nothing — and in particular does not resurrect the per-location
+    // clones or the shrink that made them visible.
     const config = {
       ...baseConfig,
       groups: { "#ff0000": { label: "ENG", paths: ["Uppland"] } },
@@ -144,10 +148,8 @@ describe("MapRenderer", () => {
     const { container } = render(<MapRenderer config={config} subjectOverlords={{}} mapStyle="parchment" styleOverrides={{ outlineWidth: "0.6" }} colorOverrides={{}} />);
     await waitForMapReady(container);
     const html = container.querySelector(".map-transform")?.innerHTML ?? "";
-    expect(html).toContain("outline-layer");
-    expect(html).toContain('fill="none"');
-    expect(html).toContain('stroke="#000000"');
-    expect(html).toContain("scale(0.995)");
+    expect(html).not.toContain("outline-layer");
+    expect(html).not.toContain("scale(0.995)");
   });
 
   it("no outline layer with default settings", async () => {
@@ -168,19 +170,6 @@ describe("MapRenderer", () => {
     await waitForMapReady(container);
     const html = container.querySelector(".map-transform")?.innerHTML ?? "";
     expect(html).not.toContain("outline-layer");
-  });
-
-  it("applies custom outlineColor from overrides", async () => {
-    const config = {
-      ...baseConfig,
-      groups: { "#ff0000": { label: "ENG", paths: ["Uppland"] } },
-    };
-    const { container } = render(
-      <MapRenderer config={config} subjectOverlords={{}} mapStyle="parchment" styleOverrides={{ outlineColor: "#ff00ff", outlineWidth: "0.6" }} colorOverrides={{}} />,
-    );
-    await waitForMapReady(container);
-    const html = container.querySelector(".map-transform")?.innerHTML ?? "";
-    expect(html).toContain('stroke="#ff00ff"');
   });
 
   it("applies parchment default fill in parchment style", async () => {
@@ -383,31 +372,14 @@ describe("MapRenderer — load and recolor split", () => {
     expect(container.querySelector("#Uppland")?.getAttribute("fill")).toBe("#e8dcc8");
   });
 
-  it("keeps exactly one outline layer across repeated recolors", async () => {
+  it("never applies the old shrink transform, at any outline width", async () => {
+    // The shrink existed only to make the per-location outline visible. Left
+    // behind, it would leave permanent hairline gaps between provinces.
     const { container, rerender } = render(
       <MapRenderer config={redConfig} subjectOverlords={{}} mapStyle="parchment" styleOverrides={{ outlineWidth: "0.6" }} colorOverrides={{}} />,
     );
     await waitForMapReady(container);
-    expect(container.querySelectorAll(`.outline-layer`)).toHaveLength(1);
-
-    // The outline width is a live slider, so one drag fires many recolors.
-    for (const w of ["0.7", "0.8", "0.9", "1.0"]) {
-      rerender(
-        <MapRenderer config={redConfig} subjectOverlords={{}} mapStyle="parchment" styleOverrides={{ outlineWidth: w }} colorOverrides={{}} />,
-      );
-    }
-    await waitFor(() => {
-      expect(container.querySelector(".outline-layer")).toBeInTheDocument();
-    });
-    expect(container.querySelectorAll(`.outline-layer`)).toHaveLength(1);
-  });
-
-  it("removes the outline layer and its shrink transform when width returns to 0", async () => {
-    const { container, rerender } = render(
-      <MapRenderer config={redConfig} subjectOverlords={{}} mapStyle="parchment" styleOverrides={{ outlineWidth: "0.6" }} colorOverrides={{}} />,
-    );
-    await waitForMapReady(container);
-    expect(container.querySelector("#Uppland")?.getAttribute("style") ?? "").toContain("scale(0.995)");
+    expect(container.querySelector("#Uppland")?.getAttribute("style") ?? "").not.toContain("scale(0.995)");
 
     rerender(
       <MapRenderer config={redConfig} subjectOverlords={{}} mapStyle="parchment" styleOverrides={{ outlineWidth: "0" }} colorOverrides={{}} />,
@@ -415,23 +387,21 @@ describe("MapRenderer — load and recolor split", () => {
     await waitFor(() => {
       expect(container.querySelector(".outline-layer")).toBeNull();
     });
-    // A stale shrink transform would leave permanent hairline gaps.
     expect(container.querySelector("#Uppland")?.getAttribute("style")).toBeNull();
   });
 
-  it("puts stroke-width in a stylesheet scoped away from outline clones", async () => {
+  it("puts stroke-width in a stylesheet scoped away from layered paths", async () => {
     const { container } = render(
       <MapRenderer config={redConfig} subjectOverlords={{}} mapStyle="parchment" styleOverrides={{ outlineWidth: "0.6" }} colorOverrides={{}} />,
     );
     await waitForMapReady(container);
 
     const css = container.querySelector(".map-svg > style")?.textContent ?? "";
-    // A descendant selector would also beat the clones' own stroke-width.
+    // Scoped with `>` on purpose: a descendant selector would also beat the
+    // border layer's own stroke-width, since author CSS outranks a
+    // presentation attribute.
     expect(css).toContain(".map-svg > path");
     expect(css).toContain("stroke-width: 0.15");
-
-    const clone = container.querySelector(".outline-layer path");
-    expect(clone?.getAttribute("stroke-width")).toBe("0.6");
   });
 
   it("shows an error with retry when the document fails to load", async () => {
@@ -849,8 +819,10 @@ describe("fitting the view to player territory", () => {
         <MapRenderer config={owned} subjectOverlords={{}} playerPaths={["Middlesex"]}
           mapStyle="dark" styleOverrides={{ outlineWidth: "0.6" }} colorOverrides={{}} />,
       );
+      // The dark preset repaints unowned land, which is the signal that the
+      // recolor pass has run under the new style.
       await waitFor(() => {
-        expect(container.querySelector(".outline-layer")).toBeInTheDocument();
+        expect(container.querySelector("#Uppland")?.getAttribute("fill")).not.toBe("#e8dcc8");
       });
       expect(zoomText(container)).toBe(afterPan);
     } finally {
@@ -879,7 +851,7 @@ describe("fitting the view to player territory", () => {
     }
   });
 
-  it("still paints and outlines correctly at the fitted scale", async () => {
+  it("still paints correctly at the fitted scale", async () => {
     // The fit and the recolor are separate effects; neither may clobber the
     // other's work.
     const restore = stubGeometry({ Middlesex: [100, 100, 60, 40] });
@@ -891,9 +863,249 @@ describe("fitting the view to player territory", () => {
       await waitForMapReady(container);
       await waitFor(() => expect(zoomText(container)).not.toBe("100%"));
       expect(container.querySelector("#Middlesex")?.getAttribute("fill")).toBe("#ff0000");
-      expect(container.querySelectorAll(".outline-layer")).toHaveLength(1);
+      expect(container.querySelector("#Uppland")?.getAttribute("fill")).toBe("#0000ff");
     } finally {
       restore();
     }
+  });
+});
+
+// =============================================================================
+// Country border outlines
+// =============================================================================
+
+describe("country borders", () => {
+  /**
+   * Four locations in a row, each a walked square so consecutive vertices sit
+   * along the shared edges rather than only at corners:
+   *
+   *   Alpha | Bravo | Charlie | Delta
+   */
+  const squareData = (x: number, size: number) => {
+    const pts: string[] = [];
+    for (let i = 0; i < size; i++) pts.push(`${x + i} 0`);
+    for (let i = 0; i < size; i++) pts.push(`${x + size} ${i}`);
+    for (let i = size; i > 0; i--) pts.push(`${x + i} ${size}`);
+    for (let i = size; i > 0; i--) pts.push(`${x} ${i}`);
+    return `M${pts.join("L")}Z`;
+  };
+
+  const borderSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+    <path id="Alpha" fill="#d1dbdd" d="${squareData(0, 10)}"/>
+    <path id="Bravo" fill="#d1dbdd" d="${squareData(10, 10)}"/>
+    <path id="Charlie" fill="#d1dbdd" d="${squareData(20, 10)}"/>
+    <path id="Delta" fill="#d1dbdd" d="${squareData(30, 10)}"/>
+  </svg>`;
+
+  const IDS = ["Alpha", "Bravo", "Charlie", "Delta"];
+  const CHAIN = [[1], [0, 2], [1, 3], [2]];
+
+  const ownershipOf = (
+    owners: Record<string, string>,
+    players: string[],
+  ) => ({
+    ownerByPath: new Map(Object.entries(owners)),
+    playerTags: new Set(players),
+  });
+
+  const config = (paths: string[]): MapChartConfig => ({
+    ...baseConfig,
+    groups: { "#ff0000": { label: "SWE - Alice", paths } },
+  });
+
+  const renderBorders = (
+    owners: Record<string, string>,
+    players: string[],
+    overrides: Record<string, string> = { outlineWidth: "0.6" },
+  ) => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue({
+      text: () => Promise.resolve(borderSvg),
+    } as Response);
+    return render(
+      <MapRenderer
+        config={config(["Alpha"])}
+        subjectOverlords={{}}
+        borderOwnership={ownershipOf(owners, players)}
+        adjacency={CHAIN}
+        adjacencyIds={IDS}
+        mapStyle="parchment"
+        styleOverrides={overrides}
+        colorOverrides={{}}
+      />,
+    );
+  };
+
+  const borderPaths = (container: HTMLElement) =>
+    container.querySelectorAll(".border-layer path");
+
+  it("draws a border between a player and an adjacent AI", async () => {
+    const { container } = renderBorders({ Alpha: "SWE", Bravo: "AI1" }, ["SWE"]);
+    await waitForMapReady(container);
+    await waitFor(() => expect(borderPaths(container).length).toBeGreaterThan(0));
+  });
+
+  it("strokes the border with the configured colour and width", async () => {
+    const { container } = renderBorders({ Alpha: "SWE", Bravo: "AI1" }, ["SWE"], {
+      outlineWidth: "0.6",
+      outlineColor: "#ff00ff",
+    });
+    await waitForMapReady(container);
+    await waitFor(() => expect(borderPaths(container).length).toBeGreaterThan(0));
+    const path = borderPaths(container)[0];
+    expect(path.getAttribute("stroke")).toBe("#ff00ff");
+    expect(path.getAttribute("stroke-width")).toBe("0.6");
+    expect(path.getAttribute("fill")).toBe("none");
+  });
+
+  it("draws nothing at width 0", async () => {
+    const { container } = renderBorders({ Alpha: "SWE", Bravo: "AI1" }, ["SWE"], {
+      outlineWidth: "0",
+    });
+    await waitForMapReady(container);
+    expect(container.querySelector(".border-layer")).toBeNull();
+  });
+
+  it("draws nothing on a country's internal edges", async () => {
+    const { container } = renderBorders({ Alpha: "SWE", Bravo: "SWE" }, ["SWE"]);
+    await waitForMapReady(container);
+    await waitFor(() => expect(container.querySelector(".map-svg")).toBeInTheDocument());
+    expect(borderPaths(container).length).toBe(0);
+  });
+
+  it("draws nothing against unclaimed land", async () => {
+    // Bravo has no owner: coastline and wilderness behave the same way.
+    const { container } = renderBorders({ Alpha: "SWE" }, ["SWE"]);
+    await waitForMapReady(container);
+    expect(borderPaths(container).length).toBe(0);
+  });
+
+  it("draws nothing between two AI countries", async () => {
+    const { container } = renderBorders({ Bravo: "AI1", Charlie: "AI2" }, ["SWE"]);
+    await waitForMapReady(container);
+    expect(borderPaths(container).length).toBe(0);
+  });
+
+  it("draws nothing for a save with no players", async () => {
+    const { container } = renderBorders({ Alpha: "SWE", Bravo: "AI1" }, []);
+    await waitForMapReady(container);
+    expect(borderPaths(container).length).toBe(0);
+  });
+
+  it("no longer outlines every location", async () => {
+    // The old outline cloned every coloured path and shrank each fill so the
+    // stroke showed at every edge. Both must be gone.
+    const { container } = renderBorders({ Alpha: "SWE", Bravo: "AI1" }, ["SWE"]);
+    await waitForMapReady(container);
+    expect(container.querySelector(".outline-layer")).toBeNull();
+    expect(container.querySelector("#Alpha")?.getAttribute("style") ?? "").not.toContain(
+      "scale(0.995)",
+    );
+  });
+
+  it("keeps exactly one border layer across repeated recolors", async () => {
+    const { container, rerender } = renderBorders({ Alpha: "SWE", Bravo: "AI1" }, ["SWE"]);
+    await waitForMapReady(container);
+    await waitFor(() => expect(borderPaths(container).length).toBeGreaterThan(0));
+    const before = borderPaths(container).length;
+
+    // The width is a live slider, so one drag fires many recolors.
+    for (const w of ["0.7", "0.8", "0.9"]) {
+      rerender(
+        <MapRenderer
+          config={config(["Alpha"])}
+          subjectOverlords={{}}
+          borderOwnership={ownershipOf({ Alpha: "SWE", Bravo: "AI1" }, ["SWE"])}
+          adjacency={CHAIN}
+          adjacencyIds={IDS}
+          mapStyle="parchment"
+          styleOverrides={{ outlineWidth: w }}
+          colorOverrides={{}}
+        />,
+      );
+    }
+    await waitFor(() => {
+      expect(borderPaths(container)[0]?.getAttribute("stroke-width")).toBe("0.9");
+    });
+    expect(container.querySelectorAll(".border-layer")).toHaveLength(1);
+    expect(borderPaths(container).length).toBe(before);
+  });
+
+  it("removes the layer when the width returns to 0", async () => {
+    const { container, rerender } = renderBorders({ Alpha: "SWE", Bravo: "AI1" }, ["SWE"]);
+    await waitForMapReady(container);
+    await waitFor(() => expect(borderPaths(container).length).toBeGreaterThan(0));
+
+    rerender(
+      <MapRenderer
+        config={config(["Alpha"])}
+        subjectOverlords={{}}
+        borderOwnership={ownershipOf({ Alpha: "SWE", Bravo: "AI1" }, ["SWE"])}
+        adjacency={CHAIN}
+        adjacencyIds={IDS}
+        mapStyle="parchment"
+        styleOverrides={{ outlineWidth: "0" }}
+        colorOverrides={{}}
+      />,
+    );
+    await waitFor(() => expect(container.querySelector(".border-layer")).toBeNull());
+  });
+
+  it("leaves the fills alone", async () => {
+    const { container } = renderBorders({ Alpha: "SWE", Bravo: "AI1" }, ["SWE"]);
+    await waitForMapReady(container);
+    await waitFor(() => expect(borderPaths(container).length).toBeGreaterThan(0));
+    expect(container.querySelector("#Alpha")?.getAttribute("fill")).toBe("#ff0000");
+    expect(container.querySelector("#Bravo")?.getAttribute("fill")).toBe("#e8dcc8");
+  });
+
+  it("survives a style preset change", async () => {
+    const { container, rerender } = renderBorders({ Alpha: "SWE", Bravo: "AI1" }, ["SWE"]);
+    await waitForMapReady(container);
+    await waitFor(() => expect(borderPaths(container).length).toBeGreaterThan(0));
+
+    rerender(
+      <MapRenderer
+        config={config(["Alpha"])}
+        subjectOverlords={{}}
+        borderOwnership={ownershipOf({ Alpha: "SWE", Bravo: "AI1" }, ["SWE"])}
+        adjacency={CHAIN}
+        adjacencyIds={IDS}
+        mapStyle="dark"
+        styleOverrides={{ outlineWidth: "0.6" }}
+        colorOverrides={{}}
+      />,
+    );
+    await waitFor(() => expect(borderPaths(container).length).toBeGreaterThan(0));
+  });
+
+  it("puts the border inside a group so the location stroke-width rule misses it", async () => {
+    // .map-svg > path sets the location stroke width; a direct child would be
+    // overridden by it, since author CSS beats presentation attributes.
+    const { container } = renderBorders({ Alpha: "SWE", Bravo: "AI1" }, ["SWE"]);
+    await waitForMapReady(container);
+    await waitFor(() => expect(borderPaths(container).length).toBeGreaterThan(0));
+    expect(container.querySelectorAll(".map-svg > path.border-line")).toHaveLength(0);
+    expect(container.querySelector(".map-svg > .border-layer")).not.toBeNull();
+  });
+
+  it("draws nothing when the adjacency graph is empty", async () => {
+    // A failed chunk load resolves to an empty graph.
+    vi.spyOn(globalThis, "fetch").mockResolvedValue({
+      text: () => Promise.resolve(borderSvg),
+    } as Response);
+    const { container } = render(
+      <MapRenderer
+        config={config(["Alpha"])}
+        subjectOverlords={{}}
+        borderOwnership={ownershipOf({ Alpha: "SWE", Bravo: "AI1" }, ["SWE"])}
+        adjacency={[]}
+        adjacencyIds={IDS}
+        mapStyle="parchment"
+        styleOverrides={{ outlineWidth: "0.6" }}
+        colorOverrides={{}}
+      />,
+    );
+    await waitForMapReady(container);
+    expect(borderPaths(container).length).toBe(0);
   });
 });

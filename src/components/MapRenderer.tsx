@@ -11,6 +11,12 @@ import type { Transform, StyleOverrides, ColorOverrides } from "../lib/map-style
 import { applyColorOverrides } from "../lib/map-styles";
 import { framedRegion, fitTransform } from "../lib/map-bounds";
 import { getMapDimensions } from "../lib/map-styles";
+import { qualifyingPairs } from "../lib/border-rule";
+import type { BorderOwnership } from "../lib/border-rule";
+import { sharedBorders, polylineToPathData } from "../lib/border-segments";
+import { pathVertices } from "../lib/svg-path";
+import type { AdjacencyGraph } from "../lib/location-adjacency";
+import canonicalIds from "../lib/location-ids.json";
 import { createLogger } from "../lib/logger";
 import { isSubjectEntry } from "../lib/legend-sort";
 
@@ -19,6 +25,10 @@ const log = createLogger("MapRenderer");
 const MAP_ASSET = "/eu-v-locations.svg";
 const SVG_NS = "http://www.w3.org/2000/svg";
 const OUTLINE_CLASS = "outline-layer";
+const BORDER_CLASS = "border-layer";
+
+/** The canonical id list the adjacency graph is keyed by. */
+const CANONICAL_IDS = canonicalIds as readonly string[];
 
 /**
  * Stable empty default for `playerPaths`.
@@ -52,6 +62,15 @@ interface Props {
   /** Subject tag -> root overlord tag. Paint-time only; no group changes. */
   subjectOverlords: Readonly<Record<string, string>>;
   /**
+   * Who owns what and who is playing, used to decide where country borders
+   * fall. Absent leaves the map unbordered.
+   */
+  borderOwnership?: BorderOwnership;
+  /** Location adjacency graph; absent leaves the map unbordered. */
+  adjacency?: AdjacencyGraph;
+  /** Id list the graph is keyed by. Overridable so tests can use a small one. */
+  adjacencyIds?: readonly string[];
+  /**
    * Path ids held by the player countries. The map opens framed on these, and
    * "Reset View" returns there. Empty leaves the whole map in view.
    */
@@ -78,7 +97,7 @@ interface Props {
  *    Resetting only `fill` would accumulate outline clones and leave stale
  *    shrink transforms behind as permanent hairline gaps.
  */
-export const MapRenderer = ({ config, subjectOverlords, playerPaths = NO_PATHS, mapStyle, styleOverrides, colorOverrides, onProvinceClick }: Props) => {
+export const MapRenderer = ({ config, subjectOverlords, playerPaths = NO_PATHS, borderOwnership, adjacency, adjacencyIds = CANONICAL_IDS, mapStyle, styleOverrides, colorOverrides, onProvinceClick }: Props) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const svgHostRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<SVGSVGElement | null>(null);
@@ -95,6 +114,17 @@ export const MapRenderer = ({ config, subjectOverlords, playerPaths = NO_PATHS, 
   // The paths the current frame was computed from, so an identical set arriving
   // as a fresh array does not re-frame the map.
   const fittedPathsRef = useRef<readonly string[] | undefined>(undefined);
+  // Extracted border geometry, keyed on the inputs it came from so a restyle
+  // redraws without re-extracting.
+  const borderCacheRef = useRef<
+    | {
+        ownership: BorderOwnership;
+        adjacency: AdjacencyGraph;
+        ids: readonly string[];
+        data: string;
+      }
+    | undefined
+  >(undefined);
   const dragRef = useRef<{ startX: number; startY: number; originX: number; originY: number } | null>(null);
   const mouseDownPosRef = useRef<{ x: number; y: number } | null>(null);
   const locationToTagRef = useRef<Map<string, string>>(new Map());
@@ -220,11 +250,15 @@ export const MapRenderer = ({ config, subjectOverlords, playerPaths = NO_PATHS, 
     // --- RESET ---------------------------------------------------------------
     // Remove the outline layer before querying paths, so clones are not treated
     // as map shapes, and clear the inline styles the outline pass writes.
+    // The per-location outline is gone — borders are drawn between countries
+    // now, in their own layer. A document rendered before that change can
+    // still carry the old layer, so removing it is cheap insurance; its shrink
+    // transform is cleared with the inline style in the path reset below.
     const staleOutline = svg.querySelector(`.${OUTLINE_CLASS}`);
     if (staleOutline) {
       staleOutline.remove();
     } else {
-      /* no outline layer from a previous pass */
+      /* nothing left over */
     }
 
     const paths = pathMapRef.current;
@@ -354,40 +388,6 @@ export const MapRenderer = ({ config, subjectOverlords, playerPaths = NO_PATHS, 
       }
     }
 
-    // --- OUTLINE (opt-in) ----------------------------------------------------
-    // Clones every colored path, so it is gated on a non-zero width.
-    if (parseFloat(style.outlineWidth) > 0) {
-      const outlineGroup = svg.ownerDocument.createElementNS(SVG_NS, "g");
-      outlineGroup.setAttribute("class", OUTLINE_CLASS);
-      for (const pathId of coloredIds) {
-        const p = paths.get(pathId);
-        if (p) {
-          const outline = p.cloneNode(false) as SVGPathElement;
-          outline.removeAttribute("id");
-          outline.setAttribute("fill", "none");
-          outline.setAttribute("stroke", style.outlineColor);
-          outline.setAttribute("stroke-width", style.outlineWidth);
-          outline.setAttribute("stroke-linejoin", "round");
-          outlineGroup.appendChild(outline);
-        } else {
-          /* colored id with no element — already counted as a miss */
-        }
-      }
-      svg.insertBefore(outlineGroup, svg.firstChild);
-
-      // Shrink colored fills slightly so the outline peeks through at all edges.
-      for (const pathId of coloredIds) {
-        const p = paths.get(pathId);
-        if (p) {
-          p.setAttribute("style",
-            "transform-box: fill-box; transform-origin: center; transform: scale(0.995);");
-        } else {
-          /* nothing to shrink */
-        }
-      }
-    } else {
-      /* outline disabled — the reset above already removed any stale layer */
-    }
   }, [ready, config, subjectOverlords, mapStyle, styleOverrides, colorOverrides]);
 
   /**
@@ -441,6 +441,105 @@ export const MapRenderer = ({ config, subjectOverlords, playerPaths = NO_PATHS, 
     fittedRef.current = fitted;
     setTransform(fitted);
   }, [ready, playerPaths]);
+
+  /**
+   * Draw the country borders.
+   *
+   * Extraction and drawing share one effect so the path map can be read where
+   * refs are allowed to be read, but the expensive half is cached on its own
+   * inputs: it costs roughly 400 ms for a large multiplayer save and depends
+   * only on who owns what and which locations touch, so dragging the width
+   * slider or switching preset must not pay for it again.
+   */
+  useEffect(() => {
+    if (!ready) return;
+    const svg = svgRef.current;
+    if (!svg) return;
+
+    const stale = svg.querySelector(`.${BORDER_CLASS}`);
+    if (stale) {
+      stale.remove();
+    } else {
+      /* no layer from a previous pass */
+    }
+
+    const style = getStyleConfig(mapStyle, styleOverrides);
+    const wanted =
+      parseFloat(style.outlineWidth) > 0 &&
+      borderOwnership !== undefined &&
+      adjacency !== undefined &&
+      adjacency.length > 0;
+    if (!wanted) {
+      return;
+    } else {
+      /* borders are on and the inputs are present */
+    }
+
+    const cached = borderCacheRef.current;
+    const fresh =
+      cached !== undefined &&
+      cached.ownership === borderOwnership &&
+      cached.adjacency === adjacency &&
+      cached.ids === adjacencyIds;
+
+    if (!fresh) {
+      const paths = pathMapRef.current;
+      const verts = new Map<string, ReturnType<typeof pathVertices>>();
+      const vertsOf = (id: string) => {
+        const hit = verts.get(id);
+        if (hit !== undefined) return hit;
+        const parsed = pathVertices(paths.get(id)?.getAttribute("d") ?? "");
+        verts.set(id, parsed);
+        return parsed;
+      };
+
+      const parts: string[] = [];
+      for (const [a, b] of qualifyingPairs(borderOwnership, adjacency, adjacencyIds)) {
+        for (const line of sharedBorders(vertsOf(a), vertsOf(b))) {
+          parts.push(polylineToPathData(line));
+        }
+      }
+
+      // One element holding every border as a subpath, rather than thousands
+      // of elements: a large save yields ~9,400 polylines, and the browser
+      // handles them far better as a single stroked path.
+      borderCacheRef.current = {
+        ownership: borderOwnership,
+        adjacency,
+        ids: adjacencyIds,
+        data: parts.join(""),
+      };
+    } else {
+      /* same inputs — reuse the geometry and just restyle it */
+    }
+
+    const data = borderCacheRef.current?.data ?? "";
+    if (data === "") {
+      return;
+    } else {
+      /* there are borders to draw */
+    }
+
+    // Inside a group on purpose: the asset's own stylesheet sets
+    // `.map-svg > path { stroke-width }`, and author CSS beats a presentation
+    // attribute, so a direct child would be forced to the location width.
+    const layer = svg.ownerDocument.createElementNS(SVG_NS, "g");
+    layer.setAttribute("class", BORDER_CLASS);
+
+    const line = svg.ownerDocument.createElementNS(SVG_NS, "path");
+    line.setAttribute("class", "border-line");
+    line.setAttribute("d", data);
+    line.setAttribute("fill", "none");
+    line.setAttribute("stroke", style.outlineColor);
+    line.setAttribute("stroke-width", style.outlineWidth);
+    line.setAttribute("stroke-linejoin", "round");
+    line.setAttribute("stroke-linecap", "round");
+    layer.appendChild(line);
+
+    // Appended last so it sits above the fills; a border drawn underneath
+    // would be covered by the territory on either side of it.
+    svg.appendChild(layer);
+  }, [ready, borderOwnership, adjacency, adjacencyIds, mapStyle, styleOverrides]);
 
   const handleWheel = useCallback((e: React.WheelEvent) => {
     e.preventDefault();
