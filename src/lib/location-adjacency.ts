@@ -3,7 +3,7 @@
  *
  * The graph is 718 KB — over half the size of the entire app bundle — and is
  * read only when country borders are actually being drawn. Borders are on by
- * default (outline width 0.1), so the fetch happens as soon as a map is shown
+ * default (outline width 0.3), so the fetch happens as soon as a map is shown
  * rather than on demand; the split still keeps the cost off the initial page
  * load, which is what a static import would spend it on.
  *
