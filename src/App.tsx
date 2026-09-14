@@ -15,6 +15,7 @@ import { MilitaryTab } from "./components/MilitaryTab";
 import { TradeTab } from "./components/TradeTab";
 import { WarsTab } from "./components/WarsTab";
 import { buildCountryInfo } from "./lib/country-info";
+import type { BorderOwnership } from "./lib/border-rule";
 import type { CountryInfo } from "./lib/country-info";
 import { findTagLocationCount } from "./lib/format";
 import "./App.css";
@@ -29,6 +30,8 @@ export interface DebugData {
   subjectOverlords: Readonly<Record<string, string>>;
   /** Path ids held by players; frames the opening view and the PNG crop. */
   playerPaths: readonly string[];
+  /** Ownership across every country; decides where country borders fall. */
+  borderOwnership: BorderOwnership;
   parseTimeMs: number;
   fileSizeMb: number;
 }
@@ -61,13 +64,13 @@ export default function App() {
           ? parseBinarySave(bytes)
           : parseMeltedSave(new TextDecoder().decode(bytes));
 
-        const { config, subjectOverlords, playerPaths } = exportMapChartConfig(parsed, {
+        const { config, subjectOverlords, playerPaths, borderOwnership } = exportMapChartConfig(parsed, {
           playersOnly,
           title,
         });
         const parseTimeMs = performance.now() - t0;
 
-        setDebug({ parsed, config, subjectOverlords, playerPaths, parseTimeMs, fileSizeMb: sizeMb });
+        setDebug({ parsed, config, subjectOverlords, playerPaths, borderOwnership, parseTimeMs, fileSizeMb: sizeMb });
         setStatus("done");
       } catch (e) {
         setError(e instanceof Error ? e.message : String(e));
@@ -146,6 +149,7 @@ export default function App() {
                 config={debug.config}
                 subjectOverlords={debug.subjectOverlords}
                 playerPaths={debug.playerPaths}
+                borderOwnership={debug.borderOwnership}
                 parseTimeMs={debug.parseTimeMs}
                 onCountryClick={handleCountryClick}
                 onReset={handleReset}

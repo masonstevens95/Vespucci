@@ -1,4 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+
+// The real graph is 718 KB; the point under test is *when* it is fetched.
+const loadAdjacency = vi.hoisted(() => vi.fn(async () => [[1], [0]] as const));
+vi.mock("../../lib/location-adjacency", () => ({ loadAdjacency }));
 import { render, within, waitFor, fireEvent } from "@testing-library/react";
 import { MapTab } from "../MapTab";
 import type { MapChartConfig } from "../../lib/types";
@@ -276,5 +280,83 @@ describe("downloading a cropped map", () => {
     } finally {
       cap.restore();
     }
+  });
+});
+
+// =============================================================================
+// Country borders
+// =============================================================================
+
+describe("country borders", () => {
+  const ownership = {
+    ownerByPath: new Map([["Uppland", "SWE"]]),
+    playerTags: new Set(["SWE"]),
+  };
+
+  beforeEach(() => {
+    loadAdjacency.mockClear();
+  });
+
+  const renderTab = (overrides: Record<string, unknown> = {}) =>
+    render(
+      <MapTab
+        config={baseConfig}
+        subjectOverlords={{}}
+        borderOwnership={ownership}
+        parseTimeMs={500}
+        onCountryClick={() => {}}
+        onReset={() => {}}
+        {...overrides}
+      />,
+    );
+
+  const setWidth = (container: HTMLElement, value: string) => {
+    const range = container.querySelector(".style-range-input") as HTMLInputElement;
+    fireEvent.change(range, { target: { value } });
+  };
+
+  it("does not fetch the adjacency graph at the default width", async () => {
+    const { container } = renderTab();
+    await waitFor(() => expect(container.querySelector(".map-svg")).toBeInTheDocument());
+    expect(loadAdjacency).not.toHaveBeenCalled();
+  });
+
+  it("fetches the graph once the width is raised", async () => {
+    const { container } = renderTab();
+    await waitFor(() => expect(container.querySelector(".map-svg")).toBeInTheDocument());
+    setWidth(container, "0.6");
+    await waitFor(() => expect(loadAdjacency).toHaveBeenCalled());
+  });
+
+  it("fetches the graph only once across repeated width changes", async () => {
+    const { container } = renderTab();
+    await waitFor(() => expect(container.querySelector(".map-svg")).toBeInTheDocument());
+    setWidth(container, "0.6");
+    await waitFor(() => expect(loadAdjacency).toHaveBeenCalled());
+    setWidth(container, "0.9");
+    setWidth(container, "1.2");
+    await waitFor(() => expect(loadAdjacency).toHaveBeenCalledTimes(1));
+  });
+
+  it("leaves the legend location count unchanged when borders are on", async () => {
+    const { container } = renderTab();
+    await waitFor(() => expect(container.querySelector(".map-svg")).toBeInTheDocument());
+    // Just the count: the toolbar text also carries the slider's own value.
+    const locationCount = () =>
+      /(\d+)\s*Locations/.exec(container.querySelector(".toolbar")?.textContent ?? "")?.[1];
+    const before = locationCount();
+    expect(before).toBeDefined();
+    setWidth(container, "0.6");
+    await waitFor(() => expect(loadAdjacency).toHaveBeenCalled());
+    expect(locationCount()).toBe(before);
+  });
+
+  it("renders without border ownership", async () => {
+    // A melted save carries no ownership for this purpose; the map must still
+    // draw, just without borders.
+    const { container } = renderTab({ borderOwnership: undefined });
+    await waitFor(() => expect(container.querySelector(".map-svg")).toBeInTheDocument());
+    setWidth(container, "0.6");
+    expect(container.querySelector(".border-layer")).toBeNull();
   });
 });

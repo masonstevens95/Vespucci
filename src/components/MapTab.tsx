@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import type { MapChartConfig, MapStyle } from "../lib/types";
 import type { StyleOverrides } from "../lib/map-styles";
 import {
@@ -15,6 +15,9 @@ import { downloadConfig } from "../lib/save-utils";
 import { computeLocationCount } from "../lib/format";
 import { isSubjectEntry, extractTag } from "../lib/legend-sort";
 import { framedRegion, hasBounds } from "../lib/map-bounds";
+import { loadAdjacency } from "../lib/location-adjacency";
+import type { AdjacencyGraph } from "../lib/location-adjacency";
+import type { BorderOwnership } from "../lib/border-rule";
 import { MapRenderer } from "./MapRenderer";
 import { MapLegend } from "./MapLegend";
 import { Stat } from "./Stat";
@@ -39,17 +42,39 @@ interface Props {
   subjectOverlords: Readonly<Record<string, string>>;
   /** Path ids held by players; frames the opening view and the PNG crop. */
   playerPaths?: readonly string[];
+  /** Ownership across every country; decides where country borders fall. */
+  borderOwnership?: BorderOwnership;
   parseTimeMs: number;
   onCountryClick: (tag: string) => void;
   onReset: () => void;
   debugContent?: React.ReactNode;
 }
 
-export const MapTab = ({ config, subjectOverlords, playerPaths = NO_PATHS, parseTimeMs, onCountryClick, onReset, debugContent }: Props) => {
+export const MapTab = ({ config, subjectOverlords, playerPaths = NO_PATHS, borderOwnership, parseTimeMs, onCountryClick, onReset, debugContent }: Props) => {
   const [mapStyle, setMapStyle] = useState<MapStyle>("parchment");
   const [styleOverrides, setStyleOverrides] = useState<StyleOverrides>({});
   const [colorOverrides, setColorOverrides] = useState<Record<string, string>>({});
   const mapLayoutRef = useRef<HTMLDivElement>(null);
+  const [adjacency, setAdjacency] = useState<AdjacencyGraph | undefined>(undefined);
+
+  // The graph is 718 KB and borders are off at the default width of 0, so it
+  // is fetched the first time somebody actually asks for them.
+  const bordersWanted =
+    parseFloat(getStyleConfig(mapStyle, styleOverrides).outlineWidth) > 0;
+  useEffect(() => {
+    if (!bordersWanted || adjacency !== undefined) return;
+    let cancelled = false;
+    loadAdjacency().then((graph) => {
+      if (!cancelled) {
+        setAdjacency(graph);
+      } else {
+        /* unmounted before the chunk arrived */
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [bordersWanted, adjacency]);
 
   const isCustom = hasCustomOverrides(getBaseStyleConfig(mapStyle), styleOverrides);
   const locationCount = computeLocationCount(config.groups);
@@ -305,6 +330,8 @@ export const MapTab = ({ config, subjectOverlords, playerPaths = NO_PATHS, parse
             config={config}
             subjectOverlords={subjectOverlords}
             playerPaths={playerPaths}
+            borderOwnership={borderOwnership}
+            adjacency={adjacency}
             mapStyle={mapStyle}
             styleOverrides={styleOverrides}
             colorOverrides={colorOverrides}
