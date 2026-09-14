@@ -27,6 +27,8 @@ export interface DebugData {
   config: MapChartConfig;
   /** Subject tag -> root overlord tag; drives subject hatching. */
   subjectOverlords: Readonly<Record<string, string>>;
+  /** Path ids held by players; frames the opening view and the PNG crop. */
+  playerPaths: readonly string[];
   parseTimeMs: number;
   fileSizeMb: number;
 }
@@ -59,13 +61,13 @@ export default function App() {
           ? parseBinarySave(bytes)
           : parseMeltedSave(new TextDecoder().decode(bytes));
 
-        const { config, subjectOverlords } = exportMapChartConfig(parsed, {
+        const { config, subjectOverlords, playerPaths } = exportMapChartConfig(parsed, {
           playersOnly,
           title,
         });
         const parseTimeMs = performance.now() - t0;
 
-        setDebug({ parsed, config, subjectOverlords, parseTimeMs, fileSizeMb: sizeMb });
+        setDebug({ parsed, config, subjectOverlords, playerPaths, parseTimeMs, fileSizeMb: sizeMb });
         setStatus("done");
       } catch (e) {
         setError(e instanceof Error ? e.message : String(e));
@@ -143,6 +145,7 @@ export default function App() {
               <MapTab
                 config={debug.config}
                 subjectOverlords={debug.subjectOverlords}
+                playerPaths={debug.playerPaths}
                 parseTimeMs={debug.parseTimeMs}
                 onCountryClick={handleCountryClick}
                 onReset={handleReset}

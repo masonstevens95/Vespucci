@@ -9,6 +9,7 @@ import type { ExportOptions, MapExport, ParsedSave, RGB } from "./types";
 import { lightenColor } from "./colors";
 import { parseMeltedSave } from "./save-parser";
 import { generateMapChartConfig } from "./mapchart-config";
+import { extractTag } from "./legend-sort";
 
 // =============================================================================
 // Pure helper functions
@@ -140,6 +141,43 @@ export const buildSubjectOverlords = (
   return result;
 };
 
+/**
+ * Collect the path ids belonging to the player countries.
+ *
+ * Read off the finished groups rather than re-resolving the location names:
+ * these are the ids that will actually be painted, already filtered by
+ * playersOnly and already stripped of names with no shape on the map. Every id
+ * here is therefore measurable in the rendered document.
+ *
+ * A vassal overlay is labelled "<overlord> - subjects", so extracting its tag
+ * yields the overlord — which is what includes a player's subject territory in
+ * the frame instead of leaving it hanging off the edge.
+ *
+ * Empty when the save has no players, which is what makes the view fall back
+ * to the whole map.
+ */
+export const collectPlayerPaths = (
+  groups: Readonly<Record<string, { label: string; paths: string[] }>>,
+  tagToPlayers: Readonly<Record<string, readonly string[]>>,
+): string[] => {
+  const playerTags = new Set(Object.keys(tagToPlayers));
+  if (playerTags.size === 0) {
+    return [];
+  } else {
+    /* players present — collect their groups below */
+  }
+
+  const paths: string[] = [];
+  for (const group of Object.values(groups)) {
+    if (playerTags.has(extractTag(group.label))) {
+      paths.push(...group.paths);
+    } else {
+      /* not a player's territory — not part of the frame */
+    }
+  }
+  return paths;
+};
+
 /** Resolve a ParsedSave from either a ParsedSave or raw text string. */
 export const resolveParsedSave = (saveOrText: ParsedSave | string): ParsedSave =>
   typeof saveOrText === "string"
@@ -211,7 +249,11 @@ export const exportMapChartConfig = (
     allowedTags,
   });
 
-  // Additive: group membership above is untouched in both modes. This only
-  // tells the renderer which colour a subject's locations should be painted.
-  return { config, subjectOverlords: buildSubjectOverlords(overlordSubjects) };
+  // Additive: group membership above is untouched in both modes. These only
+  // tell the view layer how to paint and how to frame what the config holds.
+  return {
+    config,
+    subjectOverlords: buildSubjectOverlords(overlordSubjects),
+    playerPaths: collectPlayerPaths(config.groups, tagToPlayers),
+  };
 };

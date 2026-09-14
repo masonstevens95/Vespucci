@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
+  collectPlayerPaths,
   buildSubjectOverlords,
   buildTagLabel,
   buildAllTagLabels,
@@ -306,5 +307,97 @@ describe("buildSubjectOverlords", () => {
     buildSubjectOverlords(input);
     expect([...input.A]).toEqual(["B"]);
     expect([...input.B]).toEqual(["C"]);
+  });
+});
+
+// =============================================================================
+// Player paths
+// =============================================================================
+
+describe("collectPlayerPaths", () => {
+  const groups = {
+    "#ff0000": { label: "SWE - Alice", paths: ["Stockholm", "Uppsala"] },
+    "#00ff00": { label: "FRA", paths: ["Paris"] },
+    "#0000ff": { label: "SWE - subjects", paths: ["Edinburgh"] },
+  };
+
+  it("collects a player's own paths", () => {
+    const paths = collectPlayerPaths(groups, { SWE: ["Alice"] });
+    expect(paths).toContain("Stockholm");
+    expect(paths).toContain("Uppsala");
+  });
+
+  it("includes the player's subject territory", () => {
+    // A vassal overlay is labelled "<overlord> - subjects", so it belongs in
+    // the frame alongside the overlord's own land.
+    expect(collectPlayerPaths(groups, { SWE: ["Alice"] })).toContain("Edinburgh");
+  });
+
+  it("excludes a non-player country", () => {
+    expect(collectPlayerPaths(groups, { SWE: ["Alice"] })).not.toContain("Paris");
+  });
+
+  it("collects every player when there are several", () => {
+    const paths = collectPlayerPaths(groups, { SWE: ["Alice"], FRA: ["Bob"] });
+    expect(paths).toContain("Stockholm");
+    expect(paths).toContain("Paris");
+  });
+
+  it("returns nothing when the save has no players", () => {
+    expect(collectPlayerPaths(groups, {})).toEqual([]);
+  });
+
+  it("returns nothing when the player tag owns no group", () => {
+    expect(collectPlayerPaths(groups, { ZZZ: ["Nobody"] })).toEqual([]);
+  });
+
+  it("returns nothing for an empty group set", () => {
+    expect(collectPlayerPaths({}, { SWE: ["Alice"] })).toEqual([]);
+  });
+
+  it("handles a player group with no paths", () => {
+    expect(collectPlayerPaths({ "#fff": { label: "SWE - Alice", paths: [] } }, { SWE: ["Alice"] }))
+      .toEqual([]);
+  });
+});
+
+describe("exportMapChartConfig player paths", () => {
+  const save = () =>
+    buildMinimalSave({
+      locationNames: ["stockholm", "paris", "london"],
+      tags: { 0: "SWE", 1: "FRA", 2: "ENG" },
+      ownership: { 0: 0, 1: 1, 2: 2 },
+      players: [{ name: "Alice", country: 0 }],
+    });
+
+  it("returns only the player's resolved paths", () => {
+    const out = exportMapChartConfig(save(), { locationIndex });
+    expect(out.playerPaths).toContain("Stockholm");
+    expect(out.playerPaths).not.toContain("Paris");
+  });
+
+  it("returns nothing for a save with no players", () => {
+    const noPlayers = buildMinimalSave({
+      locationNames: ["stockholm"],
+      tags: { 0: "SWE" },
+      ownership: { 0: 0 },
+    });
+    expect(exportMapChartConfig(noPlayers, { locationIndex }).playerPaths).toEqual([]);
+  });
+
+  it("matches the painted paths when playersOnly is on", () => {
+    const out = exportMapChartConfig(save(), { locationIndex, playersOnly: true });
+    const painted = Object.values(out.config.groups).flatMap((g) => g.paths);
+    expect([...out.playerPaths].sort()).toEqual([...painted].sort());
+  });
+
+  it("returns only ids that are present in the config groups", () => {
+    // Every returned id must exist in the rendered document, or the frame
+    // would be computed from geometry that is not there.
+    const out = exportMapChartConfig(save(), { locationIndex });
+    const painted = new Set(Object.values(out.config.groups).flatMap((g) => g.paths));
+    for (const id of out.playerPaths) {
+      expect(painted.has(id)).toBe(true);
+    }
   });
 });

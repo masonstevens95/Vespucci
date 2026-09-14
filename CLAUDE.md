@@ -18,6 +18,7 @@ File Upload (.eu5 or .txt)
   → exportMapChartConfig() → location-resolve: lowercase save name → canonical Title_Case id
   → MapChartConfig { groups: hex→{label, paths[]} }   (paths[] are location ids)
   → MapRenderer (SVG coloring + pan/zoom) + MapLegend (interactive)
+  → map-bounds: player path geometry → framed region → opening view + PNG crop
 ```
 
 ### Binary Parser Pipeline
@@ -42,6 +43,7 @@ File Upload (.eu5 or .txt)
 - **Legend sorting**: `src/lib/legend-sort.ts` (alpha, location count, total with subjects)
 - **Country names**: `src/lib/country-names.ts` (rank prefix + known names lookup)
 - **Country modal**: `src/lib/country-info.ts` + `src/components/CountryModal.tsx`
+- **Map framing**: `src/lib/map-bounds.ts` (union player bboxes → padded region → fit transform)
 - **Hand-drawn export**: `src/lib/hand-drawn.ts` (SVG filters + barrel distortion)
 - **Canonical location ids**: `src/lib/location-ids.json` (22,711 ids, generated from the SVG)
 - **SVG map**: `public/eu-v-locations.svg` (22,711 location paths from MapChart, ~13 MB)
@@ -71,10 +73,17 @@ File Upload (.eu5 or .txt)
 - `playersOnly` filtering happens AFTER location resolution
 - Vassal subject locations are moved to overlay keys (`TAG_vassals`) in the resolution pool
 - Unresolvable names (lakes, sea zones, wastelands, `loc_<id>` placeholders) are dropped at config-build time, so every count from `paths.length` equals shapes actually painted
+- The map opens framed on player territory rather than the whole world, and `Reset View` returns to that frame. `MapExport.playerPaths` carries the ids; `config.groups` and the exported MapChart JSON are untouched
+- The downloaded PNG crops to the **same** region via `framedRegion`, always — never the current on-screen transform, so one save exports one image however the user has panned
 - Stale dependency entries (non-canonical country IDs) are filtered out
 
 ## Gotchas
 
+- **jsdom implements neither `getBBox` nor layout**, so geometry-measuring code needs a fallback in production and a prototype stub in tests. `map-bounds.ts` reads `getBBox` inside a try/catch and degrades to the whole-map view; a component test that forgets the stub silently exercises that fallback instead of the feature, so assert both paths deliberately
+- jsdom's `canvas.getContext("2d")` returns **null**, and `handleDownloadMap` bails on it before reaching the clone — a download test has to stub the context or it observes nothing
+- `.map-svg` is `width: 100%` inside the transformed `.map-transform` wrapper, so viewBox→pixel conversion derives from the **container's** width. Measuring the SVG's own bounding rect folds the live transform back in and makes the fit depend on its own output
+- Effects keyed on an array prop must compare **contents**, not identity: a parent that rebuilds the array each render would re-run them forever. `MapRenderer`'s fit effect guards on contents for exactly this reason
+- The root `tsconfig.json` has `"files": []` and only project references, so a bare `npx tsc --noEmit` type-checks **nothing** and passes vacuously. Use `npx tsc -b` (what `npm run build` runs)
 - **Saves emit lowercase location names (`stockholm`); MapChart path IDs are Title_Case (`Stockholm`). Exact-case matching finds ZERO of 22,711 — resolution must go through `location-resolve.ts`.** 128 ids carry lowercase particles (`Bar_le_Duc`, `Halle_an_der_Saale`) that per-segment title-casing cannot reproduce, which is why the id list is stored rather than derived
 - `MapRenderer` parses the 13 MB document once on mount and recolors live nodes; the recolor pass must stay idempotent over fill, the inline `style` attribute and the `.outline-layer`, or repeated runs accumulate DOM
 - `stroke-width` lives in a `<style>` inside the SVG scoped `.map-svg > path`; a descendant selector would override the outline clones' own stroke-width (author CSS beats SVG presentation attributes)
