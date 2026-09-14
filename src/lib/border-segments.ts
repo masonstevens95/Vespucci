@@ -6,10 +6,18 @@
  * province, internal edges included — so the segment where two specific
  * locations touch has to be pulled out of their geometry.
  *
- * This works because touching shapes in the map asset share their border
- * vertices near-exactly: the vertices of P that lie within epsilon of some
- * vertex of Q are exactly the ones along the P–Q border, and because a path's
- * vertices are ordered around its perimeter they arrive in contiguous runs.
+ * This works because touching shapes in the map asset share their boundary:
+ * the vertices of P that lie within epsilon of Q's outline are exactly the
+ * ones along the P–Q border, and because a path's vertices are ordered around
+ * its perimeter they arrive in contiguous runs.
+ *
+ * The test is against Q's *outline*, not against Q's vertices. Neighbouring
+ * shapes are free to tessellate their shared boundary differently — one puts a
+ * vertex where the other draws a single long edge — and a vertex-to-vertex
+ * test reads those as touching nothing at all. That silently turned ordinary
+ * inland province corners into coastline: 42% of all coastline runs on a large
+ * save were 4 vertices or shorter, drawn as specks in the middle of
+ * contiguous territory.
  *
  * Coastline is the same idea inverted. Sea zones have no shape in the asset at
  * all, so a coast cannot be found as a border *with* anything — it is the
@@ -32,7 +40,7 @@ export type Polyline = readonly Point[];
 export type Shape = readonly (readonly Point[])[];
 
 /**
- * Vertex match distance in viewBox units, matching the adjacency generator.
+ * Match distance in viewBox units, matching the adjacency generator.
  *
  * The two must agree: adjacency decides which pairs are worth extracting, and
  * extraction decides which vertices are on the border. A wider epsilon here
@@ -40,26 +48,112 @@ export type Shape = readonly (readonly Point[])[];
  */
 export const BORDER_EPSILON = 0.15;
 
-/** Answers "is there a vertex of this shape near that point?". */
+/** Answers "is that point on this shape's outline?". */
 export type NearTest = (point: Point) => boolean;
 
 /**
- * Build the near-test for a shape's vertices.
+ * Squared distance from a point to a line segment, clamped to its ends.
  *
- * Exported so a caller extracting many coastlines can build each shape's test
- * once and reuse it. Every location is a neighbour of several others, so
- * rebuilding per pair does the same work six times over.
+ * Squared because this runs tens of millions of times on a large save and the
+ * caller only ever compares against a fixed radius; taking the root would be
+ * pure waste.
  */
-export const vertexIndex = (points: readonly Point[], epsilon: number = BORDER_EPSILON): NearTest => {
-  const cells = new Map<string, Point[]>();
-  const key = (cx: number, cy: number) => `${cx},${cy}`;
-  for (const p of points) {
-    const k = key(Math.floor(p[0] / epsilon), Math.floor(p[1] / epsilon));
+const squaredDistanceToSegment = (p: Point, a: Point, b: Point): number => {
+  const vx = b[0] - a[0];
+  const vy = b[1] - a[1];
+  const length2 = vx * vx + vy * vy;
+  // A zero-length segment is a lone vertex; the projection collapses onto it.
+  const t = length2 === 0
+    ? 0
+    : Math.max(0, Math.min(1, ((p[0] - a[0]) * vx + (p[1] - a[1]) * vy) / length2));
+  const dx = a[0] + t * vx - p[0];
+  const dy = a[1] + t * vy - p[1];
+  return dx * dx + dy * dy;
+};
+
+/**
+ * Pack a cell coordinate pair into one number.
+ *
+ * A string key allocates on every lookup, and the query does nine of them per
+ * vertex per neighbour. The map is 1200x680 units, so at any sane epsilon the
+ * grid stays far inside the range this packing addresses.
+ */
+const CELL_STRIDE = 1 << 22;
+const cellKey = (cx: number, cy: number): number => (cx + CELL_STRIDE) * (CELL_STRIDE * 2) + (cy + CELL_STRIDE);
+
+/**
+ * Build the near-test for a shape's outline.
+ *
+ * Exported so a caller extracting many borders and coastlines can build each
+ * shape's test once and reuse it. Every location is a neighbour of several
+ * others, and both the border pass and the coast pass ask the same question of
+ * it, so rebuilding per pairing does the same work many times over.
+ *
+ * Edges, not vertices, which is why this takes rings rather than a flat point
+ * list: an edge only exists between consecutive points of the same ring, and
+ * one running from the end of a mainland to the start of an island would cut
+ * straight across the water.
+ *
+ * Segments are indexed in a grid of epsilon-sized cells. Each is walked in
+ * pieces no longer than one cell and stamped into the cells its piece covers,
+ * rather than into its whole bounding box — a long diagonal would otherwise
+ * claim thousands of cells it never passes through. Because the nearest point
+ * of a matching segment is always within epsilon of the query, and therefore
+ * at most one cell away in each axis, the 3x3 neighbourhood is enough to find
+ * it.
+ */
+export const boundaryIndex = (rings: Shape, epsilon: number = BORDER_EPSILON): NearTest => {
+  const segments: (readonly [Point, Point])[] = [];
+  const cells = new Map<number, number[]>();
+  const radius2 = epsilon * epsilon;
+
+  const stamp = (cx: number, cy: number, index: number): void => {
+    const k = cellKey(cx, cy);
     const bucket = cells.get(k);
     if (bucket === undefined) {
-      cells.set(k, [p]);
+      cells.set(k, [index]);
+    } else if (bucket[bucket.length - 1] !== index) {
+      bucket.push(index);
     } else {
-      bucket.push(p);
+      /* already the last entry for this cell — a piece re-entering it */
+    }
+  };
+
+  for (const ring of rings) {
+    if (ring.length === 1) {
+      // A lone point still has to be matchable, so it becomes a segment of
+      // zero length rather than disappearing.
+      const only = ring[0];
+      segments.push([only, only]);
+      stamp(Math.floor(only[0] / epsilon), Math.floor(only[1] / epsilon), segments.length - 1);
+    } else {
+      /* a real ring — take it edge by edge */
+    }
+
+    for (let i = 0; i + 1 < ring.length; i++) {
+      const a = ring[i];
+      const b = ring[i + 1];
+      const index = segments.length;
+      segments.push([a, b]);
+
+      const steps = Math.max(1, Math.ceil(Math.hypot(b[0] - a[0], b[1] - a[1]) / epsilon));
+      for (let piece = 0; piece < steps; piece++) {
+        const t0 = piece / steps;
+        const t1 = (piece + 1) / steps;
+        const x0 = a[0] + (b[0] - a[0]) * t0;
+        const y0 = a[1] + (b[1] - a[1]) * t0;
+        const x1 = a[0] + (b[0] - a[0]) * t1;
+        const y1 = a[1] + (b[1] - a[1]) * t1;
+        const cx0 = Math.floor(Math.min(x0, x1) / epsilon);
+        const cx1 = Math.floor(Math.max(x0, x1) / epsilon);
+        const cy0 = Math.floor(Math.min(y0, y1) / epsilon);
+        const cy1 = Math.floor(Math.max(y0, y1) / epsilon);
+        for (let cx = cx0; cx <= cx1; cx++) {
+          for (let cy = cy0; cy <= cy1; cy++) {
+            stamp(cx, cy, index);
+          }
+        }
+      }
     }
   }
 
@@ -68,14 +162,15 @@ export const vertexIndex = (points: readonly Point[], epsilon: number = BORDER_E
     const cy = Math.floor(point[1] / epsilon);
     for (let dx = -1; dx <= 1; dx++) {
       for (let dy = -1; dy <= 1; dy++) {
-        const bucket = cells.get(key(cx + dx, cy + dy));
+        const bucket = cells.get(cellKey(cx + dx, cy + dy));
         if (bucket === undefined) {
           continue;
         } else {
-          /* cell holds vertices — measure each */
+          /* cell holds segments — measure each */
         }
-        for (const q of bucket) {
-          if (Math.hypot(q[0] - point[0], q[1] - point[1]) <= epsilon) {
+        for (const index of bucket) {
+          const segment = segments[index];
+          if (squaredDistanceToSegment(point, segment[0], segment[1]) <= radius2) {
             return true;
           } else {
             /* too far — keep looking */
@@ -221,21 +316,26 @@ const runsOf = (
 /**
  * The polylines along the border between two shapes.
  *
+ * The neighbour arrives as its prebuilt outline test rather than as geometry,
+ * because a location borders several others and the coast pass asks the same
+ * question of it again: building the index once per shape rather than once per
+ * pairing is the difference between one pass and six.
+ *
  * Runs of fewer than two points are dropped: a single touching corner is a
  * meeting point, not a border worth drawing.
  */
 export const sharedBorders = (
   a: Shape,
-  b: readonly Point[],
+  onNeighbor: NearTest,
   epsilon: number = BORDER_EPSILON,
 ): Polyline[] => {
-  if (a.length === 0 || b.length === 0) {
+  if (a.length === 0) {
     return [];
   } else {
-    /* both shapes have geometry — compare them */
+    /* the shape has geometry — walk it against the neighbour */
   }
 
-  return runsOf(a, vertexIndex(b, epsilon), epsilon);
+  return runsOf(a, onNeighbor, epsilon);
 };
 
 /**

@@ -16,10 +16,10 @@ import type { BorderOwnership } from "../lib/border-rule";
 import {
   sharedBorders,
   coastline,
-  vertexIndex,
+  boundaryIndex,
   polylineToPathData,
 } from "../lib/border-segments";
-import { pathSubpaths, type Point } from "../lib/svg-path";
+import { pathSubpaths } from "../lib/svg-path";
 import type { AdjacencyGraph } from "../lib/location-adjacency";
 import canonicalIds from "../lib/location-ids.json";
 import { createLogger } from "../lib/logger";
@@ -564,8 +564,8 @@ export const MapRenderer = ({ config, subjectOverlords, wastelandFills = NO_FILL
     const extract = (): string => {
       const paths = pathMapRef.current;
       // A shape is kept as its rings, because a line must never run from the
-      // end of one to the start of the next. The flattened form is only for
-      // near-tests, which do not care which ring a vertex came from.
+      // end of one to the start of the next — and because an outline test is
+      // built from edges, which only exist within a ring.
       const rings = new Map<string, ReturnType<typeof pathSubpaths>>();
       const ringsOf = (id: string) => {
         const hit = rings.get(id);
@@ -574,18 +574,20 @@ export const MapRenderer = ({ config, subjectOverlords, wastelandFills = NO_FILL
         rings.set(id, parsed);
         return parsed;
       };
-      const verts = new Map<string, Point[]>();
-      const vertsOf = (id: string) => {
-        const hit = verts.get(id);
+      // Every location neighbours several others, and both passes below ask
+      // the same question of it, so its outline test is built once.
+      const tests = new Map<string, ReturnType<typeof boundaryIndex>>();
+      const testOf = (id: string) => {
+        const hit = tests.get(id);
         if (hit !== undefined) return hit;
-        const flat = ringsOf(id).flat();
-        verts.set(id, flat);
-        return flat;
+        const test = boundaryIndex(ringsOf(id));
+        tests.set(id, test);
+        return test;
       };
 
       const parts: string[] = [];
       for (const [a, b] of qualifyingPairs(borderOwnership, adjacency, adjacencyIds)) {
-        for (const line of sharedBorders(ringsOf(a), vertsOf(b))) {
+        for (const line of sharedBorders(ringsOf(a), testOf(b))) {
           parts.push(polylineToPathData(line));
         }
       }
@@ -593,17 +595,6 @@ export const MapRenderer = ({ config, subjectOverlords, wastelandFills = NO_FILL
       // Coastline joins the same layer and the same stroke, so a realm reads
       // as one outline rather than political lines and sea lines in different
       // hands.
-      // Every location neighbours several others, so its near-test is built
-      // once and reused rather than rebuilt per pairing.
-      const tests = new Map<string, ReturnType<typeof vertexIndex>>();
-      const testOf = (id: string) => {
-        const hit = tests.get(id);
-        if (hit !== undefined) return hit;
-        const test = vertexIndex(vertsOf(id));
-        tests.set(id, test);
-        return test;
-      };
-
       for (const { id, neighbors } of coastalLocations(borderOwnership, adjacency, adjacencyIds)) {
         for (const line of coastline(ringsOf(id), neighbors.map(testOf))) {
           parts.push(polylineToPathData(line));
