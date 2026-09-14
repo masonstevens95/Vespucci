@@ -9,6 +9,7 @@ import type { ExportOptions, MapExport, ParsedSave, RGB } from "./types";
 import { lightenColor } from "./colors";
 import { parseMeltedSave } from "./save-parser";
 import { generateMapChartConfig } from "./mapchart-config";
+import { buildOwnership, NO_OWNERSHIP } from "./border-rule";
 import { extractTag } from "./legend-sort";
 
 // =============================================================================
@@ -249,11 +250,20 @@ export const exportMapChartConfig = (
     allowedTags,
   });
 
+  const rootOverlords = buildSubjectOverlords(overlordSubjects);
+
   // Additive: group membership above is untouched in both modes. These only
-  // tell the view layer how to paint and how to frame what the config holds.
+  // tell the view layer how to paint, how to frame what the config holds, and
+  // where country borders fall.
   return {
     config,
-    subjectOverlords: buildSubjectOverlords(overlordSubjects),
+    subjectOverlords: rootOverlords,
     playerPaths: collectPlayerPaths(config.groups, tagToPlayers),
+    // Built from every country, not from the config above: the config is
+    // filtered by playersOnly, so reading ownership from it would hide every
+    // player-versus-AI border in the default mode.
+    borderOwnership: hasPlayers
+      ? buildOwnership(allCountryLocations, tagToPlayers, rootOverlords, options.locationIndex)
+      : NO_OWNERSHIP,
   };
 };
