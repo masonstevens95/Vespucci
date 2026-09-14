@@ -32,6 +32,9 @@ const SVG_NS = "http://www.w3.org/2000/svg";
 const OUTLINE_CLASS = "outline-layer";
 const BORDER_CLASS = "border-layer";
 
+/** How many extracted border geometries to keep: one per fill-toggle state. */
+const BORDER_CACHE_SLOTS = 2;
+
 /** The canonical id list the adjacency graph is keyed by. */
 const CANONICAL_IDS = canonicalIds as readonly string[];
 
@@ -130,16 +133,17 @@ export const MapRenderer = ({ config, subjectOverlords, wastelandFills = NO_FILL
   // as a fresh array does not re-frame the map.
   const fittedPathsRef = useRef<readonly string[] | undefined>(undefined);
   // Extracted border geometry, keyed on the inputs it came from so a restyle
-  // redraws without re-extracting.
+  // redraws without re-extracting. Two slots rather than one: turning the
+  // wasteland fill on and off alternates between two ownership views, and a
+  // single slot would re-extract on every flip.
   const borderCacheRef = useRef<
-    | {
-        ownership: BorderOwnership;
-        adjacency: AdjacencyGraph;
-        ids: readonly string[];
-        data: string;
-      }
-    | undefined
-  >(undefined);
+    {
+      ownership: BorderOwnership;
+      adjacency: AdjacencyGraph;
+      ids: readonly string[];
+      data: string;
+    }[]
+  >([]);
   const dragRef = useRef<{ startX: number; startY: number; originX: number; originY: number } | null>(null);
   const mouseDownPosRef = useRef<{ x: number; y: number } | null>(null);
   const locationToTagRef = useRef<Map<string, string>>(new Map());
@@ -355,37 +359,39 @@ export const MapRenderer = ({ config, subjectOverlords, wastelandFills = NO_FILL
       return `url(#${id})`;
     };
 
-    // What each group actually resolved to, so an enclosed wasteland can be
-    // painted exactly as the country around it rather than by re-deriving a
-    // colour. Overrides, subject hatching and playersOnly then carry through
-    // by construction.
-    const paintByTag = new Map<string, { fill: string; hatchBase: string }>();
-    const subjectPaintByOverlord = new Map<string, { fill: string; hatchBase: string }>();
+    /**
+     * The fill a tag resolves to: a hatch reference when the tag is a subject,
+     * its own flat colour otherwise, and "" when nothing paints it at all.
+     *
+     * Both the group pass and the wasteland pass go through this, so an
+     * enclosed wasteland is painted by the same mechanism as the territory
+     * around it — colour overrides, subject hatching and a country hidden by
+     * playersOnly all carry through without either pass knowing about them.
+     */
+    const fillFor = (label: string, ownHex: string): { fill: string; hatchBase: string } => {
+      const overlordHex = overlordHexFor(label);
+      return overlordHex !== ""
+        ? { fill: ensureHatch(overlordHex), hatchBase: overlordHex }
+        : { fill: ownHex, hatchBase: "" };
+    };
+
+    const paint = (el: SVGPathElement, fill: string, hatchBase: string): void => {
+      el.setAttribute("fill", fill);
+      if (hatchBase !== "") {
+        el.setAttribute("data-hatch-base", hatchBase);
+      } else {
+        /* flat fill — the stroke pass reads the fill itself */
+      }
+    };
 
     const coloredIds = new Set<string>();
     let misses = 0;
     for (const [hex, group] of Object.entries(groups)) {
-      const overlordHex = overlordHexFor(group.label);
-      const hatchRef = overlordHex !== "" ? ensureHatch(overlordHex) : "";
-      const paint = hatchRef !== ""
-        ? { fill: hatchRef, hatchBase: overlordHex }
-        : { fill: hex, hatchBase: "" };
-      if (isSubjectEntry(group.label)) {
-        // One overlay row stands for every subject of that overlord, so it is
-        // keyed by the overlord and reached through subjectOverlords below.
-        subjectPaintByOverlord.set(tagOf(group.label), paint);
-      } else {
-        paintByTag.set(tagOf(group.label), paint);
-      }
+      const { fill, hatchBase } = fillFor(group.label, hex);
       for (const pathId of group.paths) {
         const el = paths.get(pathId);
         if (el) {
-          el.setAttribute("fill", paint.fill);
-          if (paint.hatchBase !== "") {
-            el.setAttribute("data-hatch-base", paint.hatchBase);
-          } else {
-            /* flat fill — the stroke pass reads the fill itself */
-          }
+          paint(el, fill, hatchBase);
           coloredIds.add(pathId);
         } else {
           misses++;
@@ -411,20 +417,16 @@ export const MapRenderer = ({ config, subjectOverlords, wastelandFills = NO_FILL
         /* the shape exists — find the colour to give it */
       }
 
-      const overlord = subjectOverlords[tag] ?? "";
-      const paint =
-        paintByTag.get(tag) ??
-        (overlord === "" ? undefined : subjectPaintByOverlord.get(overlord));
-      if (paint === undefined) {
+      // A bare tag is a valid label here: isSubjectEntry only tests for the
+      // " - subjects" suffix, so a subject tag resolves through
+      // subjectOverlords to its overlord's colour and the same hatch its own
+      // territory carries.
+      const { fill, hatchBase } = fillFor(tag, hexByTag.get(tag) ?? "");
+      if (fill === "") {
         // Nothing paints this country — an AI hidden by playersOnly. Its
         // enclaves stay the default fill, exactly as its territory does.
       } else {
-        el.setAttribute("fill", paint.fill);
-        if (paint.hatchBase !== "") {
-          el.setAttribute("data-hatch-base", paint.hatchBase);
-        } else {
-          /* flat fill */
-        }
+        paint(el, fill, hatchBase);
         coloredIds.add(pathId);
       }
     }
@@ -542,14 +544,14 @@ export const MapRenderer = ({ config, subjectOverlords, wastelandFills = NO_FILL
       /* borders are on and the inputs are present */
     }
 
-    const cached = borderCacheRef.current;
-    const fresh =
-      cached !== undefined &&
-      cached.ownership === borderOwnership &&
-      cached.adjacency === adjacency &&
-      cached.ids === adjacencyIds;
+    const cached = borderCacheRef.current.find(
+      (entry) =>
+        entry.ownership === borderOwnership &&
+        entry.adjacency === adjacency &&
+        entry.ids === adjacencyIds,
+    );
 
-    if (!fresh) {
+    const extract = (): string => {
       const paths = pathMapRef.current;
       // A shape is kept as its rings, because a line must never run from the
       // end of one to the start of the next. The flattened form is only for
@@ -601,17 +603,15 @@ export const MapRenderer = ({ config, subjectOverlords, wastelandFills = NO_FILL
       // One element holding every border as a subpath, rather than thousands
       // of elements: a large save yields ~9,400 polylines, and the browser
       // handles them far better as a single stroked path.
-      borderCacheRef.current = {
-        ownership: borderOwnership,
-        adjacency,
-        ids: adjacencyIds,
-        data: parts.join(""),
-      };
-    } else {
-      /* same inputs — reuse the geometry and just restyle it */
-    }
+      const extracted = parts.join("");
+      borderCacheRef.current = [
+        { ownership: borderOwnership, adjacency, ids: adjacencyIds, data: extracted },
+        ...borderCacheRef.current,
+      ].slice(0, BORDER_CACHE_SLOTS);
+      return extracted;
+    };
 
-    const data = borderCacheRef.current?.data ?? "";
+    const data = cached !== undefined ? cached.data : extract();
     if (data === "") {
       return;
     } else {

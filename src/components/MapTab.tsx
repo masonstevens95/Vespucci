@@ -38,8 +38,9 @@ const shadeHex = (hex: string, factor: number): string => {
 /** Stable empty default — a fresh array each render would re-frame the map. */
 const NO_PATHS: readonly string[] = [];
 
-/** Stable empty default, for the same reason. */
+/** Stable empty defaults, for the same reason. */
 const NO_FILLS: Readonly<Record<string, string>> = {};
+const NO_ENCLOSURES: ReadonlyMap<string, string> = new Map();
 
 /** The canonical id list the adjacency graph is keyed by. */
 const CANONICAL_IDS = canonicalIds as readonly string[];
@@ -91,44 +92,50 @@ export const MapTab = ({ config, subjectOverlords, playerPaths = NO_PATHS, borde
     };
   }, [graphWanted, adjacency]);
 
-  // Which wastelands one country completely encloses, and what that means for
-  // the outline. Both are memoised on identity rather than recomputed per
-  // render: MapRenderer compares the ownership object by reference to decide
-  // whether to re-extract border geometry, which costs over a second on a
-  // large save.
-  const wastelandFills = useMemo(() => {
-    if (!fillWastelands || borderOwnership === undefined || adjacency === undefined) {
-      return NO_FILLS;
+  // Which wastelands one country completely encloses.
+  //
+  // Computed without regard to the toggle, so flipping it picks between two
+  // values that each stay put rather than allocating a new one every time.
+  // That matters twice over: MapRenderer compares the ownership object it is
+  // given by *identity* to decide whether to re-extract border geometry, and
+  // re-extraction costs over a second on a large save. The enclosure walk
+  // itself is milliseconds, so computing it while the toggle is off is far
+  // cheaper than recomputing it every time somebody flips back.
+  const enclosed = useMemo(() => {
+    if (borderOwnership === undefined || adjacency === undefined) {
+      return NO_ENCLOSURES;
     } else {
-      /* the toggle is on and both inputs have arrived */
+      /* both inputs have arrived */
     }
-    return Object.fromEntries(
-      enclosedWastelands(wastelandPaths, borderOwnership.ownerByPath, adjacency, adjacencyIds),
+    return enclosedWastelands(
+      wastelandPaths, borderOwnership.ownerByPath, adjacency, adjacencyIds,
     );
-  }, [fillWastelands, wastelandPaths, borderOwnership, adjacency, adjacencyIds]);
+  }, [wastelandPaths, borderOwnership, adjacency, adjacencyIds]);
+
+  const filledPaths = useMemo(
+    () => (enclosed.size === 0 ? NO_FILLS : Object.fromEntries(enclosed)),
+    [enclosed],
+  );
 
   // A filled wasteland counts as its country's territory for the outline, so
   // the border wraps the enclave instead of breaking at it. This can add no
   // border: every neighbour of a filled wasteland shares its tag by the rule
   // that filled it. It can only add coastline, which is the point.
-  const outlineOwnership = useMemo(() => {
-    if (borderOwnership === undefined) {
-      return undefined;
-    } else {
-      /* ownership present — extend it with whatever the fill claimed */
-    }
-    const fills = Object.entries(wastelandFills);
-    if (fills.length === 0) {
+  const filledOwnership = useMemo(() => {
+    if (borderOwnership === undefined || enclosed.size === 0) {
       return borderOwnership;
     } else {
-      /* fills to fold in */
+      /* fold the enclaves into a copy, leaving the save's own view alone */
     }
     const ownerByPath = new Map(borderOwnership.ownerByPath);
-    for (const [path, tag] of fills) {
+    for (const [path, tag] of enclosed) {
       ownerByPath.set(path, tag);
     }
     return { ownerByPath, playerTags: borderOwnership.playerTags };
-  }, [borderOwnership, wastelandFills]);
+  }, [borderOwnership, enclosed]);
+
+  const wastelandFills = fillWastelands ? filledPaths : NO_FILLS;
+  const outlineOwnership = fillWastelands ? filledOwnership : borderOwnership;
 
   const isCustom = hasCustomOverrides(getBaseStyleConfig(mapStyle), styleOverrides);
   const locationCount = computeLocationCount(config.groups);
