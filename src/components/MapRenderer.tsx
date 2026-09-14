@@ -19,7 +19,7 @@ import {
   vertexIndex,
   polylineToPathData,
 } from "../lib/border-segments";
-import { pathVertices } from "../lib/svg-path";
+import { pathSubpaths, type Point } from "../lib/svg-path";
 import type { AdjacencyGraph } from "../lib/location-adjacency";
 import canonicalIds from "../lib/location-ids.json";
 import { createLogger } from "../lib/logger";
@@ -489,18 +489,29 @@ export const MapRenderer = ({ config, subjectOverlords, playerPaths = NO_PATHS, 
 
     if (!fresh) {
       const paths = pathMapRef.current;
-      const verts = new Map<string, ReturnType<typeof pathVertices>>();
+      // A shape is kept as its rings, because a line must never run from the
+      // end of one to the start of the next. The flattened form is only for
+      // near-tests, which do not care which ring a vertex came from.
+      const rings = new Map<string, ReturnType<typeof pathSubpaths>>();
+      const ringsOf = (id: string) => {
+        const hit = rings.get(id);
+        if (hit !== undefined) return hit;
+        const parsed = pathSubpaths(paths.get(id)?.getAttribute("d") ?? "");
+        rings.set(id, parsed);
+        return parsed;
+      };
+      const verts = new Map<string, Point[]>();
       const vertsOf = (id: string) => {
         const hit = verts.get(id);
         if (hit !== undefined) return hit;
-        const parsed = pathVertices(paths.get(id)?.getAttribute("d") ?? "");
-        verts.set(id, parsed);
-        return parsed;
+        const flat = ringsOf(id).flat();
+        verts.set(id, flat);
+        return flat;
       };
 
       const parts: string[] = [];
       for (const [a, b] of qualifyingPairs(borderOwnership, adjacency, adjacencyIds)) {
-        for (const line of sharedBorders(vertsOf(a), vertsOf(b))) {
+        for (const line of sharedBorders(ringsOf(a), vertsOf(b))) {
           parts.push(polylineToPathData(line));
         }
       }
@@ -520,7 +531,7 @@ export const MapRenderer = ({ config, subjectOverlords, playerPaths = NO_PATHS, 
       };
 
       for (const { id, neighbors } of coastalLocations(borderOwnership, adjacency, adjacencyIds)) {
-        for (const line of coastline(vertsOf(id), neighbors.map(testOf))) {
+        for (const line of coastline(ringsOf(id), neighbors.map(testOf))) {
           parts.push(polylineToPathData(line));
         }
       }

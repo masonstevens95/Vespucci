@@ -24,6 +24,14 @@ import type { Point } from "./svg-path";
 export type Polyline = readonly Point[];
 
 /**
+ * A shape as its closed rings — a mainland and any islands.
+ *
+ * Grouping matters because the rings are not connected to one another, so a
+ * line must never run from the end of one to the start of the next.
+ */
+export type Shape = readonly (readonly Point[])[];
+
+/**
  * Vertex match distance in viewBox units, matching the adjacency generator.
  *
  * The two must agree: adjacency decides which pairs are worth extracting, and
@@ -31,16 +39,6 @@ export type Polyline = readonly Point[];
  * would claim vertices for a border the graph never recorded.
  */
 export const BORDER_EPSILON = 0.15;
-
-/**
- * Longest plausible step between consecutive vertices along one border.
- *
- * A path may hold several subpaths — a mainland and its islands — and the
- * vertex list runs them together with no marker. A run that steps further
- * than any real border segment has jumped between subpaths, and joining it
- * would draw a line straight across the map.
- */
-const MAX_STEP = 5;
 
 /** Answers "is there a vertex of this shape near that point?". */
 export type NearTest = (point: Point) => boolean;
@@ -140,12 +138,11 @@ const rotateToUnmarked = (
 };
 
 /**
- * Collect the marked vertices of a perimeter into connected polylines.
+ * Collect the marked vertices of one ring into connected polylines.
  *
- * Shared by both callers because the awkward parts — a run straddling the
- * start of the list, and a run stepping across a subpath boundary — are the
- * same whether the mark means "on a border with that neighbour" or "on no
- * border at all".
+ * Shared by both callers because the awkward part — a run straddling the
+ * start of the list — is the same whether the mark means "on a border with
+ * that neighbour" or "on no border at all".
  *
  * `reachPastEnds` carries a run one vertex beyond each end. A vertex is either
  * shared with a neighbour or it is not, so the perimeter edge that crosses
@@ -156,18 +153,14 @@ const rotateToUnmarked = (
  * it: where two borders of the same shape meet, they meet at a vertex all
  * three shapes share, so both runs already reach it.
  */
-const runsOf = (
-  points: readonly Point[],
+const runsOfRing = (
+  ring: readonly Point[],
   mark: (p: Point) => boolean,
   epsilon: number,
-  reachPastEnds: boolean = false,
+  reachPastEnds: boolean,
 ): Polyline[] => {
-  const rotated = rotateToUnmarked(points, points.map(mark), epsilon);
+  const rotated = rotateToUnmarked(ring, ring.map(mark), epsilon);
   const pts = rotated.points;
-
-  /** False where the step from i to j has crossed into another subpath. */
-  const contiguous = (i: number, j: number): boolean =>
-    Math.hypot(pts[j][0] - pts[i][0], pts[j][1] - pts[i][1]) <= MAX_STEP;
 
   const result: Polyline[] = [];
   let start = -1;
@@ -181,23 +174,13 @@ const runsOf = (
 
   const flush = (end: number) => {
     if (start >= 0 && end - start >= shortest) {
-      const from =
-        reachPastEnds && start > 0 && contiguous(start - 1, start)
-          ? start - 1
-          : start;
-      const to =
-        reachPastEnds && end < pts.length && contiguous(end - 1, end)
-          ? end + 1
-          : end;
+      const from = reachPastEnds && start > 0 ? start - 1 : start;
+      const to = reachPastEnds && end < pts.length ? end + 1 : end;
       const body = pts.slice(from, to);
       // A run ending at the list's end has its next vertex at the front,
       // since rotation left the loop cyclic. Without this the seam keeps the
       // very gap the reach exists to close.
-      const reachesSeam =
-        reachPastEnds &&
-        to === pts.length &&
-        rotated.cyclic &&
-        contiguous(pts.length - 1, 0);
+      const reachesSeam = reachPastEnds && to === pts.length && rotated.cyclic;
       result.push(reachesSeam ? [...body, pts[0]] : body);
     } else {
       /* no run, or too short to describe a stretch of edge */
@@ -210,13 +193,8 @@ const runsOf = (
       flush(i);
     } else if (start === -1) {
       start = i;
-    } else if (!contiguous(i - 1, i)) {
-      // Crossed into another subpath; close the run rather than drawing a
-      // line across whatever lies between.
-      flush(i);
-      start = i;
     } else {
-      /* contiguous and marked — the run continues */
+      /* marked and within the ring — the run continues */
     }
   });
   flush(pts.length);
@@ -225,13 +203,29 @@ const runsOf = (
 };
 
 /**
+ * Collect the marked vertices of every ring of a shape.
+ *
+ * Rings are walked one at a time and never joined. Consecutive vertices
+ * within a ring are connected by a real path segment; the step from the end
+ * of one ring to the start of the next crosses whatever lies between them,
+ * which for a mainland and its island is open water.
+ */
+const runsOf = (
+  rings: Shape,
+  mark: (p: Point) => boolean,
+  epsilon: number,
+  reachPastEnds: boolean = false,
+): Polyline[] =>
+  rings.flatMap((ring) => runsOfRing(ring, mark, epsilon, reachPastEnds));
+
+/**
  * The polylines along the border between two shapes.
  *
  * Runs of fewer than two points are dropped: a single touching corner is a
  * meeting point, not a border worth drawing.
  */
 export const sharedBorders = (
-  a: readonly Point[],
+  a: Shape,
   b: readonly Point[],
   epsilon: number = BORDER_EPSILON,
 ): Polyline[] => {
@@ -262,7 +256,7 @@ export const sharedBorders = (
  * drawn by neither — a gap at every point where a realm's border hits the sea.
  */
 export const coastline = (
-  a: readonly Point[],
+  a: Shape,
   neighbors: readonly NearTest[],
   epsilon: number = BORDER_EPSILON,
 ): Polyline[] => {

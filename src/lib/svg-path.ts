@@ -38,7 +38,13 @@ const parseNumbers = (run: string): number[] =>
   [...run.matchAll(NUMBER)].map((m) => parseFloat(m[0]));
 
 /**
- * Walk a path's `d` and return its segment endpoints in absolute coordinates.
+ * Walk a path's `d` and return its segment endpoints grouped by subpath.
+ *
+ * A location is often several rings — a mainland and its islands — and they
+ * are not connected to each other. Consecutive vertices within one ring are
+ * joined by a real path segment; the step from the end of one ring to the
+ * start of the next crosses open water. Keeping the grouping is what lets a
+ * caller tell those apart, rather than guessing from how far the step is.
  *
  * Only endpoints are kept. Control points sit off the border, so including
  * them would pull false matches toward shapes the path does not actually
@@ -48,8 +54,9 @@ const parseNumbers = (run: string): number[] =>
  * Malformed data yields fewer vertices rather than an error — a shape that
  * cannot be read simply contributes nothing downstream.
  */
-export const pathVertices = (d: string): Point[] => {
-  const points: Point[] = [];
+export const pathSubpaths = (d: string): Point[][] => {
+  const rings: Point[][] = [];
+  let points: Point[] = [];
   let x = 0;
   let y = 0;
   let startX = 0;
@@ -79,10 +86,16 @@ export const pathVertices = (d: string): Point[] => {
         x = relative ? x + a[0] : a[0];
         y = relative ? y + a[1] : a[1];
         // Only the first pair of an `m` run is a move; the rest are implicit
-        // linetos, so they must not move where Z returns to.
+        // linetos, so they must not move where Z returns to, nor open a ring.
         if (i === 0) {
           startX = x;
           startY = y;
+          if (points.length > 0) {
+            rings.push(points);
+            points = [];
+          } else {
+            /* nothing accumulated yet — this is the first ring */
+          }
         } else {
           /* implicit lineto — subpath start is unchanged */
         }
@@ -113,5 +126,20 @@ export const pathVertices = (d: string): Point[] => {
     }
   }
 
-  return points;
+  if (points.length > 0) {
+    rings.push(points);
+  } else {
+    /* the last ring was already closed off, or there was nothing to read */
+  }
+
+  return rings;
 };
+
+/**
+ * Every segment endpoint of a path, in order, with the subpath grouping
+ * flattened away.
+ *
+ * Callers that only ask "is there a vertex near this point?" do not care
+ * which ring it came from.
+ */
+export const pathVertices = (d: string): Point[] => pathSubpaths(d).flat();
