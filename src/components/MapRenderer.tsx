@@ -43,6 +43,10 @@ const CANONICAL_IDS = canonicalIds as readonly string[];
  * continuously and fight the user's panning.
  */
 const NO_PATHS: readonly string[] = [];
+
+/** Stable empty default for `wastelandFills`, for the same reason. */
+const NO_FILLS: Readonly<Record<string, string>> = {};
+
 const DEFS_CLASS = "hatch-defs";
 
 /** Hatch geometry, in viewBox units (locations average ~6 units across). */
@@ -66,6 +70,12 @@ interface Props {
   config: MapChartConfig;
   /** Subject tag -> root overlord tag. Paint-time only; no group changes. */
   subjectOverlords: Readonly<Record<string, string>>;
+  /**
+   * Wasteland path id -> the tag that encloses it. Paint-time only: these
+   * paths are in no group, so painting them moves no legend count and changes
+   * nothing in the exported JSON.
+   */
+  wastelandFills?: Readonly<Record<string, string>>;
   /**
    * Who owns what and who is playing, used to decide where country borders
    * fall. Absent leaves the map unbordered.
@@ -102,7 +112,7 @@ interface Props {
  *    Resetting only `fill` would accumulate outline clones and leave stale
  *    shrink transforms behind as permanent hairline gaps.
  */
-export const MapRenderer = ({ config, subjectOverlords, playerPaths = NO_PATHS, borderOwnership, adjacency, adjacencyIds = CANONICAL_IDS, mapStyle, styleOverrides, colorOverrides, onProvinceClick }: Props) => {
+export const MapRenderer = ({ config, subjectOverlords, wastelandFills = NO_FILLS, playerPaths = NO_PATHS, borderOwnership, adjacency, adjacencyIds = CANONICAL_IDS, mapStyle, styleOverrides, colorOverrides, onProvinceClick }: Props) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const svgHostRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<SVGSVGElement | null>(null);
@@ -345,21 +355,36 @@ export const MapRenderer = ({ config, subjectOverlords, playerPaths = NO_PATHS, 
       return `url(#${id})`;
     };
 
-    const hatchedIds = new Set<string>();
+    // What each group actually resolved to, so an enclosed wasteland can be
+    // painted exactly as the country around it rather than by re-deriving a
+    // colour. Overrides, subject hatching and playersOnly then carry through
+    // by construction.
+    const paintByTag = new Map<string, { fill: string; hatchBase: string }>();
+    const subjectPaintByOverlord = new Map<string, { fill: string; hatchBase: string }>();
+
     const coloredIds = new Set<string>();
     let misses = 0;
     for (const [hex, group] of Object.entries(groups)) {
       const overlordHex = overlordHexFor(group.label);
       const hatchRef = overlordHex !== "" ? ensureHatch(overlordHex) : "";
+      const paint = hatchRef !== ""
+        ? { fill: hatchRef, hatchBase: overlordHex }
+        : { fill: hex, hatchBase: "" };
+      if (isSubjectEntry(group.label)) {
+        // One overlay row stands for every subject of that overlord, so it is
+        // keyed by the overlord and reached through subjectOverlords below.
+        subjectPaintByOverlord.set(tagOf(group.label), paint);
+      } else {
+        paintByTag.set(tagOf(group.label), paint);
+      }
       for (const pathId of group.paths) {
         const el = paths.get(pathId);
         if (el) {
-          if (hatchRef !== "") {
-            el.setAttribute("fill", hatchRef);
-            el.setAttribute("data-hatch-base", overlordHex);
-            hatchedIds.add(pathId);
+          el.setAttribute("fill", paint.fill);
+          if (paint.hatchBase !== "") {
+            el.setAttribute("data-hatch-base", paint.hatchBase);
           } else {
-            el.setAttribute("fill", hex);
+            /* flat fill — the stroke pass reads the fill itself */
           }
           coloredIds.add(pathId);
         } else {
@@ -368,12 +393,49 @@ export const MapRenderer = ({ config, subjectOverlords, playerPaths = NO_PATHS, 
       }
     }
 
-    // Config paths are canonical IDs resolved from location-ids.json, so every
-    // one should exist in the asset. A miss means the id list and the shipped
-    // SVG have drifted apart — regenerate with scripts/generate-location-ids.mjs.
+    // Wastelands last, and never over a path a group already claimed: real
+    // ownership outranks an inferred enclosure. The rule cannot produce that
+    // collision — uninhabitable means unowned — but the invariant is worth
+    // holding anyway.
+    for (const [pathId, tag] of Object.entries(wastelandFills)) {
+      if (coloredIds.has(pathId)) {
+        continue;
+      } else {
+        /* unclaimed by any group — the enclosing country may paint it */
+      }
+      const el = paths.get(pathId);
+      if (!el) {
+        misses++;
+        continue;
+      } else {
+        /* the shape exists — find the colour to give it */
+      }
+
+      const overlord = subjectOverlords[tag] ?? "";
+      const paint =
+        paintByTag.get(tag) ??
+        (overlord === "" ? undefined : subjectPaintByOverlord.get(overlord));
+      if (paint === undefined) {
+        // Nothing paints this country — an AI hidden by playersOnly. Its
+        // enclaves stay the default fill, exactly as its territory does.
+      } else {
+        el.setAttribute("fill", paint.fill);
+        if (paint.hatchBase !== "") {
+          el.setAttribute("data-hatch-base", paint.hatchBase);
+        } else {
+          /* flat fill */
+        }
+        coloredIds.add(pathId);
+      }
+    }
+
+    // Every painted id is a canonical ID resolved from location-ids.json, so
+    // every one should exist in the asset. A miss means the id list and the
+    // shipped SVG have drifted apart — regenerate with
+    // scripts/generate-location-ids.mjs.
     if (misses > 0) {
       log.warn(
-        `${misses} config path id(s) had no shape in ${MAP_ASSET} — ` +
+        `${misses} path id(s) had no shape in ${MAP_ASSET} — ` +
           `location-ids.json may be stale relative to the asset.`,
       );
     } else {
@@ -393,7 +455,7 @@ export const MapRenderer = ({ config, subjectOverlords, playerPaths = NO_PATHS, 
       }
     }
 
-  }, [ready, config, subjectOverlords, mapStyle, styleOverrides, colorOverrides]);
+  }, [ready, config, subjectOverlords, wastelandFills, mapStyle, styleOverrides, colorOverrides]);
 
   /**
    * Frame the map on the player countries once the document is ready.
