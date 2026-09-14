@@ -1,3 +1,5 @@
+import type { BorderOwnership } from "./border-rule";
+
 export type RGB = [number, number, number];
 
 export interface RgoData {
@@ -325,6 +327,12 @@ export interface MapExport {
    * and the downloaded PNG's crop; empty when the save has no players.
    */
   readonly playerPaths: readonly string[];
+  /**
+   * Who owns what, across every country rather than only the painted ones,
+   * plus which tags are player-held. Drives country border outlines. View-time
+   * only: nothing here changes `config.groups` or the exported JSON.
+   */
+  readonly borderOwnership: BorderOwnership;
 }
 
 export interface ExportOptions {

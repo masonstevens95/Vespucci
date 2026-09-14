@@ -401,3 +401,62 @@ describe("exportMapChartConfig player paths", () => {
     }
   });
 });
+
+// =============================================================================
+// Border ownership
+// =============================================================================
+
+describe("exportMapChartConfig border ownership", () => {
+  // Location ids are 0-based here because this baseline builds locationNames
+  // 0-based while the gamestate's database is keyed from 1 — the attribution
+  // off-by-one fixed on feat/subject-hatching. Using the keys the current code
+  // actually resolves keeps the fixture honest about what it exercises.
+  const save = () =>
+    buildMinimalSave({
+      locationNames: ["stockholm", "paris", "london"],
+      tags: { 0: "SWE", 1: "FRA", 2: "ENG" },
+      ownership: { 0: 0, 1: 1, 2: 2 },
+      players: [{ name: "Alice", country: 0 }],
+    });
+
+  it("covers AI countries, not only the painted ones", () => {
+    // With playersOnly on, FRA is absent from config.groups but its ownership
+    // is still needed to know where the player's border with it falls.
+    const out = exportMapChartConfig(save(), { locationIndex, playersOnly: true });
+    expect(out.borderOwnership.ownerByPath.get("Paris")).toBe("FRA");
+  });
+
+  it("marks the player as player-side", () => {
+    const out = exportMapChartConfig(save(), { locationIndex });
+    expect(out.borderOwnership.playerTags.has("SWE")).toBe(true);
+    expect(out.borderOwnership.playerTags.has("FRA")).toBe(false);
+  });
+
+  it("is identical with playersOnly on and off", () => {
+    const on = exportMapChartConfig(save(), { locationIndex, playersOnly: true });
+    const off = exportMapChartConfig(save(), { locationIndex, playersOnly: false });
+    expect([...on.borderOwnership.ownerByPath.entries()].sort()).toEqual(
+      [...off.borderOwnership.ownerByPath.entries()].sort(),
+    );
+  });
+
+  it("is empty for a save with no players", () => {
+    const noPlayers = buildMinimalSave({
+      locationNames: ["stockholm"],
+      tags: { 0: "SWE" },
+      ownership: { 0: 0 },
+    });
+    const out = exportMapChartConfig(noPlayers, { locationIndex });
+    expect(out.borderOwnership.playerTags.size).toBe(0);
+  });
+
+  it("knows about territory the config does not paint", () => {
+    // The contrast that makes this field necessary: with playersOnly on, the
+    // config has no FRA group at all, yet the border between SWE and FRA still
+    // has to be drawable.
+    const out = exportMapChartConfig(save(), { locationIndex, playersOnly: true });
+    const painted = Object.values(out.config.groups).flatMap((g) => g.paths);
+    expect(painted).not.toContain("Paris");
+    expect(out.borderOwnership.ownerByPath.get("Paris")).toBe("FRA");
+  });
+});

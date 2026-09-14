@@ -19,6 +19,7 @@ File Upload (.eu5 or .txt)
   → MapChartConfig { groups: hex→{label, paths[]} }   (paths[] are location ids)
   → MapRenderer (SVG coloring + pan/zoom) + MapLegend (interactive)
   → map-bounds: player path geometry → framed region → opening view + PNG crop
+  → border-rule + border-segments: ownership + adjacency → country border layer
 ```
 
 ### Binary Parser Pipeline
@@ -44,6 +45,9 @@ File Upload (.eu5 or .txt)
 - **Country names**: `src/lib/country-names.ts` (rank prefix + known names lookup)
 - **Country modal**: `src/lib/country-info.ts` + `src/components/CountryModal.tsx`
 - **Map framing**: `src/lib/map-bounds.ts` (union player bboxes → padded region → fit transform)
+- **Country borders**: `src/lib/border-rule.ts` (which pairs qualify, which locations are coastal) + `src/lib/border-segments.ts` (shared border and coastline polylines)
+- **SVG path parsing**: `src/lib/svg-path.ts` (shared by the browser and the adjacency generator)
+- **Location adjacency**: `src/lib/location-adjacency.json` (735 KB, neighbour indices parallel to `location-ids.json`) + `src/lib/location-adjacency.ts` (code-split loader)
 - **Hand-drawn export**: `src/lib/hand-drawn.ts` (SVG filters + barrel distortion)
 - **Canonical location ids**: `src/lib/location-ids.json` (22,711 ids, generated from the SVG)
 - **SVG map**: `public/eu-v-locations.svg` (22,711 location paths from MapChart, ~13 MB)
@@ -51,6 +55,7 @@ File Upload (.eu5 or .txt)
 - **Stats plan**: `docs/country-stats-plan.md`
 - **Coverage checker**: `scripts/check-location-coverage.mjs` (run first if a map renders empty)
 - **Id generator**: `scripts/generate-location-ids.mjs` (re-run when the SVG asset is refreshed)
+- **Adjacency generator**: `scripts/generate-location-adjacency.mjs` (re-run alongside the id generator whenever the SVG asset is refreshed)
 
 ## Dependencies
 
@@ -75,10 +80,21 @@ File Upload (.eu5 or .txt)
 - Unresolvable names (lakes, sea zones, wastelands, `loc_<id>` placeholders) are dropped at config-build time, so every count from `paths.length` equals shapes actually painted
 - The map opens framed on player territory rather than the whole world, and `Reset View` returns to that frame. `MapExport.playerPaths` carries the ids; `config.groups` and the exported MapChart JSON are untouched
 - The downloaded PNG crops to the **same** region via `framedRegion`, always — never the current on-screen transform, so one save exports one image however the user has panned
+- `Outline Width` defaults to **1** (borders on), so the adjacency chunk is fetched as soon as a map is shown rather than on demand — the code split still keeps it off the initial page load
+- `Outline Width` means **country borders and coastline**, not per-location outlines. A player's territory is lined where it meets a different country and where it meets the sea — never on internal edges, and never against unclaimed land
+- Border ownership comes from `ParsedSave.countryLocations`, **not** `config.groups`: the config is filtered by `playersOnly`, so reading ownership from it would hide every player-versus-AI border in the default mode
 - Stale dependency entries (non-canonical country IDs) are filtered out
 
 ## Gotchas
 
+- **The SVG holds land paths only** — all 22,711 of them. Sea zones and lakes have no shape; the ocean is the container's background. That is why a coastline cannot be told apart from a land border by paint order, and why borders are extracted from geometry rather than stroked
+- A border belongs to neither adjacent shape, so it cannot be drawn by stroking either one — that traces the whole province, internal edges included. `border-segments.ts` pulls out the vertices the two shapes share
+- Coastline is the **complement**, not a border with the sea: since sea zones have no shape, a coast is the stretch of perimeter touching no land neighbour. That also keeps wilderness edges out of it, since unclaimed land is an ordinary path
+- Border and coastline extraction costs roughly 1.3 s on a large multiplayer save, so it is cached on ownership and adjacency — restyling redraws without re-extracting
+- All ~9,400 borders are subpaths of **one** `<path>` element. Thousands of separate elements render far worse
+- Anything layered into `.map-svg` must sit inside a `<g>`: the asset's stylesheet scopes `.map-svg > path { stroke-width }`, and author CSS beats a presentation attribute, so a direct-child path is forced to the location stroke width
+- `src/lib/location-adjacency.json` is 735 KB, over half the app bundle. It is code-split behind `location-adjacency.ts` and fetched only when borders are switched on; **never import it statically**
+- `scripts/generate-location-adjacency.mjs` imports a `.ts` module and relies on Node's native type stripping (>= 23.6). It is the one script that will not run on older Node
 - **jsdom implements neither `getBBox` nor layout**, so geometry-measuring code needs a fallback in production and a prototype stub in tests. `map-bounds.ts` reads `getBBox` inside a try/catch and degrades to the whole-map view; a component test that forgets the stub silently exercises that fallback instead of the feature, so assert both paths deliberately
 - jsdom's `canvas.getContext("2d")` returns **null**, and `handleDownloadMap` bails on it before reaching the clone — a download test has to stub the context or it observes nothing
 - `.map-svg` is `width: 100%` inside the transformed `.map-transform` wrapper, so viewBox→pixel conversion derives from the **container's** width. Measuring the SVG's own bounding rect folds the live transform back in and makes the fit depend on its own output
@@ -108,6 +124,7 @@ File Upload (.eu5 or .txt)
 - `npm run test:coverage` — Coverage report
 - `node scripts/check-location-coverage.mjs <save.eu5>` — verify save names still line up with the map asset
 - `node scripts/generate-location-ids.mjs` — regenerate `src/lib/location-ids.json` from the asset
+- `node scripts/generate-location-adjacency.mjs [epsilon]` — regenerate `src/lib/location-adjacency.json` from the asset (run after the id generator; the two must stay in step). Needs Node >= 23.6, since it imports the TypeScript vertex parser directly
 
 ## Diagnostics
 
