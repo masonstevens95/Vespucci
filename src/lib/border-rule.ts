@@ -1,11 +1,15 @@
 /**
  * Which location pairs get a border drawn between them.
  *
- * The rule: two adjacent locations, both owned, owned by different countries,
- * and at least one of them player-held. That excludes the internal edges
- * within a country, the coastline and the frontier with unclaimed land
- * (neither has an owner on the far side), and borders between two AI
- * countries (no player side).
+ * A border runs between two adjacent locations that are both owned, owned by
+ * different countries, and at least one of them player-held. That excludes the
+ * internal edges within a country, the frontier with unclaimed land (nothing
+ * owned on the far side), and borders between two AI countries (no player
+ * side).
+ *
+ * Coastline is handled separately, because it is not a border with anything:
+ * sea zones have no shape in the asset, so a coast is the stretch of perimeter
+ * touching no land neighbour at all.
  *
  * Ownership deliberately comes from every country in the save rather than
  * from the rendered config. With `playersOnly` on — the default — the config
@@ -29,6 +33,12 @@ export interface BorderOwnership {
 
 /** An adjacent pair whose shared border should be drawn. */
 export type BorderPair = readonly [string, string];
+
+/** A location whose coastline should be drawn, with its land neighbours. */
+export interface CoastalLocation {
+  readonly id: string;
+  readonly neighbors: readonly string[];
+}
 
 /** Nothing owned, nobody playing — the shape a save with no players takes. */
 export const NO_OWNERSHIP: BorderOwnership = {
@@ -142,4 +152,52 @@ export const qualifyingPairs = (
     }
   });
   return pairs;
+};
+
+/**
+ * Player-held locations whose coastline should be drawn, with their land
+ * neighbours.
+ *
+ * Coastline cannot be found as a border with the sea, because sea zones have
+ * no shape in the asset — the ocean is the container's background. It is the
+ * complement instead: the stretch of perimeter touching none of these
+ * neighbours. Passing the neighbours here rather than computing coast
+ * elsewhere keeps the "what counts as touching" question in one place.
+ *
+ * Only player territory, matching the country borders: an AI coastline would
+ * be a stray line around unpainted grey in the default playersOnly mode.
+ */
+export const coastalLocations = (
+  ownership: BorderOwnership,
+  adjacency: AdjacencyGraph,
+  ids: readonly string[],
+): CoastalLocation[] => {
+  if (ownership.playerTags.size === 0) {
+    return [];
+  } else {
+    /* somebody is playing — find their coasts */
+  }
+
+  const result: CoastalLocation[] = [];
+  adjacency.forEach((neighbors, i) => {
+    const here = ids[i];
+    if (here === undefined) {
+      return;
+    } else {
+      /* a real id */
+    }
+    const owner = ownership.ownerByPath.get(here);
+    if (owner === undefined || !ownership.playerTags.has(owner)) {
+      return;
+    } else {
+      /* player-held — its seaward edges are coast */
+    }
+    result.push({
+      id: here,
+      neighbors: neighbors
+        .map((n) => ids[n])
+        .filter((id): id is string => id !== undefined),
+    });
+  });
+  return result;
 };

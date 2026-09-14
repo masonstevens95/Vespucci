@@ -1,5 +1,5 @@
 /**
- * Shared border extraction.
+ * Border and coastline extraction.
  *
  * A border between two countries is a line between two shapes, belonging to
  * neither. It cannot be drawn by stroking either one — that traces the whole
@@ -10,6 +10,10 @@
  * vertices near-exactly: the vertices of P that lie within epsilon of some
  * vertex of Q are exactly the ones along the P–Q border, and because a path's
  * vertices are ordered around its perimeter they arrive in contiguous runs.
+ *
+ * Coastline is the same idea inverted. Sea zones have no shape in the asset at
+ * all, so a coast cannot be found as a border *with* anything — it is the
+ * stretch of perimeter that touches no land neighbour.
  *
  * All functions are pure, use immutable variables, and never throw.
  */
@@ -38,8 +42,17 @@ export const BORDER_EPSILON = 0.15;
  */
 const MAX_STEP = 5;
 
-/** A lookup that answers "is there a vertex near this point?". */
-const buildIndex = (points: readonly Point[], epsilon: number) => {
+/** Answers "is there a vertex of this shape near that point?". */
+export type NearTest = (point: Point) => boolean;
+
+/**
+ * Build the near-test for a shape's vertices.
+ *
+ * Exported so a caller extracting many coastlines can build each shape's test
+ * once and reuse it. Every location is a neighbour of several others, so
+ * rebuilding per pair does the same work six times over.
+ */
+export const vertexIndex = (points: readonly Point[], epsilon: number = BORDER_EPSILON): NearTest => {
   const cells = new Map<string, Point[]>();
   const key = (cx: number, cy: number) => `${cx},${cy}`;
   for (const p of points) {
@@ -77,22 +90,22 @@ const buildIndex = (points: readonly Point[], epsilon: number) => {
 };
 
 /**
- * Rotate a closed vertex loop so it starts on an unshared vertex.
+ * Rotate a closed vertex loop so it starts on an unmarked vertex.
  *
- * Without this, a border that straddles the start of the list comes out as
- * two fragments with a gap at the seam. Rotation is only safe when the list
- * really is one closed loop, which is what the first-meets-last check
- * establishes; a multi-subpath path is left alone rather than being joined
- * across a subpath boundary.
+ * Without this, a run that straddles the start of the list comes out as two
+ * fragments with a gap at the seam. Rotation is only safe when the list really
+ * is one closed loop, which is what the first-meets-last check establishes; a
+ * multi-subpath path is left alone rather than being joined across a subpath
+ * boundary.
  */
-const rotateToUnshared = (
+const rotateToUnmarked = (
   points: readonly Point[],
-  shared: readonly boolean[],
+  marked: readonly boolean[],
   epsilon: number,
-): { points: readonly Point[]; shared: readonly boolean[] } => {
+): { points: readonly Point[]; marked: readonly boolean[] } => {
   const n = points.length;
   if (n < 2) {
-    return { points, shared };
+    return { points, marked };
   } else {
     /* enough points to have a seam */
   }
@@ -100,50 +113,41 @@ const rotateToUnshared = (
   const first = points[0];
   const last = points[n - 1];
   const closed = Math.hypot(last[0] - first[0], last[1] - first[1]) <= epsilon;
-  if (!closed || !shared[0] || !shared[n - 1]) {
-    return { points, shared };
+  if (!closed || !marked[0] || !marked[n - 1]) {
+    return { points, marked };
   } else {
     /* a run straddles the seam — rotate past it */
   }
 
-  const pivot = shared.indexOf(false);
+  const pivot = marked.indexOf(false);
   if (pivot === -1) {
-    // Every vertex is on the border: one shape fully encloses the other's
-    // edge. There is no seam to hide, so leave the loop as it stands.
-    return { points, shared };
+    // Every vertex is marked: the whole perimeter is one run, so there is no
+    // seam to hide. Leave the loop as it stands.
+    return { points, marked };
   } else {
     /* rotate so scanning starts outside any run */
   }
 
   return {
     points: [...points.slice(pivot), ...points.slice(0, pivot)],
-    shared: [...shared.slice(pivot), ...shared.slice(0, pivot)],
+    marked: [...marked.slice(pivot), ...marked.slice(0, pivot)],
   };
 };
 
 /**
- * The polylines along the border between two shapes.
+ * Collect the marked vertices of a perimeter into connected polylines.
  *
- * Runs of fewer than two points are dropped: a single touching corner is a
- * meeting point, not a border worth drawing.
+ * Shared by both callers because the awkward parts — a run straddling the
+ * start of the list, and a run stepping across a subpath boundary — are the
+ * same whether the mark means "on a border with that neighbour" or "on no
+ * border at all".
  */
-export const sharedBorders = (
-  a: readonly Point[],
-  b: readonly Point[],
-  epsilon: number = BORDER_EPSILON,
+const runsOf = (
+  points: readonly Point[],
+  mark: (p: Point) => boolean,
+  epsilon: number,
 ): Polyline[] => {
-  if (a.length === 0 || b.length === 0) {
-    return [];
-  } else {
-    /* both shapes have geometry — compare them */
-  }
-
-  const nearB = buildIndex(b, epsilon);
-  const rotated = rotateToUnshared(
-    a,
-    a.map((p) => nearB(p)),
-    epsilon,
-  );
+  const rotated = rotateToUnmarked(points, points.map(mark), epsilon);
 
   const result: Polyline[] = [];
   let run: Point[] = [];
@@ -152,17 +156,17 @@ export const sharedBorders = (
     if (run.length >= 2) {
       result.push(run);
     } else {
-      /* a lone point is a corner, not a border */
+      /* a lone point is a corner, not a stretch of edge */
     }
     run = [];
   };
 
   rotated.points.forEach((point, i) => {
-    if (!rotated.shared[i]) {
+    if (!rotated.marked[i]) {
       flush();
       return;
     } else {
-      /* on the border — extend or start a run */
+      /* marked — extend or start a run */
     }
 
     const previous = run[run.length - 1];
@@ -182,6 +186,51 @@ export const sharedBorders = (
   flush();
 
   return result;
+};
+
+/**
+ * The polylines along the border between two shapes.
+ *
+ * Runs of fewer than two points are dropped: a single touching corner is a
+ * meeting point, not a border worth drawing.
+ */
+export const sharedBorders = (
+  a: readonly Point[],
+  b: readonly Point[],
+  epsilon: number = BORDER_EPSILON,
+): Polyline[] => {
+  if (a.length === 0 || b.length === 0) {
+    return [];
+  } else {
+    /* both shapes have geometry — compare them */
+  }
+
+  return runsOf(a, vertexIndex(b, epsilon), epsilon);
+};
+
+/**
+ * The polylines along a shape's coastline.
+ *
+ * Sea zones and lakes have no shape in the asset at all — the ocean is the
+ * container's background — so there is nothing to share a border *with*.
+ * Coastline is therefore the complement: the stretches of a shape's perimeter
+ * that touch none of its land neighbours.
+ *
+ * That also keeps an edge facing unclaimed land out of the result, since
+ * wilderness is an ordinary land path and shows up among the neighbours.
+ */
+export const coastline = (
+  a: readonly Point[],
+  neighbors: readonly NearTest[],
+  epsilon: number = BORDER_EPSILON,
+): Polyline[] => {
+  if (a.length === 0) {
+    return [];
+  } else {
+    /* the shape has geometry — find the edges facing nothing */
+  }
+
+  return runsOf(a, (p) => !neighbors.some((near) => near(p)), epsilon);
 };
 
 /** Render a polyline as SVG path data. */

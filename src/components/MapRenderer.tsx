@@ -11,9 +11,14 @@ import type { Transform, StyleOverrides, ColorOverrides } from "../lib/map-style
 import { applyColorOverrides } from "../lib/map-styles";
 import { framedRegion, fitTransform } from "../lib/map-bounds";
 import { getMapDimensions } from "../lib/map-styles";
-import { qualifyingPairs } from "../lib/border-rule";
+import { qualifyingPairs, coastalLocations } from "../lib/border-rule";
 import type { BorderOwnership } from "../lib/border-rule";
-import { sharedBorders, polylineToPathData } from "../lib/border-segments";
+import {
+  sharedBorders,
+  coastline,
+  vertexIndex,
+  polylineToPathData,
+} from "../lib/border-segments";
 import { pathVertices } from "../lib/svg-path";
 import type { AdjacencyGraph } from "../lib/location-adjacency";
 import canonicalIds from "../lib/location-ids.json";
@@ -443,7 +448,7 @@ export const MapRenderer = ({ config, subjectOverlords, playerPaths = NO_PATHS, 
   }, [ready, playerPaths]);
 
   /**
-   * Draw the country borders.
+   * Draw the country borders and coastlines.
    *
    * Extraction and drawing share one effect so the path map can be read where
    * refs are allowed to be read, but the expensive half is cached on its own
@@ -496,6 +501,26 @@ export const MapRenderer = ({ config, subjectOverlords, playerPaths = NO_PATHS, 
       const parts: string[] = [];
       for (const [a, b] of qualifyingPairs(borderOwnership, adjacency, adjacencyIds)) {
         for (const line of sharedBorders(vertsOf(a), vertsOf(b))) {
+          parts.push(polylineToPathData(line));
+        }
+      }
+
+      // Coastline joins the same layer and the same stroke, so a realm reads
+      // as one outline rather than political lines and sea lines in different
+      // hands.
+      // Every location neighbours several others, so its near-test is built
+      // once and reused rather than rebuilt per pairing.
+      const tests = new Map<string, ReturnType<typeof vertexIndex>>();
+      const testOf = (id: string) => {
+        const hit = tests.get(id);
+        if (hit !== undefined) return hit;
+        const test = vertexIndex(vertsOf(id));
+        tests.set(id, test);
+        return test;
+      };
+
+      for (const { id, neighbors } of coastalLocations(borderOwnership, adjacency, adjacencyIds)) {
+        for (const line of coastline(vertsOf(id), neighbors.map(testOf))) {
           parts.push(polylineToPathData(line));
         }
       }

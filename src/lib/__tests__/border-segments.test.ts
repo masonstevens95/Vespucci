@@ -1,5 +1,11 @@
 import { describe, it, expect } from "vitest";
-import { sharedBorders, polylineToPathData, BORDER_EPSILON } from "../border-segments";
+import {
+  sharedBorders,
+  coastline,
+  vertexIndex,
+  polylineToPathData,
+  BORDER_EPSILON,
+} from "../border-segments";
 import { pathVertices, type Point } from "../svg-path";
 import adjacencyAsset from "../location-adjacency.json";
 import locationIds from "../location-ids.json";
@@ -120,6 +126,71 @@ describe("sharedBorders", () => {
       return [Math.min(...ys), Math.max(...ys)];
     };
     expect(spanOf(fromA)).toEqual(spanOf(fromB));
+  });
+});
+
+describe("coastline", () => {
+  it("returns the whole perimeter when a shape has no neighbours", () => {
+    // An island: every edge faces the sea.
+    const a = square(0, 0, 10);
+    const lines = coastline(a, []);
+    expect(lines).toHaveLength(1);
+    expect(lines[0].length).toBeGreaterThan(a.length - 3);
+  });
+
+  it("excludes the stretch shared with a neighbour", () => {
+    // A coastal province with land to its east: the x = 10 edge is not coast.
+    const lines = coastline(square(0, 0, 10), [vertexIndex(square(10, 0, 10))]);
+    const xs = lines.flat().map(([x]) => x);
+    expect(lines.length).toBeGreaterThan(0);
+    expect(Math.max(...xs)).toBeLessThan(10);
+  });
+
+  it("returns nothing when neighbours cover the whole perimeter", () => {
+    // Landlocked: every edge abuts something.
+    const a = square(0, 0, 10);
+    expect(coastline(a, [vertexIndex(a)])).toEqual([]);
+  });
+
+  it("excludes an edge facing unclaimed land", () => {
+    // Wilderness is an ordinary path, so it turns up among the neighbours and
+    // its edge is not coast — it just goes unlined.
+    const lines = coastline(square(0, 0, 10), [vertexIndex(square(10, 0, 10)), vertexIndex(square(-10, 0, 10))]);
+    const xs = lines.flat().map(([x]) => x);
+    expect(Math.max(...xs)).toBeLessThan(10);
+    expect(Math.min(...xs)).toBeGreaterThan(0);
+  });
+
+  it("splits coast into separate runs around an intervening neighbour", () => {
+    // Land east and west leaves the north and south edges as two coasts.
+    const lines = coastline(square(0, 0, 10), [vertexIndex(square(10, 0, 10)), vertexIndex(square(-10, 0, 10))]);
+    expect(lines.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it("ignores a neighbour with no geometry", () => {
+    const a = square(0, 0, 10);
+    expect(coastline(a, [vertexIndex([])]).length).toBe(1);
+  });
+
+  it("returns nothing for a shape with no geometry", () => {
+    expect(coastline([], [vertexIndex(square(0, 0, 10))])).toEqual([]);
+  });
+
+  it("treats a neighbour within epsilon as touching", () => {
+    const lines = coastline(square(0, 0, 10), [vertexIndex(square(10 + BORDER_EPSILON / 2, 0, 10))]);
+    const xs = lines.flat().map(([x]) => x);
+    expect(Math.max(...xs)).toBeLessThan(10);
+  });
+
+  it("complements sharedBorders — together they cover the perimeter", () => {
+    const a = square(0, 0, 10);
+    const b = square(10, 0, 10);
+    const border = sharedBorders(a, b).flat().length;
+    const coast = coastline(a, [vertexIndex(b)]).flat().length;
+    // Every vertex is either on the border or on the coast; the two runs each
+    // keep their end vertices, so the total lands within a couple of the
+    // perimeter's own count.
+    expect(border + coast).toBeGreaterThanOrEqual(a.length - 2);
   });
 });
 

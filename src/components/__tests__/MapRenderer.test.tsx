@@ -938,6 +938,15 @@ describe("country borders", () => {
   const borderPaths = (container: HTMLElement) =>
     container.querySelectorAll(".border-layer path");
 
+  /** Every x coordinate in the drawn border data. */
+  const drawnXs = (container: HTMLElement): number[] => {
+    const d = borderPaths(container)[0]?.getAttribute("d") ?? "";
+    return [...d.matchAll(/[ML](-?[\d.]+) (-?[\d.]+)/g)].map((m) => parseFloat(m[1]));
+  };
+
+  /** The x = 10 line is where Alpha and Bravo meet. */
+  const SHARED_EDGE_X = 10;
+
   it("draws a border between a player and an adjacent AI", async () => {
     const { container } = renderBorders({ Alpha: "SWE", Bravo: "AI1" }, ["SWE"]);
     await waitForMapReady(container);
@@ -966,17 +975,38 @@ describe("country borders", () => {
   });
 
   it("draws nothing on a country's internal edges", async () => {
+    // Both are SWE, so their shared edge carries no line — though their
+    // seaward edges are coast and do.
     const { container } = renderBorders({ Alpha: "SWE", Bravo: "SWE" }, ["SWE"]);
     await waitForMapReady(container);
-    await waitFor(() => expect(container.querySelector(".map-svg")).toBeInTheDocument());
-    expect(borderPaths(container).length).toBe(0);
+    await waitFor(() => expect(borderPaths(container).length).toBeGreaterThan(0));
+    expect(drawnXs(container)).not.toContain(SHARED_EDGE_X);
   });
 
   it("draws nothing against unclaimed land", async () => {
-    // Bravo has no owner: coastline and wilderness behave the same way.
+    // Bravo has no owner. Alpha's edge with it stays bare, while Alpha's
+    // seaward edges are coast — wilderness and sea are not the same thing.
     const { container } = renderBorders({ Alpha: "SWE" }, ["SWE"]);
     await waitForMapReady(container);
-    expect(borderPaths(container).length).toBe(0);
+    await waitFor(() => expect(borderPaths(container).length).toBeGreaterThan(0));
+    expect(drawnXs(container)).not.toContain(SHARED_EDGE_X);
+  });
+
+  it("draws the coastline of player territory", async () => {
+    // Alpha's far edge (x = 0) touches no neighbour, so it faces the sea.
+    const { container } = renderBorders({ Alpha: "SWE", Bravo: "AI1" }, ["SWE"]);
+    await waitForMapReady(container);
+    await waitFor(() => expect(borderPaths(container).length).toBeGreaterThan(0));
+    expect(drawnXs(container)).toContain(0);
+  });
+
+  it("does not draw an AI country's coastline", async () => {
+    // Charlie is AI-held and touches nothing to its east, but its coast is not
+    // ours to draw — in playersOnly mode it is not even painted.
+    const { container } = renderBorders({ Alpha: "SWE", Bravo: "AI1", Charlie: "AI1" }, ["SWE"]);
+    await waitForMapReady(container);
+    await waitFor(() => expect(borderPaths(container).length).toBeGreaterThan(0));
+    expect(Math.max(...drawnXs(container))).toBeLessThanOrEqual(SHARED_EDGE_X);
   });
 
   it("draws nothing between two AI countries", async () => {

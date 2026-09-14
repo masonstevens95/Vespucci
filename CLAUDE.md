@@ -45,7 +45,7 @@ File Upload (.eu5 or .txt)
 - **Country names**: `src/lib/country-names.ts` (rank prefix + known names lookup)
 - **Country modal**: `src/lib/country-info.ts` + `src/components/CountryModal.tsx`
 - **Map framing**: `src/lib/map-bounds.ts` (union player bboxes → padded region → fit transform)
-- **Country borders**: `src/lib/border-rule.ts` (which pairs qualify) + `src/lib/border-segments.ts` (shared border polylines)
+- **Country borders**: `src/lib/border-rule.ts` (which pairs qualify, which locations are coastal) + `src/lib/border-segments.ts` (shared border and coastline polylines)
 - **SVG path parsing**: `src/lib/svg-path.ts` (shared by the browser and the adjacency generator)
 - **Location adjacency**: `src/lib/location-adjacency.json` (735 KB, neighbour indices parallel to `location-ids.json`) + `src/lib/location-adjacency.ts` (code-split loader)
 - **Hand-drawn export**: `src/lib/hand-drawn.ts` (SVG filters + barrel distortion)
@@ -80,7 +80,7 @@ File Upload (.eu5 or .txt)
 - Unresolvable names (lakes, sea zones, wastelands, `loc_<id>` placeholders) are dropped at config-build time, so every count from `paths.length` equals shapes actually painted
 - The map opens framed on player territory rather than the whole world, and `Reset View` returns to that frame. `MapExport.playerPaths` carries the ids; `config.groups` and the exported MapChart JSON are untouched
 - The downloaded PNG crops to the **same** region via `framedRegion`, always — never the current on-screen transform, so one save exports one image however the user has panned
-- `Outline Width` means **country borders**, not per-location outlines. Borders are drawn only where a player's territory meets a different country — never on internal edges, coastline, or the unclaimed-land frontier
+- `Outline Width` means **country borders and coastline**, not per-location outlines. A player's territory is lined where it meets a different country and where it meets the sea — never on internal edges, and never against unclaimed land
 - Border ownership comes from `ParsedSave.countryLocations`, **not** `config.groups`: the config is filtered by `playersOnly`, so reading ownership from it would hide every player-versus-AI border in the default mode
 - Stale dependency entries (non-canonical country IDs) are filtered out
 
@@ -88,6 +88,8 @@ File Upload (.eu5 or .txt)
 
 - **The SVG holds land paths only** — all 22,711 of them. Sea zones and lakes have no shape; the ocean is the container's background. That is why a coastline cannot be told apart from a land border by paint order, and why borders are extracted from geometry rather than stroked
 - A border belongs to neither adjacent shape, so it cannot be drawn by stroking either one — that traces the whole province, internal edges included. `border-segments.ts` pulls out the vertices the two shapes share
+- Coastline is the **complement**, not a border with the sea: since sea zones have no shape, a coast is the stretch of perimeter touching no land neighbour. That also keeps wilderness edges out of it, since unclaimed land is an ordinary path
+- Border and coastline extraction costs roughly 1.3 s on a large multiplayer save, so it is cached on ownership and adjacency — restyling redraws without re-extracting
 - All ~9,400 borders are subpaths of **one** `<path>` element. Thousands of separate elements render far worse
 - Anything layered into `.map-svg` must sit inside a `<g>`: the asset's stylesheet scopes `.map-svg > path { stroke-width }`, and author CSS beats a presentation attribute, so a direct-child path is forced to the location stroke width
 - `src/lib/location-adjacency.json` is 735 KB, over half the app bundle. It is code-split behind `location-adjacency.ts` and fetched only when borders are switched on; **never import it statically**
