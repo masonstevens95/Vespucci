@@ -1148,3 +1148,221 @@ describe("country borders", () => {
     expect(borderPaths(container).length).toBe(0);
   });
 });
+
+describe("MapRenderer — enclosed wastelands", () => {
+  const FRA = "#0000ff";
+  const SPA = "#ff8800";
+  const LIGHTENED = "#5555ff"; // the shade the config stores for an overlay
+  const PARCHMENT_DEFAULT = "#e8dcc8";
+
+  const fillOf = (container: HTMLElement, id: string): string =>
+    container.querySelector(`#${id}`)?.getAttribute("fill") ?? "";
+
+  const held: MapChartConfig = {
+    ...baseConfig,
+    groups: { [FRA]: { label: "FRA - Alice", paths: ["Uppland"] } },
+  };
+
+  it("paints an enclosed wasteland in the enclosing country's colour", async () => {
+    const { container } = render(
+      <MapRenderer
+        config={held}
+        subjectOverlords={{}}
+        wastelandFills={{ Red_Sea_Coast: "FRA" }}
+        mapStyle="parchment"
+        styleOverrides={{}}
+        colorOverrides={{}}
+      />,
+    );
+    await waitForMapReady(container);
+    expect(fillOf(container, "Red_Sea_Coast")).toBe(FRA);
+  });
+
+  it("gives the filled wasteland a matching stroke, hiding its own outline", async () => {
+    const { container } = render(
+      <MapRenderer
+        config={held}
+        subjectOverlords={{}}
+        wastelandFills={{ Red_Sea_Coast: "FRA" }}
+        mapStyle="parchment"
+        styleOverrides={{}}
+        colorOverrides={{}}
+      />,
+    );
+    await waitForMapReady(container);
+    expect(container.querySelector("#Red_Sea_Coast")?.getAttribute("stroke")).toBe(FRA);
+  });
+
+  it("moves the fill when the enclosing country's colour is overridden", async () => {
+    const { container } = render(
+      <MapRenderer
+        config={held}
+        subjectOverlords={{}}
+        wastelandFills={{ Red_Sea_Coast: "FRA" }}
+        mapStyle="parchment"
+        styleOverrides={{}}
+        colorOverrides={{ [FRA]: SPA }}
+      />,
+    );
+    await waitForMapReady(container);
+    expect(fillOf(container, "Red_Sea_Coast")).toBe(SPA);
+  });
+
+  it("leaves a wasteland grey when no group paints its country", async () => {
+    // An AI hidden by playersOnly. Its enclaves stay the default fill, exactly
+    // as its territory does.
+    const { container } = render(
+      <MapRenderer
+        config={held}
+        subjectOverlords={{}}
+        wastelandFills={{ Red_Sea_Coast: "CAS" }}
+        mapStyle="parchment"
+        styleOverrides={{}}
+        colorOverrides={{}}
+      />,
+    );
+    await waitForMapReady(container);
+    expect(fillOf(container, "Red_Sea_Coast")).toBe(PARCHMENT_DEFAULT);
+  });
+
+  it("hatches a wasteland enclosed by a subject, matching that subject's own territory", async () => {
+    // playersOnly: the subject's locations sit under the overlay row, and the
+    // enclosure is keyed by the subject's own tag — so the tag has to reach the
+    // overlay through subjectOverlords to find its colour.
+    const config: MapChartConfig = {
+      ...baseConfig,
+      groups: {
+        [FRA]: { label: "FRA - Alice", paths: ["Uppland"] },
+        [LIGHTENED]: { label: "FRA - subjects", paths: ["Middlesex"] },
+      },
+    };
+    const { container } = render(
+      <MapRenderer
+        config={config}
+        subjectOverlords={{ BUR: "FRA" }}
+        wastelandFills={{ Red_Sea_Coast: "BUR" }}
+        mapStyle="parchment"
+        styleOverrides={{}}
+        colorOverrides={{}}
+      />,
+    );
+    await waitForMapReady(container);
+    const wasteFill = fillOf(container, "Red_Sea_Coast");
+    expect(wasteFill).toMatch(/^url\(#/);
+    expect(wasteFill).toBe(fillOf(container, "Middlesex"));
+    expect(container.querySelector("#Red_Sea_Coast")?.getAttribute("data-hatch-base")).toBe(FRA);
+  });
+
+  it("does not add a pattern definition of its own", async () => {
+    // The fill reuses whatever the group pass already resolved, so a hatched
+    // enclave shares the subject's pattern rather than defining a second one.
+    const config: MapChartConfig = {
+      ...baseConfig,
+      groups: {
+        [FRA]: { label: "FRA - Alice", paths: ["Uppland"] },
+        [LIGHTENED]: { label: "FRA - subjects", paths: ["Middlesex"] },
+      },
+    };
+    const { container } = render(
+      <MapRenderer
+        config={config}
+        subjectOverlords={{ BUR: "FRA" }}
+        wastelandFills={{ Red_Sea_Coast: "BUR" }}
+        mapStyle="parchment"
+        styleOverrides={{}}
+        colorOverrides={{}}
+      />,
+    );
+    await waitForMapReady(container);
+    expect(container.querySelectorAll("pattern")).toHaveLength(1);
+  });
+
+  it("lets a group keep a path both it and the fill map name", async () => {
+    // Real ownership outranks an inferred enclosure. The rule cannot produce
+    // this collision — uninhabitable means unowned — but the invariant holds.
+    const config: MapChartConfig = {
+      ...baseConfig,
+      groups: { [FRA]: { label: "FRA - Alice", paths: ["Uppland", "Red_Sea_Coast"] } },
+    };
+    const { container } = render(
+      <MapRenderer
+        config={config}
+        subjectOverlords={{}}
+        wastelandFills={{ Red_Sea_Coast: "CAS" }}
+        mapStyle="parchment"
+        styleOverrides={{}}
+        colorOverrides={{}}
+      />,
+    );
+    await waitForMapReady(container);
+    expect(fillOf(container, "Red_Sea_Coast")).toBe(FRA);
+  });
+
+  it("returns a wasteland to grey when the fill is switched off", async () => {
+    const { container, rerender } = render(
+      <MapRenderer
+        config={held}
+        subjectOverlords={{}}
+        wastelandFills={{ Red_Sea_Coast: "FRA" }}
+        mapStyle="parchment"
+        styleOverrides={{}}
+        colorOverrides={{}}
+      />,
+    );
+    await waitForMapReady(container);
+    expect(fillOf(container, "Red_Sea_Coast")).toBe(FRA);
+
+    rerender(
+      <MapRenderer
+        config={held}
+        subjectOverlords={{}}
+        wastelandFills={{}}
+        mapStyle="parchment"
+        styleOverrides={{}}
+        colorOverrides={{}}
+      />,
+    );
+    await waitFor(() => {
+      expect(fillOf(container, "Red_Sea_Coast")).toBe(PARCHMENT_DEFAULT);
+    });
+    expect(fillOf(container, "Uppland")).toBe(FRA);
+  });
+
+  it("stays idempotent across repeated recolors", async () => {
+    const props = {
+      config: held,
+      subjectOverlords: {},
+      wastelandFills: { Red_Sea_Coast: "FRA" },
+      styleOverrides: {},
+      colorOverrides: {},
+    };
+    const { container, rerender } = render(
+      <MapRenderer {...props} mapStyle="parchment" />,
+    );
+    await waitForMapReady(container);
+    for (const style of ["modern", "dark", "pastel", "parchment"] as const) {
+      rerender(<MapRenderer {...props} mapStyle={style} />);
+    }
+    await waitFor(() => {
+      expect(fillOf(container, "Red_Sea_Coast")).toBe(FRA);
+    });
+    expect(container.querySelectorAll(".outline-layer")).toHaveLength(0);
+    expect(container.querySelectorAll("#Red_Sea_Coast")).toHaveLength(1);
+  });
+
+  it("ignores a wasteland id with no shape in the asset", async () => {
+    const { container } = render(
+      <MapRenderer
+        config={held}
+        subjectOverlords={{}}
+        wastelandFills={{ Nowhere_Wasteland: "FRA", Red_Sea_Coast: "FRA" }}
+        mapStyle="parchment"
+        styleOverrides={{}}
+        colorOverrides={{}}
+      />,
+    );
+    await waitForMapReady(container);
+    expect(fillOf(container, "Red_Sea_Coast")).toBe(FRA);
+    expect(fillOf(container, "Uppland")).toBe(FRA);
+  });
+});

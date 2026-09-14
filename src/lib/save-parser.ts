@@ -589,5 +589,9 @@ export const parseMeltedSave = (text: string): ParsedSave => {
   const countryLocations = buildCountryLocations(locationOwners, locationNames);
   const tagToPlayers = buildTagToPlayers(playerCountries);
 
-  return { countryLocations, tagToPlayers, countryColors, overlordSubjects, countryNames: {}, countryStats: {}, locationRgos: {}, countryProduction: {}, countryLastMonthProduced: {}, goodsRankings: {}, producedGoodsRankings: {}, goodAvgPrices: {}, countryBuildings: {}, wars: [], pastWars: [], warReparations: [], annulledTreaties: [], royalMarriages: [], activeCBs: [], trade: { producedGoods: {}, marketNames: {}, marketOwners: {}, markets: [] } };
+  // The text path does not classify uninhabitable locations: melted saves are
+  // a fallback, and the classification needs the per-entry field inspection the
+  // binary reader does. Empty means no wasteland fills, which is the right
+  // degraded behaviour rather than a wrong one.
+  return { countryLocations, uninhabitableLocations: [], tagToPlayers, countryColors, overlordSubjects, countryNames: {}, countryStats: {}, locationRgos: {}, countryProduction: {}, countryLastMonthProduced: {}, goodsRankings: {}, producedGoodsRankings: {}, goodAvgPrices: {}, countryBuildings: {}, wars: [], pastWars: [], warReparations: [], annulledTreaties: [], royalMarriages: [], activeCBs: [], trade: { producedGoods: {}, marketNames: {}, marketOwners: {}, markets: [] } };
 };

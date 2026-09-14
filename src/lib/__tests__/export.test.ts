@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   collectPlayerPaths,
+  collectWastelandPaths,
   buildSubjectOverlords,
   buildTagLabel,
   buildAllTagLabels,
@@ -232,6 +233,7 @@ describe("exportMapChartConfig", () => {
   it("accepts ParsedSave directly", () => {
     const parsed = {
       countryLocations: { SWE: ["stockholm"] },
+      uninhabitableLocations: [],
       tagToPlayers: { SWE: ["Alice"] },
       countryColors: { SWE: [0, 0, 255] as RGB },
       overlordSubjects: {},
@@ -240,6 +242,88 @@ describe("exportMapChartConfig", () => {
     const config = exportMapChartConfig(parsed, { locationIndex }).config;
     const labels = Object.values(config.groups).map((g) => g.label);
     expect(labels).toContain("SWE - Alice");
+  });
+});
+
+// =============================================================================
+// Wasteland path ids
+// =============================================================================
+
+/** A ParsedSave carrying the fields these tests actually read. */
+const saveWith = (fields: {
+  countryLocations?: Record<string, string[]>;
+  uninhabitableLocations?: string[];
+  tagToPlayers?: Record<string, string[]>;
+  countryColors?: Record<string, RGB>;
+}) => ({
+  countryLocations: fields.countryLocations ?? { SWE: ["stockholm"] },
+  uninhabitableLocations: fields.uninhabitableLocations ?? [],
+  tagToPlayers: fields.tagToPlayers ?? {},
+  countryColors: fields.countryColors ?? { SWE: [0, 0, 255] as RGB },
+  overlordSubjects: {},
+  countryNames: {}, countryStats: {}, locationRgos: {}, countryProduction: {}, countryLastMonthProduced: {}, goodsRankings: {}, producedGoodsRankings: {}, goodAvgPrices: {}, countryBuildings: {}, wars: [], pastWars: [], warReparations: [], annulledTreaties: [], royalMarriages: [], activeCBs: [], trade: { producedGoods: {}, marketNames: {}, marketOwners: {}, markets: [] },
+});
+
+describe("collectWastelandPaths", () => {
+  it("resolves a lowercase save name to its canonical path id", () => {
+    expect(collectWastelandPaths(["stockholm"], locationIndex)).toEqual(["Stockholm"]);
+  });
+
+  it("drops a name with no shape on the map", () => {
+    // Sea zones and lakes are unowned and unpopulated too, so they are
+    // classified uninhabitable upstream and arrive here to be dropped.
+    expect(collectWastelandPaths(["some_sea_zone", "paris"], locationIndex)).toEqual(["Paris"]);
+  });
+
+  it("returns an empty array for no input", () => {
+    expect(collectWastelandPaths([], locationIndex)).toEqual([]);
+  });
+});
+
+describe("exportMapChartConfig — wastelands", () => {
+  it("carries resolved wasteland path ids", () => {
+    const result = exportMapChartConfig(
+      saveWith({ uninhabitableLocations: ["paris", "london"] }),
+      { locationIndex },
+    );
+    expect([...result.wastelandPaths].sort()).toEqual(["London", "Paris"]);
+  });
+
+  it("returns an empty array when the save reports none", () => {
+    const result = exportMapChartConfig(saveWith({}), { locationIndex });
+    expect(result.wastelandPaths).toEqual([]);
+  });
+
+  it("keeps wastelands out of the groups entirely", () => {
+    const result = exportMapChartConfig(
+      saveWith({ uninhabitableLocations: ["paris"] }),
+      { locationIndex },
+    );
+    const painted = Object.values(result.config.groups).flatMap((g) => g.paths);
+    expect(painted).not.toContain("Paris");
+  });
+
+  it("exports byte-identical config whether wastelands are present or not", () => {
+    // The guarantee the whole feature rests on: legend counts and the
+    // downloaded MapChart JSON do not move when wastelands get painted.
+    const without = exportMapChartConfig(saveWith({}), { locationIndex }).config;
+    const with_ = exportMapChartConfig(
+      saveWith({ uninhabitableLocations: ["paris", "london"] }),
+      { locationIndex },
+    ).config;
+    expect(JSON.stringify(with_)).toBe(JSON.stringify(without));
+  });
+
+  it("builds ownership even when the save has no players", () => {
+    // Borders are a player feature and gate themselves on playerTags, but the
+    // enclosure test needs to know who owns what regardless.
+    const result = exportMapChartConfig(
+      saveWith({ countryLocations: { SWE: ["stockholm"], FRA: ["paris"] } }),
+      { locationIndex },
+    );
+    expect(result.borderOwnership.ownerByPath.get("Stockholm")).toBe("SWE");
+    expect(result.borderOwnership.ownerByPath.get("Paris")).toBe("FRA");
+    expect(result.borderOwnership.playerTags.size).toBe(0);
   });
 });
 

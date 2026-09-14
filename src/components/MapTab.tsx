@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import type { MapChartConfig, MapStyle } from "../lib/types";
 import type { StyleOverrides } from "../lib/map-styles";
 import {
@@ -18,6 +18,8 @@ import { framedRegion, hasBounds } from "../lib/map-bounds";
 import { loadAdjacency } from "../lib/location-adjacency";
 import type { AdjacencyGraph } from "../lib/location-adjacency";
 import type { BorderOwnership } from "../lib/border-rule";
+import { enclosedWastelands } from "../lib/wasteland-rule";
+import canonicalIds from "../lib/location-ids.json";
 import { MapRenderer } from "./MapRenderer";
 import { MapLegend } from "./MapLegend";
 import { Stat } from "./Stat";
@@ -36,6 +38,13 @@ const shadeHex = (hex: string, factor: number): string => {
 /** Stable empty default — a fresh array each render would re-frame the map. */
 const NO_PATHS: readonly string[] = [];
 
+/** Stable empty defaults, for the same reason. */
+const NO_FILLS: Readonly<Record<string, string>> = {};
+const NO_ENCLOSURES: ReadonlyMap<string, string> = new Map();
+
+/** The canonical id list the adjacency graph is keyed by. */
+const CANONICAL_IDS = canonicalIds as readonly string[];
+
 interface Props {
   config: MapChartConfig;
   /** Subject tag -> root overlord tag; drives subject hatching. */
@@ -44,25 +53,32 @@ interface Props {
   playerPaths?: readonly string[];
   /** Ownership across every country; decides where country borders fall. */
   borderOwnership?: BorderOwnership;
+  /** Canonical path ids of every uninhabitable location; drives the fill. */
+  wastelandPaths?: readonly string[];
+  /** Id list the graph is keyed by. Overridable so tests can use a small one. */
+  adjacencyIds?: readonly string[];
   parseTimeMs: number;
   onCountryClick: (tag: string) => void;
   onReset: () => void;
   debugContent?: React.ReactNode;
 }
 
-export const MapTab = ({ config, subjectOverlords, playerPaths = NO_PATHS, borderOwnership, parseTimeMs, onCountryClick, onReset, debugContent }: Props) => {
+export const MapTab = ({ config, subjectOverlords, playerPaths = NO_PATHS, borderOwnership, wastelandPaths = NO_PATHS, adjacencyIds = CANONICAL_IDS, parseTimeMs, onCountryClick, onReset, debugContent }: Props) => {
   const [mapStyle, setMapStyle] = useState<MapStyle>("parchment");
   const [styleOverrides, setStyleOverrides] = useState<StyleOverrides>({});
   const [colorOverrides, setColorOverrides] = useState<Record<string, string>>({});
+  const [fillWastelands, setFillWastelands] = useState(true);
   const mapLayoutRef = useRef<HTMLDivElement>(null);
   const [adjacency, setAdjacency] = useState<AdjacencyGraph | undefined>(undefined);
 
-  // The graph is 718 KB and borders are off at the default width of 0, so it
-  // is fetched the first time somebody actually asks for them.
+  // The graph is 718 KB. Both features that need it are on by default, so in
+  // practice it is fetched as soon as a map is shown — but a user who drags
+  // the outline width to zero still gets their wasteland fills.
   const bordersWanted =
     parseFloat(getStyleConfig(mapStyle, styleOverrides).outlineWidth) > 0;
+  const graphWanted = bordersWanted || fillWastelands;
   useEffect(() => {
-    if (!bordersWanted || adjacency !== undefined) return;
+    if (!graphWanted || adjacency !== undefined) return;
     let cancelled = false;
     loadAdjacency().then((graph) => {
       if (!cancelled) {
@@ -74,7 +90,52 @@ export const MapTab = ({ config, subjectOverlords, playerPaths = NO_PATHS, borde
     return () => {
       cancelled = true;
     };
-  }, [bordersWanted, adjacency]);
+  }, [graphWanted, adjacency]);
+
+  // Which wastelands one country completely encloses.
+  //
+  // Computed without regard to the toggle, so flipping it picks between two
+  // values that each stay put rather than allocating a new one every time.
+  // That matters twice over: MapRenderer compares the ownership object it is
+  // given by *identity* to decide whether to re-extract border geometry, and
+  // re-extraction costs over a second on a large save. The enclosure walk
+  // itself is milliseconds, so computing it while the toggle is off is far
+  // cheaper than recomputing it every time somebody flips back.
+  const enclosed = useMemo(() => {
+    if (borderOwnership === undefined || adjacency === undefined) {
+      return NO_ENCLOSURES;
+    } else {
+      /* both inputs have arrived */
+    }
+    return enclosedWastelands(
+      wastelandPaths, borderOwnership.ownerByPath, adjacency, adjacencyIds,
+    );
+  }, [wastelandPaths, borderOwnership, adjacency, adjacencyIds]);
+
+  const filledPaths = useMemo(
+    () => (enclosed.size === 0 ? NO_FILLS : Object.fromEntries(enclosed)),
+    [enclosed],
+  );
+
+  // A filled wasteland counts as its country's territory for the outline, so
+  // the border wraps the enclave instead of breaking at it. This can add no
+  // border: every neighbour of a filled wasteland shares its tag by the rule
+  // that filled it. It can only add coastline, which is the point.
+  const filledOwnership = useMemo(() => {
+    if (borderOwnership === undefined || enclosed.size === 0) {
+      return borderOwnership;
+    } else {
+      /* fold the enclaves into a copy, leaving the save's own view alone */
+    }
+    const ownerByPath = new Map(borderOwnership.ownerByPath);
+    for (const [path, tag] of enclosed) {
+      ownerByPath.set(path, tag);
+    }
+    return { ownerByPath, playerTags: borderOwnership.playerTags };
+  }, [borderOwnership, enclosed]);
+
+  const wastelandFills = fillWastelands ? filledPaths : NO_FILLS;
+  const outlineOwnership = fillWastelands ? filledOwnership : borderOwnership;
 
   const isCustom = hasCustomOverrides(getBaseStyleConfig(mapStyle), styleOverrides);
   const locationCount = computeLocationCount(config.groups);
@@ -268,6 +329,22 @@ export const MapTab = ({ config, subjectOverlords, playerPaths = NO_PATHS, borde
                 {isCustom && <option value="__custom" disabled>Custom</option>}
               </select>
             </label>
+            <label
+              className="option"
+              title={
+                wastelandPaths.length === 0
+                  ? "This save reports no wastelands. Melted text saves do not classify them."
+                  : "Paint a wasteland in a country's colour when that one country owns every land neighbour of it"
+              }
+            >
+              <input
+                type="checkbox"
+                checked={fillWastelands && wastelandPaths.length > 0}
+                onChange={(e) => setFillWastelands(e.target.checked)}
+                disabled={wastelandPaths.length === 0}
+              />
+              Fill wastelands
+            </label>
           </div>
           <div className="toolbar-actions">
             <button className="btn primary" onClick={handleDownloadMap}>Download Map</button>
@@ -329,9 +406,11 @@ export const MapTab = ({ config, subjectOverlords, playerPaths = NO_PATHS, borde
           <MapRenderer
             config={config}
             subjectOverlords={subjectOverlords}
+            wastelandFills={wastelandFills}
             playerPaths={playerPaths}
-            borderOwnership={borderOwnership}
+            borderOwnership={outlineOwnership}
             adjacency={adjacency}
+            adjacencyIds={adjacencyIds}
             mapStyle={mapStyle}
             styleOverrides={styleOverrides}
             colorOverrides={colorOverrides}

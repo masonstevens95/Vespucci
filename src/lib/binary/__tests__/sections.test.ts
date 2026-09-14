@@ -536,6 +536,104 @@ describe("readLocationEntry", () => {
   });
 });
 
+describe("readLocationEntry uninhabitable classification", () => {
+  const OWNER = T.owner!;
+  const POPULATION = tokenId("population")!;
+  const MARKET = tokenId("market")!;
+
+  /** Run one entry and report whether it classified as uninhabitable. */
+  const classify = (...content: number[][]): boolean => {
+    const data = bytes(...content, close());
+    const r = new TokenReader(data);
+    const uninhabitable = new Set<number>();
+    readLocationEntry(r, data, 5, { 0: "SWE" }, {}, {}, {}, uninhabitable);
+    return uninhabitable.has(5);
+  };
+
+  it("classifies an owned, populated location as habitable", () => {
+    expect(
+      classify(u16(OWNER), eq(), uintVal(0), u16(POPULATION), eq(), uintVal(400)),
+    ).toBe(false);
+  });
+
+  it("classifies an unowned location with no population as uninhabitable", () => {
+    // A wasteland entry: `ub` and nothing else of substance.
+    expect(classify(u16(0x8888), eq(), uintVal(1))).toBe(true);
+  });
+
+  it("classifies an unowned but populated location as habitable", () => {
+    // Uncolonized native land: no owner, but real people live there. Filling
+    // it would paint territory nobody holds.
+    expect(classify(u16(POPULATION), eq(), uintVal(400))).toBe(false);
+  });
+
+  it("classifies an owned location with no population as habitable", () => {
+    // Ownership alone settles it — an owner cannot hold a wasteland.
+    expect(classify(u16(OWNER), eq(), uintVal(0))).toBe(false);
+  });
+
+  it("classifies a completely empty entry as uninhabitable", () => {
+    expect(classify()).toBe(true);
+  });
+
+  it("ignores population nested inside a sub-block", () => {
+    // `population` appears inside nested blocks too, describing something
+    // other than this location. Counting it would mark a genuine wasteland
+    // habitable on the strength of an unrelated field.
+    expect(
+      classify(u16(0x8888), eq(), open(), u16(POPULATION), eq(), uintVal(9999), close()),
+    ).toBe(true);
+  });
+
+  it("still reads market as a scalar alongside the classification", () => {
+    // Guards the ordering: `market` is an int, and the population check must
+    // not disturb how it is consumed.
+    const data = bytes(u16(MARKET), eq(), uintVal(7), close());
+    const r = new TokenReader(data);
+    const markets: Record<number, number> = {};
+    const uninhabitable = new Set<number>();
+    readLocationEntry(r, data, 5, { 0: "SWE" }, {}, {}, markets, uninhabitable);
+    expect(markets[5]).toBe(7);
+    expect(uninhabitable.has(5)).toBe(true);
+  });
+
+  it("does not classify when an owner is present but unknown to countryTags", () => {
+    // An unresolvable owner id leaves no tag, so the location is unowned as
+    // far as the map is concerned — but it is still not a wasteland.
+    const data = bytes(u16(OWNER), eq(), uintVal(99), u16(POPULATION), eq(), uintVal(1), close());
+    const r = new TokenReader(data);
+    const uninhabitable = new Set<number>();
+    readLocationEntry(r, data, 5, { 0: "SWE" }, {}, {}, {}, uninhabitable);
+    expect(uninhabitable.has(5)).toBe(false);
+  });
+
+  it("does not classify an unresolvable owner with no population either", () => {
+    // The case that matters: an owner field the tags cannot resolve AND no
+    // population. Classifying this as a wasteland would let a neighbour paint
+    // a location the save says somebody holds. Presence of `owner` is the
+    // signal, not whether the tag resolved.
+    const data = bytes(u16(OWNER), eq(), uintVal(99), close());
+    const r = new TokenReader(data);
+    const uninhabitable = new Set<number>();
+    readLocationEntry(r, data, 5, { 0: "SWE" }, {}, {}, {}, uninhabitable);
+    expect(uninhabitable.has(5)).toBe(false);
+  });
+
+  it("collects ids across a run of entries", () => {
+    const data = bytes(
+      uintVal(1), eq(), open(), u16(OWNER), eq(), uintVal(0), close(),
+      uintVal(2), eq(), open(), close(),
+      uintVal(3), eq(), open(), u16(POPULATION), eq(), uintVal(5), close(),
+      uintVal(4), eq(), open(), close(),
+      close(),
+    );
+    const r = new TokenReader(data);
+    const uninhabitable = new Set<number>();
+    readLocationEntries(r, data, { 0: "SWE" }, {}, {}, {}, uninhabitable);
+    expect([...uninhabitable].sort()).toEqual([2, 4]);
+  });
+});
+
 // =============================================================================
 // io-manager.ts
 // =============================================================================

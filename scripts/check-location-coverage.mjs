@@ -13,7 +13,7 @@
  * Expected shape for a healthy save (measured on MP_SCO_1453, 2026-09-12):
  *   asset ids matched          22710 / 22711
  *   unmatched asset ids            1  (Kingman_Reef, uninhabited atoll)
- *   save names with no shape    ~5863  (lakes, sea zones, wastelands)
+ *   save names with no shape    ~5863  (lakes and sea zones; wastelands have shapes)
  */
 import { readFileSync } from "fs";
 import { unzipSync } from "fflate";
@@ -193,7 +193,7 @@ console.log(`  asset path ids             ${assetIds.length}`);
 console.log(`  asset ids matched          ${matched.length} (${pct}%)`);
 console.log(`  unmatched asset ids        ${orphanIds.length}`);
 if (orphanIds.length > 0) console.log(`    ${orphanIds.slice(0, 25).join(", ")}`);
-console.log(`  save names with no shape   ${shapeless.length} (expected: lakes/seas/wastelands)`);
+console.log(`  save names with no shape   ${shapeless.length} (expected: lakes and sea zones)`);
 console.log(`    ${shapeless.slice(0, 8).join(", ")}...`);
 
 if (matched.length < assetIds.length * 0.95) {

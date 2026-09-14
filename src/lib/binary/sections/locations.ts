@@ -22,6 +22,22 @@ const GOODS_METHOD = tokenId("goods_method") ?? -1;
 const OUTPUT_SCALE = tokenId("output_scale") ?? -1;
 const MARKET_TOKEN = tokenId("market") ?? -1;
 
+/**
+ * Marks a location as habitable.
+ *
+ * Saves carry no wasteland flag, and location names are no help either —
+ * plenty of wastelands are named for their terrain (Alaska_Range,
+ * Kyzylkum_Desert) with no marker substring. What does separate them is the
+ * shape of their database entry: a habitable location carries `population`
+ * together with `culture`, `religion`, `dialect` and `counters`, while an
+ * uninhabitable one carries only `ub` plus the occasional `winter`,
+ * `institutions` or `timed_modifiers`. Measured across MP_BOH_1644 and
+ * MP_SCO_1453 — 191 years apart, with 3487 and 8901 unowned locations
+ * respectively — this split yields the same 1895 uninhabitable shapes both
+ * times, as static map topology should.
+ */
+const POPULATION = tokenId("population") ?? -1;
+
 // ---------------------------------------------------------------------------
 // Pure helpers
 // ---------------------------------------------------------------------------
@@ -155,11 +171,14 @@ export const readLocationEntry = (
   countryTags: Record<number, string>,
   locationOwners: Record<number, string>,
   locationRgos: Record<number, RgoData>,
-  locationMarkets: Record<number, number>
+  locationMarkets: Record<number, number>,
+  uninhabitable: Set<number> = new Set()
 ): void => {
   let depth = 1;
   let rgoGood = "";
   let rgoWorkers = 0;
+  let owned = false;
+  let populated = false;
 
   while (!r.done && depth > 0) {
     const tok = r.readToken();
@@ -177,11 +196,22 @@ export const readLocationEntry = (
         r.expectEqual();
         const ownerId = r.readIntValue() ?? -1;
         const tag = resolveOwnerTag(ownerId, countryTags);
+        // Owned on the presence of the field, not on resolving the tag. A
+        // wasteland never carries `owner` at all, so an entry that does is
+        // somebody's even when the id cannot be matched to a country — and
+        // calling it uninhabitable would let a neighbour paint it.
+        owned = true;
         if (tag !== "") {
           locationOwners[locId] = tag;
         } else {
           /* unknown or missing owner */
         }
+      } else if (tok === POPULATION) {
+        // Presence is the whole signal; the value is not read. Depth 1 only —
+        // `population` also appears inside nested market blocks, where it
+        // describes the market rather than this location.
+        populated = true;
+        skipUnknownField(r);
       } else if (tok === MARKET_TOKEN) {
         r.expectEqual();
         const marketId = r.readIntValue() ?? -1;
@@ -230,6 +260,12 @@ export const readLocationEntry = (
   } else {
     /* no raw_material in this location entry */
   }
+
+  if (!owned && !populated) {
+    uninhabitable.add(locId);
+  } else {
+    /* owned or populated — habitable either way */
+  }
 };
 
 /** Read numeric-keyed location entries. */
@@ -239,7 +275,8 @@ export const readLocationEntries = (
   countryTags: Record<number, string>,
   locationOwners: Record<number, string>,
   locationRgos: Record<number, RgoData>,
-  locationMarkets: Record<number, number>
+  locationMarkets: Record<number, number>,
+  uninhabitable: Set<number> = new Set()
 ): void => {
   while (!r.done) {
     const tok = r.peekToken();
@@ -263,7 +300,8 @@ export const readLocationEntries = (
         countryTags,
         locationOwners,
         locationRgos,
-        locationMarkets
+        locationMarkets,
+        uninhabitable
       );
     } else {
       r.readToken();
@@ -272,14 +310,18 @@ export const readLocationEntries = (
   }
 };
 
-/** Read location ownership, RGO data, and market assignments from the main locations section. */
+/**
+ * Read location ownership, RGO data, market assignments, and uninhabitable
+ * status from the main locations section.
+ */
 export const readLocationOwnership = (
   r: TokenReader,
   data: Uint8Array,
   countryTags: Record<number, string>,
   locationOwners: Record<number, string>,
   locationRgos: Record<number, RgoData>,
-  locationMarkets: Record<number, number>
+  locationMarkets: Record<number, number>,
+  uninhabitable: Set<number> = new Set()
 ): void => {
   let depth = 1;
   while (!r.done && depth > 0) {
@@ -295,10 +337,13 @@ export const readLocationOwnership = (
     if (tok === T.locations) {
       r.expectEqual();
       r.expectOpen();
-      readLocationEntries(r, data, countryTags, locationOwners, locationRgos, locationMarkets);
+      readLocationEntries(
+        r, data, countryTags, locationOwners, locationRgos, locationMarkets, uninhabitable,
+      );
       log.info(
         `done — locationOwners:${Object.keys(locationOwners).length} ` +
-        `locationRgos:${Object.keys(locationRgos).length}`,
+        `locationRgos:${Object.keys(locationRgos).length} ` +
+        `uninhabitable:${uninhabitable.size}`,
       );
       return;
     } else {

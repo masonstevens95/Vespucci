@@ -30,6 +30,7 @@ const mkStats = (overrides: Partial<CountryEconomyStats> = {}): CountryEconomySt
 
 const mockParsed: ParsedSave = {
   countryLocations: {},
+  uninhabitableLocations: [],
   tagToPlayers: { GBR: ["Alice"], FRA: ["Bob"] },
   countryColors: { GBR: [255, 0, 0], FRA: [0, 0, 255], TIM: [0, 255, 0] },
   overlordSubjects: {},

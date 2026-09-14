@@ -9,7 +9,8 @@ import type { ExportOptions, MapExport, ParsedSave, RGB } from "./types";
 import { lightenColor } from "./colors";
 import { parseMeltedSave } from "./save-parser";
 import { generateMapChartConfig } from "./mapchart-config";
-import { buildOwnership, NO_OWNERSHIP } from "./border-rule";
+import { buildOwnership } from "./border-rule";
+import { resolveLocationId, UNRESOLVED } from "./location-resolve";
 import { extractTag } from "./legend-sort";
 
 // =============================================================================
@@ -179,6 +180,34 @@ export const collectPlayerPaths = (
   return paths;
 };
 
+/**
+ * Canonical path ids for the locations nobody can live in.
+ *
+ * Resolved here rather than at paint time so every save-name-to-path-id
+ * conversion stays in one module and the view layer works purely in id space.
+ *
+ * Names with no shape on the land map fall out exactly as owned names do.
+ * That is most of them: sea zones and lakes are unowned and unpopulated too,
+ * so they classify as uninhabitable upstream and arrive here alongside the
+ * real wastelands — 7,680 names on both sample saves, of which 1,895 have a
+ * shape.
+ */
+export const collectWastelandPaths = (
+  uninhabitable: readonly string[],
+  locationIndex?: Record<string, string>,
+): readonly string[] => {
+  const paths: string[] = [];
+  for (const name of uninhabitable) {
+    const id = resolveLocationId(name, locationIndex);
+    if (id === UNRESOLVED) {
+      /* no shape on the land map — nothing to paint */
+    } else {
+      paths.push(id);
+    }
+  }
+  return paths;
+};
+
 /** Resolve a ParsedSave from either a ParsedSave or raw text string. */
 export const resolveParsedSave = (saveOrText: ParsedSave | string): ParsedSave =>
   typeof saveOrText === "string"
@@ -261,9 +290,14 @@ export const exportMapChartConfig = (
     playerPaths: collectPlayerPaths(config.groups, tagToPlayers),
     // Built from every country, not from the config above: the config is
     // filtered by playersOnly, so reading ownership from it would hide every
-    // player-versus-AI border in the default mode.
-    borderOwnership: hasPlayers
-      ? buildOwnership(allCountryLocations, tagToPlayers, rootOverlords, options.locationIndex)
-      : NO_OWNERSHIP,
+    // player-versus-AI border in the default mode. Built unconditionally, too:
+    // borders gate on playerTags of their own accord, and the wasteland
+    // enclosure test needs to know who owns what even in a playerless save.
+    borderOwnership: buildOwnership(
+      allCountryLocations, tagToPlayers, rootOverlords, options.locationIndex,
+    ),
+    wastelandPaths: collectWastelandPaths(
+      parsed.uninhabitableLocations, options.locationIndex,
+    ),
   };
 };

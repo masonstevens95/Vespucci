@@ -32,6 +32,9 @@ const SVG_NS = "http://www.w3.org/2000/svg";
 const OUTLINE_CLASS = "outline-layer";
 const BORDER_CLASS = "border-layer";
 
+/** How many extracted border geometries to keep: one per fill-toggle state. */
+const BORDER_CACHE_SLOTS = 2;
+
 /** The canonical id list the adjacency graph is keyed by. */
 const CANONICAL_IDS = canonicalIds as readonly string[];
 
@@ -43,6 +46,10 @@ const CANONICAL_IDS = canonicalIds as readonly string[];
  * continuously and fight the user's panning.
  */
 const NO_PATHS: readonly string[] = [];
+
+/** Stable empty default for `wastelandFills`, for the same reason. */
+const NO_FILLS: Readonly<Record<string, string>> = {};
+
 const DEFS_CLASS = "hatch-defs";
 
 /** Hatch geometry, in viewBox units (locations average ~6 units across). */
@@ -66,6 +73,12 @@ interface Props {
   config: MapChartConfig;
   /** Subject tag -> root overlord tag. Paint-time only; no group changes. */
   subjectOverlords: Readonly<Record<string, string>>;
+  /**
+   * Wasteland path id -> the tag that encloses it. Paint-time only: these
+   * paths are in no group, so painting them moves no legend count and changes
+   * nothing in the exported JSON.
+   */
+  wastelandFills?: Readonly<Record<string, string>>;
   /**
    * Who owns what and who is playing, used to decide where country borders
    * fall. Absent leaves the map unbordered.
@@ -102,7 +115,7 @@ interface Props {
  *    Resetting only `fill` would accumulate outline clones and leave stale
  *    shrink transforms behind as permanent hairline gaps.
  */
-export const MapRenderer = ({ config, subjectOverlords, playerPaths = NO_PATHS, borderOwnership, adjacency, adjacencyIds = CANONICAL_IDS, mapStyle, styleOverrides, colorOverrides, onProvinceClick }: Props) => {
+export const MapRenderer = ({ config, subjectOverlords, wastelandFills = NO_FILLS, playerPaths = NO_PATHS, borderOwnership, adjacency, adjacencyIds = CANONICAL_IDS, mapStyle, styleOverrides, colorOverrides, onProvinceClick }: Props) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const svgHostRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<SVGSVGElement | null>(null);
@@ -120,16 +133,17 @@ export const MapRenderer = ({ config, subjectOverlords, playerPaths = NO_PATHS, 
   // as a fresh array does not re-frame the map.
   const fittedPathsRef = useRef<readonly string[] | undefined>(undefined);
   // Extracted border geometry, keyed on the inputs it came from so a restyle
-  // redraws without re-extracting.
+  // redraws without re-extracting. Two slots rather than one: turning the
+  // wasteland fill on and off alternates between two ownership views, and a
+  // single slot would re-extract on every flip.
   const borderCacheRef = useRef<
-    | {
-        ownership: BorderOwnership;
-        adjacency: AdjacencyGraph;
-        ids: readonly string[];
-        data: string;
-      }
-    | undefined
-  >(undefined);
+    {
+      ownership: BorderOwnership;
+      adjacency: AdjacencyGraph;
+      ids: readonly string[];
+      data: string;
+    }[]
+  >([]);
   const dragRef = useRef<{ startX: number; startY: number; originX: number; originY: number } | null>(null);
   const mouseDownPosRef = useRef<{ x: number; y: number } | null>(null);
   const locationToTagRef = useRef<Map<string, string>>(new Map());
@@ -345,22 +359,49 @@ export const MapRenderer = ({ config, subjectOverlords, playerPaths = NO_PATHS, 
       return `url(#${id})`;
     };
 
-    const hatchedIds = new Set<string>();
+    /**
+     * The fill a tag resolves to: a hatch reference when the tag is a subject,
+     * its own flat colour otherwise, and "" when nothing paints it at all.
+     *
+     * Both the group pass and the wasteland pass go through this, so an
+     * enclosed wasteland is painted by the same mechanism as the territory
+     * around it — colour overrides, subject hatching and a country hidden by
+     * playersOnly all carry through without either pass knowing about them.
+     */
+    const fillFor = (label: string, ownHex: string): { fill: string; hatchBase: string } => {
+      const overlordHex = overlordHexFor(label);
+      if (overlordHex === "") {
+        return { fill: ownHex, hatchBase: "" };
+      } else {
+        /* a subject — hatch it in its overlord's colour if we can */
+      }
+      // ensureHatch yields "" when the defs node is missing, which is the
+      // documented degrade-to-flat-fill path. Falling through to the flat
+      // colour here keeps that promise; returning the empty string would
+      // write fill="" onto every subject path instead.
+      const hatch = ensureHatch(overlordHex);
+      return hatch === ""
+        ? { fill: ownHex, hatchBase: "" }
+        : { fill: hatch, hatchBase: overlordHex };
+    };
+
+    const paint = (el: SVGPathElement, fill: string, hatchBase: string): void => {
+      el.setAttribute("fill", fill);
+      if (hatchBase !== "") {
+        el.setAttribute("data-hatch-base", hatchBase);
+      } else {
+        /* flat fill — the stroke pass reads the fill itself */
+      }
+    };
+
     const coloredIds = new Set<string>();
     let misses = 0;
     for (const [hex, group] of Object.entries(groups)) {
-      const overlordHex = overlordHexFor(group.label);
-      const hatchRef = overlordHex !== "" ? ensureHatch(overlordHex) : "";
+      const { fill, hatchBase } = fillFor(group.label, hex);
       for (const pathId of group.paths) {
         const el = paths.get(pathId);
         if (el) {
-          if (hatchRef !== "") {
-            el.setAttribute("fill", hatchRef);
-            el.setAttribute("data-hatch-base", overlordHex);
-            hatchedIds.add(pathId);
-          } else {
-            el.setAttribute("fill", hex);
-          }
+          paint(el, fill, hatchBase);
           coloredIds.add(pathId);
         } else {
           misses++;
@@ -368,12 +409,45 @@ export const MapRenderer = ({ config, subjectOverlords, playerPaths = NO_PATHS, 
       }
     }
 
-    // Config paths are canonical IDs resolved from location-ids.json, so every
-    // one should exist in the asset. A miss means the id list and the shipped
-    // SVG have drifted apart — regenerate with scripts/generate-location-ids.mjs.
+    // Wastelands last, and never over a path a group already claimed: real
+    // ownership outranks an inferred enclosure. The rule cannot produce that
+    // collision — uninhabitable means unowned — but the invariant is worth
+    // holding anyway.
+    for (const [pathId, tag] of Object.entries(wastelandFills)) {
+      if (coloredIds.has(pathId)) {
+        continue;
+      } else {
+        /* unclaimed by any group — the enclosing country may paint it */
+      }
+      const el = paths.get(pathId);
+      if (!el) {
+        misses++;
+        continue;
+      } else {
+        /* the shape exists — find the colour to give it */
+      }
+
+      // A bare tag is a valid label here: isSubjectEntry only tests for the
+      // " - subjects" suffix, so a subject tag resolves through
+      // subjectOverlords to its overlord's colour and the same hatch its own
+      // territory carries.
+      const { fill, hatchBase } = fillFor(tag, hexByTag.get(tag) ?? "");
+      if (fill === "") {
+        // Nothing paints this country — an AI hidden by playersOnly. Its
+        // enclaves stay the default fill, exactly as its territory does.
+      } else {
+        paint(el, fill, hatchBase);
+        coloredIds.add(pathId);
+      }
+    }
+
+    // Every painted id is a canonical ID resolved from location-ids.json, so
+    // every one should exist in the asset. A miss means the id list and the
+    // shipped SVG have drifted apart — regenerate with
+    // scripts/generate-location-ids.mjs.
     if (misses > 0) {
       log.warn(
-        `${misses} config path id(s) had no shape in ${MAP_ASSET} — ` +
+        `${misses} path id(s) had no shape in ${MAP_ASSET} — ` +
           `location-ids.json may be stale relative to the asset.`,
       );
     } else {
@@ -393,7 +467,7 @@ export const MapRenderer = ({ config, subjectOverlords, playerPaths = NO_PATHS, 
       }
     }
 
-  }, [ready, config, subjectOverlords, mapStyle, styleOverrides, colorOverrides]);
+  }, [ready, config, subjectOverlords, wastelandFills, mapStyle, styleOverrides, colorOverrides]);
 
   /**
    * Frame the map on the player countries once the document is ready.
@@ -480,14 +554,14 @@ export const MapRenderer = ({ config, subjectOverlords, playerPaths = NO_PATHS, 
       /* borders are on and the inputs are present */
     }
 
-    const cached = borderCacheRef.current;
-    const fresh =
-      cached !== undefined &&
-      cached.ownership === borderOwnership &&
-      cached.adjacency === adjacency &&
-      cached.ids === adjacencyIds;
+    const cached = borderCacheRef.current.find(
+      (entry) =>
+        entry.ownership === borderOwnership &&
+        entry.adjacency === adjacency &&
+        entry.ids === adjacencyIds,
+    );
 
-    if (!fresh) {
+    const extract = (): string => {
       const paths = pathMapRef.current;
       // A shape is kept as its rings, because a line must never run from the
       // end of one to the start of the next. The flattened form is only for
@@ -539,17 +613,15 @@ export const MapRenderer = ({ config, subjectOverlords, playerPaths = NO_PATHS, 
       // One element holding every border as a subpath, rather than thousands
       // of elements: a large save yields ~9,400 polylines, and the browser
       // handles them far better as a single stroked path.
-      borderCacheRef.current = {
-        ownership: borderOwnership,
-        adjacency,
-        ids: adjacencyIds,
-        data: parts.join(""),
-      };
-    } else {
-      /* same inputs — reuse the geometry and just restyle it */
-    }
+      const extracted = parts.join("");
+      borderCacheRef.current = [
+        { ownership: borderOwnership, adjacency, ids: adjacencyIds, data: extracted },
+        ...borderCacheRef.current,
+      ].slice(0, BORDER_CACHE_SLOTS);
+      return extracted;
+    };
 
-    const data = borderCacheRef.current?.data ?? "";
+    const data = cached !== undefined ? cached.data : extract();
     if (data === "") {
       return;
     } else {

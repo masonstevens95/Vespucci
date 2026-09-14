@@ -227,6 +227,14 @@ export type CountryBuildings = Readonly<Record<string, readonly BuildingSummary[
 
 export interface ParsedSave {
   countryLocations: Record<string, string[]>;
+  /**
+   * Locations that are neither owned nor populated: wastelands, impassable
+   * mountains, deserts. Saves carry no wasteland flag, so this is derived from
+   * the shape of each location's database entry — see
+   * binary/sections/locations.ts. Names, not ids, so they resolve through
+   * location-resolve.ts like every other location name.
+   */
+  uninhabitableLocations: string[];
   tagToPlayers: Record<string, string[]>;
   countryColors: Record<string, RGB>;
   overlordSubjects: Record<string, Set<string>>;
@@ -333,6 +341,13 @@ export interface MapExport {
    * only: nothing here changes `config.groups` or the exported JSON.
    */
   readonly borderOwnership: BorderOwnership;
+  /**
+   * Canonical path ids of every location nobody can live in — wastelands,
+   * impassable mountains, deserts. View-time only: these ids are in no group,
+   * so painting the ones a country encloses moves no legend count and changes
+   * nothing in the exported MapChart JSON. Empty for a melted text save.
+   */
+  readonly wastelandPaths: readonly string[];
 }
 
 export interface ExportOptions {
