@@ -32,7 +32,7 @@ describe("getStyleConfig", () => {
     expect(config.bgColor).toBe("#b8c8c8");
     expect(config.legendBg).toBe("#f0e0c0");
     expect(config.outlineColor).toBe("#000000");
-    expect(config.outlineWidth).toBe("0");
+    expect(config.outlineWidth).toBe("1");
   });
 
   it("returns modern config for modern style", () => {
@@ -41,7 +41,7 @@ describe("getStyleConfig", () => {
     expect(config.bgColor).toBe("#a8c4d4");
     expect(config.legendBg).toBe("#1e1e2e");
     expect(config.outlineColor).toBe("#000000");
-    expect(config.outlineWidth).toBe("0");
+    expect(config.outlineWidth).toBe("1");
   });
 
   it("includes viewport class for parchment", () => {
@@ -183,7 +183,13 @@ describe("hasCustomOverrides with outline", () => {
 
   it("returns false when outlineWidth matches base", () => {
     const base = getBaseStyleConfig("parchment");
-    expect(hasCustomOverrides(base, { outlineWidth: "0" })).toBe(false);
+    expect(hasCustomOverrides(base, { outlineWidth: "1" })).toBe(false);
+  });
+
+  it("counts turning outlines off as a custom override", () => {
+    // Borders are on by default now, so 0 is a departure from the preset.
+    const base = getBaseStyleConfig("parchment");
+    expect(hasCustomOverrides(base, { outlineWidth: "0" })).toBe(true);
   });
 
 

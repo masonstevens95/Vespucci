@@ -80,6 +80,7 @@ File Upload (.eu5 or .txt)
 - Unresolvable names (lakes, sea zones, wastelands, `loc_<id>` placeholders) are dropped at config-build time, so every count from `paths.length` equals shapes actually painted
 - The map opens framed on player territory rather than the whole world, and `Reset View` returns to that frame. `MapExport.playerPaths` carries the ids; `config.groups` and the exported MapChart JSON are untouched
 - The downloaded PNG crops to the **same** region via `framedRegion`, always — never the current on-screen transform, so one save exports one image however the user has panned
+- `Outline Width` defaults to **1** (borders on), so the adjacency chunk is fetched as soon as a map is shown rather than on demand — the code split still keeps it off the initial page load
 - `Outline Width` means **country borders and coastline**, not per-location outlines. A player's territory is lined where it meets a different country and where it meets the sea — never on internal edges, and never against unclaimed land
 - Border ownership comes from `ParsedSave.countryLocations`, **not** `config.groups`: the config is filtered by `playersOnly`, so reading ownership from it would hide every player-versus-AI border in the default mode
 - Stale dependency entries (non-canonical country IDs) are filtered out

@@ -315,23 +315,26 @@ describe("country borders", () => {
     fireEvent.change(range, { target: { value } });
   };
 
-  it("does not fetch the adjacency graph at the default width", async () => {
+  it("fetches the adjacency graph at the default width", async () => {
+    // Borders are on by default, so the chunk is needed as soon as a map is
+    // shown — but still not before then, which is what the code split buys.
     const { container } = renderTab();
+    await waitFor(() => expect(loadAdjacency).toHaveBeenCalled());
     await waitFor(() => expect(container.querySelector(".map-svg")).toBeInTheDocument());
-    expect(loadAdjacency).not.toHaveBeenCalled();
   });
 
-  it("fetches the graph once the width is raised", async () => {
+  it("does not fetch the graph when outlines are turned off", async () => {
     const { container } = renderTab();
     await waitFor(() => expect(container.querySelector(".map-svg")).toBeInTheDocument());
-    setWidth(container, "0.6");
-    await waitFor(() => expect(loadAdjacency).toHaveBeenCalled());
+    loadAdjacency.mockClear();
+    setWidth(container, "0");
+    setWidth(container, "0");
+    expect(loadAdjacency).not.toHaveBeenCalled();
   });
 
   it("fetches the graph only once across repeated width changes", async () => {
     const { container } = renderTab();
     await waitFor(() => expect(container.querySelector(".map-svg")).toBeInTheDocument());
-    setWidth(container, "0.6");
     await waitFor(() => expect(loadAdjacency).toHaveBeenCalled());
     setWidth(container, "0.9");
     setWidth(container, "1.2");
@@ -346,8 +349,8 @@ describe("country borders", () => {
       /(\d+)\s*Locations/.exec(container.querySelector(".toolbar")?.textContent ?? "")?.[1];
     const before = locationCount();
     expect(before).toBeDefined();
-    setWidth(container, "0.6");
     await waitFor(() => expect(loadAdjacency).toHaveBeenCalled());
+    setWidth(container, "1.5");
     expect(locationCount()).toBe(before);
   });
 
