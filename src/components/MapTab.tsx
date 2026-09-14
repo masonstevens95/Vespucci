@@ -33,13 +33,15 @@ interface Props {
   config: MapChartConfig;
   /** Subject tag -> root overlord tag; drives subject hatching. */
   subjectOverlords: Readonly<Record<string, string>>;
+  /** Path ids held by players; frames the opening view and the PNG crop. */
+  playerPaths?: readonly string[];
   parseTimeMs: number;
   onCountryClick: (tag: string) => void;
   onReset: () => void;
   debugContent?: React.ReactNode;
 }
 
-export const MapTab = ({ config, subjectOverlords, parseTimeMs, onCountryClick, onReset, debugContent }: Props) => {
+export const MapTab = ({ config, subjectOverlords, playerPaths = [], parseTimeMs, onCountryClick, onReset, debugContent }: Props) => {
   const [mapStyle, setMapStyle] = useState<MapStyle>("parchment");
   const [styleOverrides, setStyleOverrides] = useState<StyleOverrides>({});
   const [colorOverrides, setColorOverrides] = useState<Record<string, string>>({});
@@ -269,6 +271,7 @@ export const MapTab = ({ config, subjectOverlords, parseTimeMs, onCountryClick, 
           <MapRenderer
             config={config}
             subjectOverlords={subjectOverlords}
+            playerPaths={playerPaths}
             mapStyle={mapStyle}
             styleOverrides={styleOverrides}
             colorOverrides={colorOverrides}

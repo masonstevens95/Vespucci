@@ -318,6 +318,13 @@ export interface MapExport {
   readonly config: MapChartConfig;
   /** Subject tag -> root overlord tag. Paint-time only; no group changes. */
   readonly subjectOverlords: Readonly<Record<string, string>>;
+  /**
+   * Path ids held by the player countries, including their subject territory.
+   * View-time only: these ids are already in `config.groups`, so nothing about
+   * the exported JSON or the legend counts changes. Drives the opening view
+   * and the downloaded PNG's crop; empty when the save has no players.
+   */
+  readonly playerPaths: readonly string[];
 }
 
 export interface ExportOptions {

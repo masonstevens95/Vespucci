@@ -40,6 +40,11 @@ interface Props {
   config: MapChartConfig;
   /** Subject tag -> root overlord tag. Paint-time only; no group changes. */
   subjectOverlords: Readonly<Record<string, string>>;
+  /**
+   * Path ids held by the player countries. The map opens framed on these, and
+   * "Reset View" returns there. Empty leaves the whole map in view.
+   */
+  playerPaths?: readonly string[];
   mapStyle: MapStyle;
   styleOverrides: StyleOverrides;
   colorOverrides: ColorOverrides;
