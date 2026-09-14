@@ -2,10 +2,10 @@
  * On-demand loader for the location adjacency graph.
  *
  * The graph is 718 KB — over half the size of the entire app bundle — and is
- * read only when country borders are actually being drawn, which they are not
- * at the default outline width of 0. A static import would put that cost on
- * every visitor for a feature many never switch on, so the asset is
- * code-split behind a dynamic import.
+ * read only when country borders are actually being drawn. Borders are on by
+ * default (outline width 0.1), so the fetch happens as soon as a map is shown
+ * rather than on demand; the split still keeps the cost off the initial page
+ * load, which is what a static import would spend it on.
  *
  * The promise is memoised rather than the value, so two callers arriving
  * together share one fetch instead of racing.
