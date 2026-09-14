@@ -15,14 +15,14 @@ export const fmtNum = (n: number): string =>
 export const fmtCurrency = (n: number): string =>
   n !== 0 ? (n / 1000).toFixed(1) : "—";
 
-/** Compute total province count from a MapChart config's groups. */
-export const computeProvinceCount = (
+/** Compute total location count from a MapChart config's groups. */
+export const computeLocationCount = (
   groups: Readonly<Record<string, { paths: readonly string[] }>>,
 ): number =>
   Object.values(groups).reduce((n, g) => n + g.paths.length, 0);
 
-/** Find the province count for a specific tag from config groups. */
-export const findTagProvinceCount = (
+/** Find the location count for a specific tag from config groups. */
+export const findTagLocationCount = (
   tag: string,
   groups: Readonly<Record<string, { label: string; paths: readonly string[] }>>,
 ): number => {

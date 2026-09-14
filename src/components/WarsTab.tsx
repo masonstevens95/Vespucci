@@ -225,8 +225,8 @@ const WarModal = ({ war, countryNames, onClose }: { war: WarData; countryNames: 
             ) : (<></>)}
             {occupiedCount > 0 ? (
               <div className="modal-row">
-                <span className="modal-row-label">Occupied Provinces</span>
-                <span className="modal-row-value">{occupiedCount} province{occupiedCount !== 1 ? "s" : ""} occupied</span>
+                <span className="modal-row-label">Occupied Locations</span>
+                <span className="modal-row-value">{occupiedCount} location{occupiedCount !== 1 ? "s" : ""} occupied</span>
               </div>
             ) : (<></>)}
             {war.battles.length > 0 ? (

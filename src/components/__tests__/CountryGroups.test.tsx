@@ -21,12 +21,12 @@ describe("CountryGroups", () => {
     expect(texts).toContain("FRA");
   });
 
-  it("renders province counts", () => {
+  it("renders location counts", () => {
     const { container } = render(<CountryGroups groups={groups} />);
     const counts = container.querySelectorAll(".group-count");
     const texts = Array.from(counts).map((c) => c.textContent?.trim());
-    expect(texts).toContain("2 provinces");
-    expect(texts).toContain("1 provinces");
+    expect(texts).toContain("2 locations");
+    expect(texts).toContain("1 locations");
   });
 
   it("renders color swatches with correct background", () => {

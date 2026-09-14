@@ -38,7 +38,7 @@ const baseConfig: MapChartConfig = {
   zoomY: "0.00",
   v6: true,
   mapTitleScale: 1,
-  page: "eu-v-provinces",
+  page: "eu-v-locations",
   mapVersion: null,
   legendPosition: "bottom_left",
   legendSize: "medium",
@@ -52,16 +52,16 @@ const baseConfig: MapChartConfig = {
 describe("MapTab", () => {
   it("renders toolbar with stats", () => {
     const { container } = render(
-      <MapTab config={baseConfig} parseTimeMs={500} onCountryClick={() => {}} onReset={() => {}} />,
+      <MapTab config={baseConfig} subjectOverlords={{}} parseTimeMs={500} onCountryClick={() => {}} onReset={() => {}} />,
     );
     expect(container.querySelector(".toolbar")).toBeInTheDocument();
     expect(container.textContent).toContain("Countries");
-    expect(container.textContent).toContain("Provinces");
+    expect(container.textContent).toContain("Locations");
   });
 
   it("renders style dropdown", () => {
     const { container } = render(
-      <MapTab config={baseConfig} parseTimeMs={500} onCountryClick={() => {}} onReset={() => {}} />,
+      <MapTab config={baseConfig} subjectOverlords={{}} parseTimeMs={500} onCountryClick={() => {}} onReset={() => {}} />,
     );
     const select = container.querySelector(".style-select") as HTMLSelectElement;
     expect(select).toBeInTheDocument();
@@ -70,15 +70,36 @@ describe("MapTab", () => {
 
   it("renders Download Map button", () => {
     const { container } = render(
-      <MapTab config={baseConfig} parseTimeMs={500} onCountryClick={() => {}} onReset={() => {}} />,
+      <MapTab config={baseConfig} subjectOverlords={{}} parseTimeMs={500} onCountryClick={() => {}} onReset={() => {}} />,
     );
     const toolbar = container.querySelector(".toolbar")! as HTMLElement;
     expect(within(toolbar).getByText("Download Map")).toBeInTheDocument();
   });
 
+  it("warns that the config targets the Locations map", () => {
+    // The page id and every path id changed with location granularity, so a
+    // config from this build will not load onto the provinces map. Multiplayer
+    // groups keep a MapChart project across sessions and never read PR notes.
+    const { container } = render(
+      <MapTab config={baseConfig} subjectOverlords={{}} parseTimeMs={500} onCountryClick={() => {}} onReset={() => {}} />,
+    );
+    expect(container.textContent).toContain("EU5 Locations");
+    expect(container.textContent).toContain("not compatible");
+  });
+
+  it("warns that subjects export as a lighter shade", () => {
+    // The PNG and the screen hatch; the config cannot, so users who paste it
+    // into mapchart.net must not read the difference as a bug.
+    const { container } = render(
+      <MapTab config={baseConfig} subjectOverlords={{}} parseTimeMs={500} onCountryClick={() => {}} onReset={() => {}} />,
+    );
+    expect(container.textContent).toContain("lighter shade");
+    expect(container.textContent).toContain("hatching");
+  });
+
   it("renders Download Config button", () => {
     const { container } = render(
-      <MapTab config={baseConfig} parseTimeMs={500} onCountryClick={() => {}} onReset={() => {}} />,
+      <MapTab config={baseConfig} subjectOverlords={{}} parseTimeMs={500} onCountryClick={() => {}} onReset={() => {}} />,
     );
     const toolbar = container.querySelector(".toolbar")! as HTMLElement;
     expect(within(toolbar).getByText("Download Config")).toBeInTheDocument();
@@ -86,7 +107,7 @@ describe("MapTab", () => {
 
   it("renders New File button", () => {
     const { container } = render(
-      <MapTab config={baseConfig} parseTimeMs={500} onCountryClick={() => {}} onReset={() => {}} />,
+      <MapTab config={baseConfig} subjectOverlords={{}} parseTimeMs={500} onCountryClick={() => {}} onReset={() => {}} />,
     );
     const toolbar = container.querySelector(".toolbar")! as HTMLElement;
     expect(within(toolbar).getByText("New File")).toBeInTheDocument();
@@ -94,7 +115,7 @@ describe("MapTab", () => {
 
   it("renders map and legend panels", async () => {
     const { container } = render(
-      <MapTab config={baseConfig} parseTimeMs={500} onCountryClick={() => {}} onReset={() => {}} />,
+      <MapTab config={baseConfig} subjectOverlords={{}} parseTimeMs={500} onCountryClick={() => {}} onReset={() => {}} />,
     );
     await waitFor(() => {
       expect(container.querySelector(".map-layout")).toBeInTheDocument();
@@ -106,6 +127,7 @@ describe("MapTab", () => {
     const { container } = render(
       <MapTab
         config={baseConfig}
+        subjectOverlords={{}}
         parseTimeMs={500}
         onCountryClick={() => {}}
         onReset={() => {}}
@@ -117,14 +139,14 @@ describe("MapTab", () => {
 
   it("does not render debug content when not provided", () => {
     const { container } = render(
-      <MapTab config={baseConfig} parseTimeMs={500} onCountryClick={() => {}} onReset={() => {}} />,
+      <MapTab config={baseConfig} subjectOverlords={{}} parseTimeMs={500} onCountryClick={() => {}} onReset={() => {}} />,
     );
     expect(container.querySelector(".test-debug")).not.toBeInTheDocument();
   });
 
   it("renders color pickers in style row", () => {
     const { container } = render(
-      <MapTab config={baseConfig} parseTimeMs={500} onCountryClick={() => {}} onReset={() => {}} />,
+      <MapTab config={baseConfig} subjectOverlords={{}} parseTimeMs={500} onCountryClick={() => {}} onReset={() => {}} />,
     );
     const colorInputs = container.querySelectorAll(".style-color-input");
     expect(colorInputs.length).toBeGreaterThan(0);

@@ -21,7 +21,7 @@ const mockConfig = {
   areBordersShown: true, defaultColor: "#d1dbdd", labelsColor: "#6a0707",
   labelsFont: "Arial", strokeWidth: "medium", areLabelsShown: false,
   uncoloredScriptColor: "#ffff33", zoomLevel: "1.00", zoomX: "0.00",
-  zoomY: "0.00", v6: true, mapTitleScale: 1, page: "eu-v-provinces",
+  zoomY: "0.00", v6: true, mapTitleScale: 1, page: "eu-v-locations",
   mapVersion: null, legendPosition: "bottom_left", legendSize: "medium",
   legendTranslateX: "0.00", legendStatus: "show", scalingPatterns: true,
   legendRowsSameColor: true, legendColumnCount: 1,
@@ -29,9 +29,7 @@ const mockConfig = {
 
 const props = {
   parsed: mockParsed,
-  locToProvince: { london: "Middlesex", paris: "Ile_de_France" },
   config: mockConfig,
-  provinceMapping: { Middlesex: ["London"], Ile_de_France: ["Paris"] },
 };
 
 function renderPanel() {
@@ -53,7 +51,7 @@ describe("DebugPanel", () => {
     expect(view.getByText(/Country Colors/)).toBeInTheDocument();
     expect(view.getByText(/Players/)).toBeInTheDocument();
     expect(view.getByText(/Vassal Relationships/)).toBeInTheDocument();
-    expect(view.getByText(/Province Mapping/)).toBeInTheDocument();
+    expect(view.getByText(/Location Resolution/)).toBeInTheDocument();
     expect(view.getByText("Raw Config JSON")).toBeInTheDocument();
   });
 
@@ -83,6 +81,6 @@ describe("DebugPanel", () => {
     expect(view.getByText(/Country Colors \(2\)/)).toBeInTheDocument();
     expect(view.getByText(/Players \(1 countries\)/)).toBeInTheDocument();
     expect(view.getByText(/2 subjects/)).toBeInTheDocument();
-    expect(view.getByText(/Province Mapping \(2 provinces\)/)).toBeInTheDocument();
+    expect(view.getByText(/Location Resolution \(\d+ painted\)/)).toBeInTheDocument();
   });
 });

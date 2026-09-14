@@ -7,7 +7,10 @@
 
 import type { MapChartConfig, MapChartGroup, RGB } from "./types";
 import { generateDistinctColors, rgbToHex } from "./colors";
-import { mapToProvinces } from "./province-mapping";
+import { resolveCountryLocations } from "./location-resolve";
+import { createLogger } from "./logger";
+
+const log = createLogger("mapchart-config");
 
 // =============================================================================
 // Config options
@@ -17,6 +20,8 @@ export interface ConfigOptions {
   readonly title?: string;
   readonly tagLabels?: Record<string, string>;
   readonly allowedTags?: ReadonlySet<string>;
+  /** Override the canonical-ID index. Tests inject a small index here. */
+  readonly locationIndex?: Record<string, string>;
 }
 
 // =============================================================================
@@ -77,11 +82,11 @@ export const resolveLabel = (
 ): string =>
   tagLabels[tag] ?? tag;
 
-/** Build map groups from sorted tags, colors, and provinces. */
+/** Build map groups from sorted tags, colors, and canonical location IDs. */
 export const buildGroups = (
   tags: readonly string[],
   colors: Record<string, RGB>,
-  countryProvinces: Record<string, string[]>,
+  countryPaths: Record<string, string[]>,
   tagLabels: Record<string, string>,
 ): Record<string, MapChartGroup> => {
   const result: Record<string, MapChartGroup> = {};
@@ -93,7 +98,7 @@ export const buildGroups = (
     usedHex.set(hex, tag);
     result[hex] = {
       label: resolveLabel(tag, tagLabels),
-      paths: countryProvinces[tag] ?? [],
+      paths: countryPaths[tag] ?? [],
     };
   }
 
@@ -124,7 +129,7 @@ export const defaultConfigValues = (): Omit<MapChartConfig, "groups" | "title"> 
   zoomY: "0.00",
   v6: true,
   mapTitleScale: 1,
-  page: "eu-v-provinces",
+  page: "eu-v-locations",
   mapVersion: null,
   legendPosition: "bottom_left",
   legendSize: "medium",
@@ -143,20 +148,36 @@ export const defaultConfigValues = (): Omit<MapChartConfig, "groups" | "title"> 
 export const generateMapChartConfig = (
   countryLocations: Record<string, string[]>,
   countryColors: Record<string, RGB>,
-  locToProvince: Record<string, string>,
   options: ConfigOptions = {},
 ): MapChartConfig => {
-  const allCountryProvinces = mapToProvinces(countryLocations, locToProvince);
-  // Filter to allowed tags after province majority voting
-  const countryProvinces = options.allowedTags !== undefined
+  // Resolve save names (lowercase) to canonical MapChart path IDs (Title_Case).
+  // Names with no shape on the land map are dropped here, so group paths only
+  // ever contain IDs that will actually be painted.
+  const resolution = resolveCountryLocations(countryLocations, options.locationIndex);
+
+  // Countries do not own lakes, sea zones or wastelands, so a non-zero drop
+  // count means name alignment has drifted — a game patch, a refreshed asset,
+  // or a stale location-ids.json. Report it without throwing (R3).
+  if (resolution.droppedCount > 0) {
+    log.warn(
+      `${resolution.droppedCount} owned location name(s) matched no shape on the map ` +
+        `— check name alignment with scripts/check-location-coverage.mjs. ` +
+        `Sample: ${resolution.droppedSample.join(", ")}`,
+    );
+  } else {
+    /* every owned location resolved — nothing to report */
+  }
+
+  const allCountryPaths = resolution.resolved;
+  const countryPaths = options.allowedTags !== undefined
     ? Object.fromEntries(
-        Object.entries(allCountryProvinces).filter(([tag]) => options.allowedTags!.has(tag)),
+        Object.entries(allCountryPaths).filter(([tag]) => options.allowedTags!.has(tag)),
       )
-    : allCountryProvinces;
+    : allCountryPaths;
   const tagLabels = options.tagLabels ?? {};
-  const tags = sortTagsByLabel(Object.keys(countryProvinces), tagLabels);
+  const tags = sortTagsByLabel(Object.keys(countryPaths), tagLabels);
   const colors = fillMissingColors(tags, countryColors);
-  const groups = buildGroups(tags, colors, countryProvinces, tagLabels);
+  const groups = buildGroups(tags, colors, countryPaths, tagLabels);
 
   return {
     groups,

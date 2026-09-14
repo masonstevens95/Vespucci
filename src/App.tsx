@@ -2,9 +2,7 @@ import { useState, useCallback } from "react";
 import { parseMeltedSave } from "./lib/save-parser";
 import { parseBinarySave } from "./lib/binary";
 import { exportMapChartConfig } from "./lib/export";
-import { buildLocationToProvince } from "./lib/province-mapping";
 import { isBinarySave } from "./lib/save-utils";
-import provinceMapping from "./lib/mapchart_province_mapping.json";
 import type { ParsedSave, MapChartConfig } from "./lib/types";
 import { DropZone } from "./components/DropZone";
 import { CountryGroups } from "./components/CountryGroups";
@@ -18,7 +16,7 @@ import { TradeTab } from "./components/TradeTab";
 import { WarsTab } from "./components/WarsTab";
 import { buildCountryInfo } from "./lib/country-info";
 import type { CountryInfo } from "./lib/country-info";
-import { findTagProvinceCount } from "./lib/format";
+import { findTagLocationCount } from "./lib/format";
 import "./App.css";
 
 export type Status = "idle" | "reading" | "parsing" | "done" | "error";
@@ -26,8 +24,9 @@ export type AppTab = "map" | "rankings" | "trade" | "military" | "wars";
 
 export interface DebugData {
   parsed: ParsedSave;
-  locToProvince: Record<string, string>;
   config: MapChartConfig;
+  /** Subject tag -> root overlord tag; drives subject hatching. */
+  subjectOverlords: Readonly<Record<string, string>>;
   parseTimeMs: number;
   fileSizeMb: number;
 }
@@ -60,14 +59,13 @@ export default function App() {
           ? parseBinarySave(bytes)
           : parseMeltedSave(new TextDecoder().decode(bytes));
 
-        const locToProvince = buildLocationToProvince(provinceMapping);
-        const config = exportMapChartConfig(parsed, provinceMapping, {
+        const { config, subjectOverlords } = exportMapChartConfig(parsed, {
           playersOnly,
           title,
         });
         const parseTimeMs = performance.now() - t0;
 
-        setDebug({ parsed, locToProvince, config, parseTimeMs, fileSizeMb: sizeMb });
+        setDebug({ parsed, config, subjectOverlords, parseTimeMs, fileSizeMb: sizeMb });
         setStatus("done");
       } catch (e) {
         setError(e instanceof Error ? e.message : String(e));
@@ -79,7 +77,7 @@ export default function App() {
 
   const handleCountryClick = useCallback((tag: string) => {
     if (!debug) return;
-    const count = findTagProvinceCount(tag, debug.config.groups);
+    const count = findTagLocationCount(tag, debug.config.groups);
     const info = buildCountryInfo(tag, debug.parsed, count);
     setSelectedCountry(info);
   }, [debug]);
@@ -144,6 +142,7 @@ export default function App() {
             {activeTab === "map" && (
               <MapTab
                 config={debug.config}
+                subjectOverlords={debug.subjectOverlords}
                 parseTimeMs={debug.parseTimeMs}
                 onCountryClick={handleCountryClick}
                 onReset={handleReset}
@@ -152,9 +151,7 @@ export default function App() {
                     <CountryGroups groups={debug.config.groups} />
                     <DebugPanel
                       parsed={debug.parsed}
-                      locToProvince={debug.locToProvince}
                       config={debug.config}
-                      provinceMapping={provinceMapping}
                     />
                   </div>
                 ) : undefined}

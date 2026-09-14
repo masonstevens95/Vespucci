@@ -11,10 +11,13 @@ import {
 } from "../mapchart-config";
 import type { RGB } from "../types";
 
-const locToProvince: Record<string, string> = {
-  stockholm: "Uppland",
-  paris: "Ile_de_France",
-  london: "Middlesex",
+// Lowercase save name -> canonical MapChart path ID, mirroring the real index.
+// "bar_le_duc" carries the lowercase-particle casing that title-casing breaks.
+const locationIndex: Record<string, string> = {
+  stockholm: "Stockholm",
+  paris: "Paris",
+  london: "London",
+  bar_le_duc: "Bar_le_Duc",
 };
 
 // =============================================================================
@@ -157,7 +160,7 @@ describe("buildGroups", () => {
 describe("defaultConfigValues", () => {
   it("returns expected static fields", () => {
     const defaults = defaultConfigValues();
-    expect(defaults.page).toBe("eu-v-provinces");
+    expect(defaults.page).toBe("eu-v-locations");
     expect(defaults.v6).toBe(true);
     expect(defaults.areBordersShown).toBe(true);
     expect(defaults.defaultColor).toBe("#d1dbdd");
@@ -174,9 +177,9 @@ describe("generateMapChartConfig", () => {
     const config = generateMapChartConfig(
       { SWE: ["stockholm"], FRA: ["paris"] },
       { SWE: [0, 0, 255], FRA: [33, 33, 173] },
-      locToProvince,
+      { locationIndex },
     );
-    expect(config.page).toBe("eu-v-provinces");
+    expect(config.page).toBe("eu-v-locations");
     expect(config.v6).toBe(true);
     expect(config.hidden).toEqual([]);
   });
@@ -185,7 +188,7 @@ describe("generateMapChartConfig", () => {
     const config = generateMapChartConfig(
       { SWE: ["stockholm"] },
       { SWE: [0, 0, 255] },
-      locToProvince,
+      { locationIndex },
     );
     expect(config.groups["#0000ff"]).toBeDefined();
     expect(config.groups["#0000ff"].label).toBe("SWE");
@@ -195,7 +198,7 @@ describe("generateMapChartConfig", () => {
     const config = generateMapChartConfig(
       { SWE: ["stockholm"], FRA: ["paris"] },
       {},
-      locToProvince,
+      { locationIndex },
     );
     const hexKeys = Object.keys(config.groups);
     expect(hexKeys).toHaveLength(2);
@@ -209,7 +212,7 @@ describe("generateMapChartConfig", () => {
     const config = generateMapChartConfig(
       { AAA: ["stockholm"], BBB: ["paris"] },
       { AAA: sameColor, BBB: [...sameColor] },
-      locToProvince,
+      { locationIndex },
     );
     const hexKeys = Object.keys(config.groups);
     expect(hexKeys).toHaveLength(2);
@@ -220,8 +223,7 @@ describe("generateMapChartConfig", () => {
     const config = generateMapChartConfig(
       { SWE: ["stockholm"] },
       { SWE: [0, 0, 255] },
-      locToProvince,
-      { tagLabels: { SWE: "SWE - Alice" } },
+      { locationIndex, tagLabels: { SWE: "SWE - Alice" } },
     );
     expect(config.groups["#0000ff"].label).toBe("SWE - Alice");
   });
@@ -230,13 +232,13 @@ describe("generateMapChartConfig", () => {
     const config = generateMapChartConfig(
       { SWE: ["stockholm"] },
       { SWE: [0, 0, 255] },
-      locToProvince,
+      { locationIndex },
     );
     expect(config.groups["#0000ff"].label).toBe("SWE");
   });
 
   it("sets title from options", () => {
-    const config = generateMapChartConfig({}, {}, locToProvince, { title: "My Map" });
+    const config = generateMapChartConfig({}, {}, { locationIndex, title: "My Map" });
     expect(config.title).toBe("My Map");
   });
 
@@ -244,7 +246,7 @@ describe("generateMapChartConfig", () => {
     const config = generateMapChartConfig(
       { ZZZ: ["stockholm"], AAA: ["paris", "london"] },
       { ZZZ: [255, 0, 0], AAA: [0, 255, 0] },
-      locToProvince,
+      { locationIndex },
     );
     const labels = Object.values(config.groups).map((g) => g.label);
     expect(labels[0]).toBe("AAA");
@@ -252,7 +254,55 @@ describe("generateMapChartConfig", () => {
   });
 
   it("returns config with no groups for empty input", () => {
-    const config = generateMapChartConfig({}, {}, locToProvince);
+    const config = generateMapChartConfig({}, {}, { locationIndex });
     expect(Object.keys(config.groups)).toHaveLength(0);
+  });
+});
+
+describe("generateMapChartConfig — canonical ID resolution", () => {
+  it("emits canonical Title_Case IDs, not the save's lowercase names", () => {
+    const config = generateMapChartConfig(
+      { SWE: ["stockholm"] },
+      { SWE: [0, 0, 255] },
+      { locationIndex },
+    );
+    expect(config.groups["#0000ff"].paths).toEqual(["Stockholm"]);
+  });
+
+  it("preserves lowercase particles that title-casing would break", () => {
+    const config = generateMapChartConfig(
+      { FRA: ["bar_le_duc"] },
+      { FRA: [0, 0, 255] },
+      { locationIndex },
+    );
+    expect(config.groups["#0000ff"].paths).toEqual(["Bar_le_Duc"]);
+  });
+
+  it("drops names with no shape on the map rather than emitting them", () => {
+    const config = generateMapChartConfig(
+      { SWE: ["stockholm", "malaren", "loc_9999"] },
+      { SWE: [0, 0, 255] },
+      { locationIndex },
+    );
+    expect(config.groups["#0000ff"].paths).toEqual(["Stockholm"]);
+  });
+
+  it("keeps a tag with an empty paths array when nothing resolves", () => {
+    const config = generateMapChartConfig(
+      { SWE: ["malaren"] },
+      { SWE: [0, 0, 255] },
+      { locationIndex },
+    );
+    expect(config.groups["#0000ff"].paths).toEqual([]);
+  });
+
+  it("counts only paintable shapes, so path totals match the map", () => {
+    const config = generateMapChartConfig(
+      { SWE: ["stockholm", "malaren"], FRA: ["paris", "bar_le_duc"] },
+      { SWE: [0, 0, 255], FRA: [255, 0, 0] },
+      { locationIndex },
+    );
+    const total = Object.values(config.groups).reduce((n, g) => n + g.paths.length, 0);
+    expect(total).toBe(3);
   });
 });

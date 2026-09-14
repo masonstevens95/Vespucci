@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
+  buildSubjectOverlords,
   buildTagLabel,
   buildAllTagLabels,
   filterToPlayers,
@@ -10,11 +11,12 @@ import {
 import { buildMinimalSave } from "./fixtures/minimal-save";
 import type { RGB } from "../types";
 
-const provinceMapping: Record<string, string[]> = {
-  Uppland: ["Stockholm"],
-  Ile_de_France: ["Paris"],
-  Middlesex: ["London"],
-  Edinburgh: ["Edinburgh"],
+// Lowercase save name -> canonical MapChart path ID.
+const locationIndex: Record<string, string> = {
+  stockholm: "Stockholm",
+  paris: "Paris",
+  london: "London",
+  edinburgh: "Edinburgh",
 };
 
 // =============================================================================
@@ -138,7 +140,7 @@ describe("exportMapChartConfig", () => {
       ownership: { 0: 0, 1: 1, 2: 2 },
       players: [{ name: "Alice", country: 0 }],
     });
-    const config = exportMapChartConfig(save, provinceMapping);
+    const config = exportMapChartConfig(save, { locationIndex }).config;
     const labels = Object.values(config.groups).map((g) => g.label);
     expect(labels).toContain("SWE - Alice");
     expect(labels).toContain("FRA");
@@ -152,7 +154,7 @@ describe("exportMapChartConfig", () => {
       ownership: { 0: 0, 1: 1, 2: 2 },
       players: [{ name: "Alice", country: 0 }],
     });
-    const config = exportMapChartConfig(save, provinceMapping, { playersOnly: true });
+    const config = exportMapChartConfig(save, { locationIndex, playersOnly: true }).config;
     const labels = Object.values(config.groups).map((g) => g.label);
     expect(labels).toContain("SWE - Alice");
     expect(labels).not.toContain("FRA");
@@ -168,7 +170,7 @@ describe("exportMapChartConfig", () => {
       ioVassals: [{ leader: 0, members: [0, 1] }],
       players: [{ name: "Alice", country: 0 }],
     });
-    const config = exportMapChartConfig(save, provinceMapping, { playersOnly: true });
+    const config = exportMapChartConfig(save, { locationIndex, playersOnly: true }).config;
     const labels = Object.values(config.groups).map((g) => g.label);
     expect(labels).toContain("ENG - Alice");
     expect(labels).toContain("ENG - subjects");
@@ -190,14 +192,14 @@ describe("exportMapChartConfig", () => {
         { name: "Bob", country: 0 },
       ],
     });
-    const config = exportMapChartConfig(save, provinceMapping);
+    const config = exportMapChartConfig(save, { locationIndex }).config;
     const labels = Object.values(config.groups).map((g) => g.label);
     expect(labels).toContain("FRA - Alice, Bob");
   });
 
   it("sets title from options", () => {
     const save = buildMinimalSave();
-    const config = exportMapChartConfig(save, provinceMapping, { title: "Test Map" });
+    const config = exportMapChartConfig(save, { locationIndex, title: "Test Map" }).config;
     expect(config.title).toBe("Test Map");
   });
 
@@ -208,7 +210,7 @@ describe("exportMapChartConfig", () => {
       ownership: { 0: 0 },
       players: [],
     });
-    const config = exportMapChartConfig(save, provinceMapping, { playersOnly: true });
+    const config = exportMapChartConfig(save, { locationIndex, playersOnly: true }).config;
     const labels = Object.values(config.groups).map((g) => g.label);
     expect(labels).toContain("SWE");
   });
@@ -221,7 +223,7 @@ describe("exportMapChartConfig", () => {
       ioVassals: [{ leader: 0, members: [0, 1] }],
       players: [{ name: "Alice", country: 0 }],
     });
-    const config = exportMapChartConfig(save, provinceMapping, { playersOnly: true });
+    const config = exportMapChartConfig(save, { locationIndex, playersOnly: true }).config;
     const labels = Object.values(config.groups).map((g) => g.label);
     expect(labels).not.toContain("ENG - subjects");
   });
@@ -234,8 +236,75 @@ describe("exportMapChartConfig", () => {
       overlordSubjects: {},
       countryNames: {}, countryStats: {}, locationRgos: {}, countryProduction: {}, countryLastMonthProduced: {}, goodsRankings: {}, producedGoodsRankings: {}, goodAvgPrices: {}, countryBuildings: {}, wars: [], pastWars: [], warReparations: [], annulledTreaties: [], royalMarriages: [], activeCBs: [], trade: { producedGoods: {}, marketNames: {}, marketOwners: {}, markets: [] },
     };
-    const config = exportMapChartConfig(parsed, provinceMapping);
+    const config = exportMapChartConfig(parsed, { locationIndex }).config;
     const labels = Object.values(config.groups).map((g) => g.label);
     expect(labels).toContain("SWE - Alice");
+  });
+});
+
+// =============================================================================
+// Subject -> root overlord mapping
+// =============================================================================
+
+const subjectSets = (pairs: Record<string, string[]>): Record<string, Set<string>> =>
+  Object.fromEntries(Object.entries(pairs).map(([k, v]) => [k, new Set(v)]));
+
+describe("buildSubjectOverlords", () => {
+  it("maps a direct subject to its overlord", () => {
+    const result = buildSubjectOverlords(subjectSets({ FRA: ["BUR"] }));
+    expect(result).toEqual({ BUR: "FRA" });
+  });
+
+  it("flattens a chain to the root overlord", () => {
+    // A -> B -> C: C is painted A's colour, and so is B.
+    const result = buildSubjectOverlords(subjectSets({ A: ["B"], B: ["C"] }));
+    expect(result).toEqual({ B: "A", C: "A" });
+  });
+
+  it("maps every subject type through the same path", () => {
+    // overlordSubjects carries no type information, so vassal/fiefdom/march
+    // are indistinguishable here by construction (R4).
+    const result = buildSubjectOverlords(subjectSets({ FRA: ["BUR", "PRO", "BAR"] }));
+    expect(result).toEqual({ BUR: "FRA", PRO: "FRA", BAR: "FRA" });
+  });
+
+  it("omits countries that are neither overlord nor subject", () => {
+    const result = buildSubjectOverlords(subjectSets({ FRA: ["BUR"] }));
+    expect(result.ENG).toBeUndefined();
+    expect(result.FRA).toBeUndefined();
+  });
+
+  it("omits an overlord with no subjects", () => {
+    expect(buildSubjectOverlords(subjectSets({ FRA: [] }))).toEqual({});
+  });
+
+  it("returns empty for empty input", () => {
+    expect(buildSubjectOverlords({})).toEqual({});
+  });
+
+  it("terminates on a two-tag cycle rather than looping", () => {
+    // Four independent writers populate overlordSubjects and none guarantees
+    // acyclicity; a hang here would stop the app loading a save at all.
+    const result = buildSubjectOverlords(subjectSets({ A: ["B"], B: ["A"] }));
+    expect(Object.keys(result).sort()).toEqual(["A", "B"]);
+  });
+
+  it("terminates on a longer cycle", () => {
+    const result = buildSubjectOverlords(subjectSets({ A: ["B"], B: ["C"], C: ["A"] }));
+    expect(Object.keys(result).sort()).toEqual(["A", "B", "C"]);
+  });
+
+  it("resolves a tag listed under two overlords deterministically", () => {
+    const first = buildSubjectOverlords(subjectSets({ FRA: ["BUR"], ENG: ["BUR"] }));
+    const second = buildSubjectOverlords(subjectSets({ FRA: ["BUR"], ENG: ["BUR"] }));
+    expect(first.BUR).toBe(second.BUR);
+    expect(["FRA", "ENG"]).toContain(first.BUR);
+  });
+
+  it("does not mutate its input", () => {
+    const input = subjectSets({ A: ["B"], B: ["C"] });
+    buildSubjectOverlords(input);
+    expect([...input.A]).toEqual(["B"]);
+    expect([...input.B]).toEqual(["C"]);
   });
 });

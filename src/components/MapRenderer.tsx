@@ -9,25 +9,75 @@ import {
 } from "../lib/map-styles";
 import type { Transform, StyleOverrides, ColorOverrides } from "../lib/map-styles";
 import { applyColorOverrides } from "../lib/map-styles";
+import { createLogger } from "../lib/logger";
+import { isSubjectEntry } from "../lib/legend-sort";
+
+const log = createLogger("MapRenderer");
+
+const MAP_ASSET = "/eu-v-locations.svg";
+const SVG_NS = "http://www.w3.org/2000/svg";
+const OUTLINE_CLASS = "outline-layer";
+const DEFS_CLASS = "hatch-defs";
+
+/** Hatch geometry, in viewBox units (locations average ~6 units across). */
+const HATCH_PERIOD = 1.6;
+const HATCH_STRIPE = 0.55;
+const HATCH_ANGLE = 45;
+
+/** Darken a hex for the hatch stripe and the seam stroke. */
+const shadeHex = (hex: string, factor: number): string => {
+  const n = parseInt(hex.replace("#", ""), 16);
+  if (Number.isNaN(n)) return hex;
+  const ch = [(n >> 16) & 255, (n >> 8) & 255, n & 255]
+    .map((c) => Math.max(0, Math.min(255, Math.round(c * factor))));
+  return `#${ch.map((c) => c.toString(16).padStart(2, "0")).join("")}`;
+};
+
+/** Stable, selector-safe pattern id for a resolved colour. */
+const hatchIdFor = (hex: string): string => `hatch-${hex.replace("#", "")}`;
 
 interface Props {
   config: MapChartConfig;
+  /** Subject tag -> root overlord tag. Paint-time only; no group changes. */
+  subjectOverlords: Readonly<Record<string, string>>;
   mapStyle: MapStyle;
   styleOverrides: StyleOverrides;
   colorOverrides: ColorOverrides;
   onProvinceClick?: (tag: string) => void;
 }
 
-export const MapRenderer = ({ config, mapStyle, styleOverrides, colorOverrides, onProvinceClick }: Props) => {
+/**
+ * Renders the location map: 22,711 SVG paths, colored from config groups.
+ *
+ * The document is fetched and parsed exactly once, on mount. Recoloring then
+ * mutates the live nodes in place — at this path count, re-parsing and
+ * re-serializing on every style or color change costs seconds per interaction.
+ *
+ * Two properties carry the design:
+ *  - the recolor effect is gated on `ready`, because the load is async and an
+ *    ungated effect would run once against an empty path map and never re-run,
+ *    leaving the map uncolored until the user happened to touch a control;
+ *  - the recolor effect is idempotent over fill, the inline `style` attribute
+ *    and the outline layer, because nothing rebuilds the document any more.
+ *    Resetting only `fill` would accumulate outline clones and leave stale
+ *    shrink transforms behind as permanent hairline gaps.
+ */
+export const MapRenderer = ({ config, subjectOverlords, mapStyle, styleOverrides, colorOverrides, onProvinceClick }: Props) => {
   const containerRef = useRef<HTMLDivElement>(null);
-  const [svgContent, setSvgContent] = useState("");
-  const [loading, setLoading] = useState(true);
+  const svgHostRef = useRef<HTMLDivElement>(null);
+  const svgRef = useRef<SVGSVGElement | null>(null);
+  const pathMapRef = useRef<Map<string, SVGPathElement>>(new Map());
+  const strokeStyleRef = useRef<SVGStyleElement | null>(null);
+  const defsRef = useRef<SVGDefsElement | null>(null);
+  const [ready, setReady] = useState(false);
+  const [loadError, setLoadError] = useState("");
+  const [reloadKey, setReloadKey] = useState(0);
   const [transform, setTransform] = useState<Transform>(IDENTITY_TRANSFORM);
   const dragRef = useRef<{ startX: number; startY: number; originX: number; originY: number } | null>(null);
   const mouseDownPosRef = useRef<{ x: number; y: number } | null>(null);
-  const provinceToTagRef = useRef<Map<string, string>>(new Map());
+  const locationToTagRef = useRef<Map<string, string>>(new Map());
 
-  // Build province → tag lookup whenever config changes
+  // Build location → tag lookup whenever config changes
   useEffect(() => {
     const map = new Map<string, string>();
     for (const [, group] of Object.entries(config.groups)) {
@@ -36,113 +86,287 @@ export const MapRenderer = ({ config, mapStyle, styleOverrides, colorOverrides, 
         map.set(path, tag);
       }
     }
-    provinceToTagRef.current = map;
+    locationToTagRef.current = map;
   }, [config]);
 
-  // Handle click on map — find province path and fire callback
+  // Handle click on map — find location path and fire callback
   const handleMapClick = useCallback((e: React.MouseEvent) => {
     if (!onProvinceClick) return;
     const target = e.target as SVGElement;
+    // Path IDs must stay on the injected nodes for this lookup to work.
     const id = target.getAttribute?.("id") ?? "";
     if (id === "") return;
-    const tag = provinceToTagRef.current.get(id);
+    const tag = locationToTagRef.current.get(id);
     if (tag !== undefined) {
       onProvinceClick(tag);
     }
   }, [onProvinceClick]);
 
-  // Fetch and color the SVG
+  // ---------------------------------------------------------------------------
+  // Effect A: fetch, parse and inject the document — once per mount.
+  // ---------------------------------------------------------------------------
   useEffect(() => {
     let cancelled = false;
+    // No state reset here: `ready` and `loadError` already hold their initial
+    // values on mount, and the retry handler clears them before bumping
+    // reloadKey. Resetting synchronously inside the effect would queue a
+    // cascading render on every mount for no benefit.
+
     const loadSvg = async () => {
-      setLoading(true);
-      const resp = await fetch("/eu-v-provinces.svg");
-      const text = await resp.text();
+      const text = await fetch(MAP_ASSET)
+        .then((resp) => resp.text())
+        .catch((err: unknown) => {
+          log.error(`failed to load ${MAP_ASSET}: ${String(err)}`);
+          return "";
+        });
+
       if (cancelled) return;
 
-      const parser = new DOMParser();
-      const doc = parser.parseFromString(text, "image/svg+xml");
-      const svg = doc.querySelector("svg");
-      if (!svg) return;
+      if (text === "") {
+        setLoadError(`Could not load the map (${MAP_ASSET}).`);
+        return;
+      } else {
+        /* document fetched — parse below */
+      }
 
+      const doc = new DOMParser().parseFromString(text, "image/svg+xml");
+      const parsed = doc.querySelector("svg");
+      if (!parsed) {
+        setLoadError("The map file could not be parsed.");
+        return;
+      } else {
+        /* parsed successfully */
+      }
+
+      const host = svgHostRef.current;
+      if (!host) return;
+
+      const svg = document.importNode(parsed, true) as SVGSVGElement;
       svg.removeAttribute("width");
       svg.removeAttribute("height");
       svg.setAttribute("class", "map-svg");
 
-      const style = getStyleConfig(mapStyle, styleOverrides);
-      const ns = "http://www.w3.org/2000/svg";
-
-      // Apply color overrides to groups
-      const groups = applyColorOverrides(config.groups, colorOverrides);
-
-      // Build set of colored path IDs
-      const coloredIds = new Set<string>();
-      for (const [, group] of Object.entries(groups)) {
-        for (const pathId of group.paths) {
-          coloredIds.add(pathId);
-        }
-      }
-
-      // Fill layer: set fills and match-fill strokes (invisible province borders)
-      // Remove inline styles first — some SVG paths have style="fill:..." which
-      // overrides the fill attribute.
-      const allPaths = svg.querySelectorAll("path");
-      for (const p of allPaths) {
+      // Build the id → element map in one pass. Cheaper than repeated document
+      // lookups, and keeps resolution local to this component.
+      const map = new Map<string, SVGPathElement>();
+      for (const p of svg.querySelectorAll("path")) {
+        // Some paths carry style="fill:..." which overrides the fill attribute.
         p.removeAttribute("style");
-        p.setAttribute("fill", style.defaultFill);
-        p.setAttribute("stroke-width", style.strokeWidth);
-      }
-
-      for (const [hex, group] of Object.entries(groups)) {
-        for (const pathId of group.paths) {
-          const el = svg.getElementById(pathId);
-          if (el) {
-            el.setAttribute("fill", hex);
-          }
+        const id = p.getAttribute("id") ?? "";
+        if (id !== "") {
+          map.set(id, p);
+        } else {
+          /* unnamed path — colorable only by position, which we never do */
         }
       }
 
-      for (const p of allPaths) {
-        const fill = p.getAttribute("fill") ?? style.defaultFill;
-        p.setAttribute("stroke", fill);
-      }
+      // stroke-width lives in a stylesheet inside the document rather than on
+      // 22,711 attributes. The child combinator matters: a descendant rule
+      // would also beat the stroke-width the outline clones set on themselves,
+      // giving a hairline outline on screen and a correct one in the download.
+      const strokeStyle = svg.ownerDocument.createElementNS(SVG_NS, "style") as SVGStyleElement;
+      svg.insertBefore(strokeStyle, svg.firstChild);
 
-      // Outline layer BEHIND fills: thick stroke on cloned paths.
-      // Fill paths are slightly scaled down (transform-box: fill-box)
-      // so the outline peeks through at all edges.
-      if (parseFloat(style.outlineWidth) > 0) {
-        const outlineGroup = svg.ownerDocument.createElementNS(ns, "g");
-        outlineGroup.setAttribute("class", "outline-layer");
-        for (const p of allPaths) {
-          const pathId = p.getAttribute("id") ?? "";
-          if (coloredIds.has(pathId)) {
-            const outline = p.cloneNode(false) as SVGPathElement;
-            outline.removeAttribute("id");
-            outline.setAttribute("fill", "none");
-            outline.setAttribute("stroke", style.outlineColor);
-            outline.setAttribute("stroke-width", style.outlineWidth);
-            outline.setAttribute("stroke-linejoin", "round");
-            outlineGroup.appendChild(outline);
-          }
-        }
-        svg.insertBefore(outlineGroup, svg.firstChild);
+      // Hatch pattern definitions live here; the recolor pass rebuilds them.
+      const defs = svg.ownerDocument.createElementNS(SVG_NS, "defs") as SVGDefsElement;
+      defs.setAttribute("class", DEFS_CLASS);
+      svg.insertBefore(defs, svg.firstChild);
 
-        // Shrink colored fill paths slightly so outline peeks through
-        for (const p of allPaths) {
-          const pathId = p.getAttribute("id") ?? "";
-          if (coloredIds.has(pathId)) {
-            p.setAttribute("style",
-              "transform-box: fill-box; transform-origin: center; transform: scale(0.995);");
-          }
-        }
-      }
-
-      setSvgContent(new XMLSerializer().serializeToString(svg));
-      setLoading(false);
+      svgRef.current = svg;
+      defsRef.current = defs;
+      pathMapRef.current = map;
+      strokeStyleRef.current = strokeStyle;
+      host.replaceChildren(svg);
+      setReady(true);
     };
+
     loadSvg();
     return () => { cancelled = true; };
-  }, [config, mapStyle, styleOverrides, colorOverrides]);
+  }, [reloadKey]);
+
+  // ---------------------------------------------------------------------------
+  // Effect B: recolor the live document. Runs per interaction, never re-parses.
+  // ---------------------------------------------------------------------------
+  useEffect(() => {
+    if (!ready) return;
+    const svg = svgRef.current;
+    if (!svg) return;
+
+    const style = getStyleConfig(mapStyle, styleOverrides);
+    const groups = applyColorOverrides(config.groups, colorOverrides);
+
+    // --- RESET ---------------------------------------------------------------
+    // Remove the outline layer before querying paths, so clones are not treated
+    // as map shapes, and clear the inline styles the outline pass writes.
+    const staleOutline = svg.querySelector(`.${OUTLINE_CLASS}`);
+    if (staleOutline) {
+      staleOutline.remove();
+    } else {
+      /* no outline layer from a previous pass */
+    }
+
+    const paths = pathMapRef.current;
+    for (const p of paths.values()) {
+      p.removeAttribute("style");
+      p.removeAttribute("data-hatch-base");
+      p.setAttribute("fill", style.defaultFill);
+    }
+
+    // Patterns are regenerated every pass; an add-only pass would accumulate
+    // definitions exactly as the outline layer would.
+    const defs = defsRef.current;
+    if (defs) {
+      defs.replaceChildren();
+    } else {
+      /* defs missing — hatching degrades to flat fills below */
+    }
+
+    const strokeStyle = strokeStyleRef.current;
+    if (strokeStyle) {
+      strokeStyle.textContent = `.map-svg > path { stroke-width: ${style.strokeWidth}; }`;
+    } else {
+      /* stylesheet missing — strokes fall back to the asset's own width */
+    }
+
+    // --- APPLY ---------------------------------------------------------------
+    // Resolve each group's display colour first, so a subject can look up its
+    // overlord's colour after overrides rather than before.
+    const tagOf = (label: string): string =>
+      label.includes(" - ") ? label.split(" - ")[0] : label;
+    const hexByTag = new Map<string, string>();
+    for (const [hex, group] of Object.entries(groups)) {
+      if (!isSubjectEntry(group.label)) {
+        hexByTag.set(tagOf(group.label), hex);
+      } else {
+        /* overlay rows never define a country's own colour */
+      }
+    }
+
+    /** The overlord whose colour this group should carry, or "" for none. */
+    const overlordHexFor = (label: string): string => {
+      const tag = tagOf(label);
+      const overlordTag = isSubjectEntry(label) ? tag : subjectOverlords[tag] ?? "";
+      if (overlordTag === "") return "";
+      return hexByTag.get(overlordTag) ?? "";
+    };
+
+    const ensureHatch = (baseHex: string): string => {
+      const id = hatchIdFor(baseHex);
+      if (!defs) return "";
+      if (!defs.querySelector(`#${id}`)) {
+        const pattern = svg.ownerDocument.createElementNS(SVG_NS, "pattern");
+        pattern.setAttribute("id", id);
+        // userSpaceOnUse: the SVG default scales the pattern per shape, giving
+        // one stripe on a small location and dense banding on a large one.
+        pattern.setAttribute("patternUnits", "userSpaceOnUse");
+        pattern.setAttribute("width", String(HATCH_PERIOD));
+        pattern.setAttribute("height", String(HATCH_PERIOD));
+        pattern.setAttribute("patternTransform", `rotate(${HATCH_ANGLE})`);
+
+        // Opaque by construction: the asset has no background rect and the
+        // ocean is painted by the container, so gaps would read as water.
+        const bg = svg.ownerDocument.createElementNS(SVG_NS, "rect");
+        bg.setAttribute("width", String(HATCH_PERIOD));
+        bg.setAttribute("height", String(HATCH_PERIOD));
+        bg.setAttribute("fill", baseHex);
+        pattern.appendChild(bg);
+
+        const stripe = svg.ownerDocument.createElementNS(SVG_NS, "rect");
+        stripe.setAttribute("width", String(HATCH_STRIPE));
+        stripe.setAttribute("height", String(HATCH_PERIOD));
+        stripe.setAttribute("fill", shadeHex(baseHex, 0.62));
+        pattern.appendChild(stripe);
+
+        defs.appendChild(pattern);
+      } else {
+        /* one definition per resolved colour — reuse it */
+      }
+      return `url(#${id})`;
+    };
+
+    const hatchedIds = new Set<string>();
+    const coloredIds = new Set<string>();
+    let misses = 0;
+    for (const [hex, group] of Object.entries(groups)) {
+      const overlordHex = overlordHexFor(group.label);
+      const hatchRef = overlordHex !== "" ? ensureHatch(overlordHex) : "";
+      for (const pathId of group.paths) {
+        const el = paths.get(pathId);
+        if (el) {
+          if (hatchRef !== "") {
+            el.setAttribute("fill", hatchRef);
+            el.setAttribute("data-hatch-base", overlordHex);
+            hatchedIds.add(pathId);
+          } else {
+            el.setAttribute("fill", hex);
+          }
+          coloredIds.add(pathId);
+        } else {
+          misses++;
+        }
+      }
+    }
+
+    // Config paths are canonical IDs resolved from location-ids.json, so every
+    // one should exist in the asset. A miss means the id list and the shipped
+    // SVG have drifted apart — regenerate with scripts/generate-location-ids.mjs.
+    if (misses > 0) {
+      log.warn(
+        `${misses} config path id(s) had no shape in ${MAP_ASSET} — ` +
+          `location-ids.json may be stale relative to the asset.`,
+      );
+    } else {
+      /* every config path resolved to a shape */
+    }
+
+    // Strokes match their own fill, hiding internal borders. A hatched path
+    // instead takes a darker seam colour: copying its fill would put a
+    // url(...) reference in the stroke, and using the overlord's flat colour
+    // would erase the boundary between held and subject territory.
+    for (const p of paths.values()) {
+      const base = p.getAttribute("data-hatch-base") ?? "";
+      if (base !== "") {
+        p.setAttribute("stroke", shadeHex(base, 0.45));
+      } else {
+        p.setAttribute("stroke", p.getAttribute("fill") ?? style.defaultFill);
+      }
+    }
+
+    // --- OUTLINE (opt-in) ----------------------------------------------------
+    // Clones every colored path, so it is gated on a non-zero width.
+    if (parseFloat(style.outlineWidth) > 0) {
+      const outlineGroup = svg.ownerDocument.createElementNS(SVG_NS, "g");
+      outlineGroup.setAttribute("class", OUTLINE_CLASS);
+      for (const pathId of coloredIds) {
+        const p = paths.get(pathId);
+        if (p) {
+          const outline = p.cloneNode(false) as SVGPathElement;
+          outline.removeAttribute("id");
+          outline.setAttribute("fill", "none");
+          outline.setAttribute("stroke", style.outlineColor);
+          outline.setAttribute("stroke-width", style.outlineWidth);
+          outline.setAttribute("stroke-linejoin", "round");
+          outlineGroup.appendChild(outline);
+        } else {
+          /* colored id with no element — already counted as a miss */
+        }
+      }
+      svg.insertBefore(outlineGroup, svg.firstChild);
+
+      // Shrink colored fills slightly so the outline peeks through at all edges.
+      for (const pathId of coloredIds) {
+        const p = paths.get(pathId);
+        if (p) {
+          p.setAttribute("style",
+            "transform-box: fill-box; transform-origin: center; transform: scale(0.995);");
+        } else {
+          /* nothing to shrink */
+        }
+      }
+    } else {
+      /* outline disabled — the reset above already removed any stale layer */
+    }
+  }, [ready, config, subjectOverlords, mapStyle, styleOverrides, colorOverrides]);
 
   const handleWheel = useCallback((e: React.WheelEvent) => {
     e.preventDefault();
@@ -187,16 +411,13 @@ export const MapRenderer = ({ config, mapStyle, styleOverrides, colorOverrides, 
     setTransform(IDENTITY_TRANSFORM);
   }, []);
 
-  const style = getStyleConfig(mapStyle, styleOverrides);
+  const handleRetry = useCallback(() => {
+    setReady(false);
+    setLoadError("");
+    setReloadKey((k) => k + 1);
+  }, []);
 
-  if (loading) {
-    return (
-      <div className="map-loading">
-        <div className="spinner" />
-        <span>Loading map...</span>
-      </div>
-    );
-  }
+  const style = getStyleConfig(mapStyle, styleOverrides);
 
   return (
     <div className={`map-renderer map-renderer-${mapStyle}`}>
@@ -214,14 +435,28 @@ export const MapRenderer = ({ config, mapStyle, styleOverrides, colorOverrides, 
         onMouseUp={handleMouseUp}
         onMouseLeave={() => { dragRef.current = null; mouseDownPosRef.current = null; }}
       >
+        {/* Rendered unconditionally: a mount-time effect needs this node to
+            exist as its injection target. The spinner is an overlay. */}
         <div
+          ref={svgHostRef}
           className="map-transform"
           style={{
             transform: transformCss(transform),
             transformOrigin: "0 0",
           }}
-          dangerouslySetInnerHTML={{ __html: svgContent }}
         />
+        {loadError !== "" && (
+          <div className="map-load-error">
+            <p>{loadError}</p>
+            <button className="btn secondary" onClick={handleRetry}>Retry</button>
+          </div>
+        )}
+        {!ready && loadError === "" && (
+          <div className="map-loading">
+            <div className="spinner" />
+            <span>Loading map...</span>
+          </div>
+        )}
       </div>
     </div>
   );
