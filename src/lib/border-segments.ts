@@ -102,10 +102,10 @@ const rotateToUnmarked = (
   points: readonly Point[],
   marked: readonly boolean[],
   epsilon: number,
-): { points: readonly Point[]; marked: readonly boolean[] } => {
+): { points: readonly Point[]; marked: readonly boolean[]; cyclic: boolean } => {
   const n = points.length;
   if (n < 2) {
-    return { points, marked };
+    return { points, marked, cyclic: false };
   } else {
     /* enough points to have a seam */
   }
@@ -114,7 +114,7 @@ const rotateToUnmarked = (
   const last = points[n - 1];
   const closed = Math.hypot(last[0] - first[0], last[1] - first[1]) <= epsilon;
   if (!closed || !marked[0] || !marked[n - 1]) {
-    return { points, marked };
+    return { points, marked, cyclic: false };
   } else {
     /* a run straddles the seam — rotate past it */
   }
@@ -123,14 +123,19 @@ const rotateToUnmarked = (
   if (pivot === -1) {
     // Every vertex is marked: the whole perimeter is one run, so there is no
     // seam to hide. Leave the loop as it stands.
-    return { points, marked };
+    return { points, marked, cyclic: false };
   } else {
     /* rotate so scanning starts outside any run */
   }
 
+  // Rotating a closed loop leaves a valid cyclic walk: the old last vertex
+  // and the old first are the same point, and the new last is the old
+  // pivot-1, one step around the perimeter from the new first. So the step
+  // from the end of the rotated list back to its start is a real edge.
   return {
     points: [...points.slice(pivot), ...points.slice(0, pivot)],
     marked: [...marked.slice(pivot), ...marked.slice(0, pivot)],
+    cyclic: true,
   };
 };
 
@@ -141,49 +146,80 @@ const rotateToUnmarked = (
  * start of the list, and a run stepping across a subpath boundary — are the
  * same whether the mark means "on a border with that neighbour" or "on no
  * border at all".
+ *
+ * `reachPastEnds` carries a run one vertex beyond each end. A vertex is either
+ * shared with a neighbour or it is not, so the perimeter edge that crosses
+ * between the two belongs to no run at all: the border stops at the last
+ * vertex it shares with the neighbour, and the coast starts at the next one.
+ * Only coastline reaches past its ends, because that crossing edge runs along
+ * the water rather than along the border it is leaving. Borders do not need
+ * it: where two borders of the same shape meet, they meet at a vertex all
+ * three shapes share, so both runs already reach it.
  */
 const runsOf = (
   points: readonly Point[],
   mark: (p: Point) => boolean,
   epsilon: number,
+  reachPastEnds: boolean = false,
 ): Polyline[] => {
   const rotated = rotateToUnmarked(points, points.map(mark), epsilon);
+  const pts = rotated.points;
+
+  /** False where the step from i to j has crossed into another subpath. */
+  const contiguous = (i: number, j: number): boolean =>
+    Math.hypot(pts[j][0] - pts[i][0], pts[j][1] - pts[i][1]) <= MAX_STEP;
 
   const result: Polyline[] = [];
-  let run: Point[] = [];
+  let start = -1;
 
-  const flush = () => {
-    if (run.length >= 2) {
-      result.push(run);
+  // A single marked vertex describes no stretch on its own, so a border drops
+  // it: one shared corner is a meeting point, not an edge. A run that reaches
+  // past its ends is different — a lone seaward vertex between two borders is
+  // a notch in the coast, and the two edges leading to and from it face the
+  // water whichever way you walk them.
+  const shortest = reachPastEnds ? 1 : 2;
+
+  const flush = (end: number) => {
+    if (start >= 0 && end - start >= shortest) {
+      const from =
+        reachPastEnds && start > 0 && contiguous(start - 1, start)
+          ? start - 1
+          : start;
+      const to =
+        reachPastEnds && end < pts.length && contiguous(end - 1, end)
+          ? end + 1
+          : end;
+      const body = pts.slice(from, to);
+      // A run ending at the list's end has its next vertex at the front,
+      // since rotation left the loop cyclic. Without this the seam keeps the
+      // very gap the reach exists to close.
+      const reachesSeam =
+        reachPastEnds &&
+        to === pts.length &&
+        rotated.cyclic &&
+        contiguous(pts.length - 1, 0);
+      result.push(reachesSeam ? [...body, pts[0]] : body);
     } else {
-      /* a lone point is a corner, not a stretch of edge */
+      /* no run, or too short to describe a stretch of edge */
     }
-    run = [];
+    start = -1;
   };
 
-  rotated.points.forEach((point, i) => {
+  pts.forEach((_, i) => {
     if (!rotated.marked[i]) {
-      flush();
-      return;
-    } else {
-      /* marked — extend or start a run */
-    }
-
-    const previous = run[run.length - 1];
-    const jumped =
-      previous !== undefined &&
-      Math.hypot(point[0] - previous[0], point[1] - previous[1]) > MAX_STEP;
-    if (jumped) {
+      flush(i);
+    } else if (start === -1) {
+      start = i;
+    } else if (!contiguous(i - 1, i)) {
       // Crossed into another subpath; close the run rather than drawing a
       // line across whatever lies between.
-      flush();
+      flush(i);
+      start = i;
     } else {
-      /* contiguous — keep going */
+      /* contiguous and marked — the run continues */
     }
-
-    run.push(point);
   });
-  flush();
+  flush(pts.length);
 
   return result;
 };
@@ -218,6 +254,12 @@ export const sharedBorders = (
  *
  * That also keeps an edge facing unclaimed land out of the result, since
  * wilderness is an ordinary land path and shows up among the neighbours.
+ *
+ * Each run reaches one vertex past both of its ends, so the stretch closes up
+ * to the borders on either side of it. The vertex where a land border meets
+ * the water is shared with that neighbour, so it counts as border rather than
+ * coast, and without the reach the edge from it out to open water would be
+ * drawn by neither — a gap at every point where a realm's border hits the sea.
  */
 export const coastline = (
   a: readonly Point[],
@@ -230,7 +272,7 @@ export const coastline = (
     /* the shape has geometry — find the edges facing nothing */
   }
 
-  return runsOf(a, (p) => !neighbors.some((near) => near(p)), epsilon);
+  return runsOf(a, (p) => !neighbors.some((near) => near(p)), epsilon, true);
 };
 
 /** Render a polyline as SVG path data. */

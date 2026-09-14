@@ -944,6 +944,15 @@ describe("country borders", () => {
     return [...d.matchAll(/[ML](-?[\d.]+) (-?[\d.]+)/g)].map((m) => parseFloat(m[1]));
   };
 
+  /** Drawn segments running along the vertical line x = at. */
+  const drawnEdgesAlongX = (container: HTMLElement, at: number): number => {
+    const d = borderPaths(container)[0]?.getAttribute("d") ?? "";
+    return d.split("M").reduce((total, subpath) => {
+      const xs = [...subpath.matchAll(/(-?[\d.]+) (-?[\d.]+)/g)].map((m) => parseFloat(m[1]));
+      return total + xs.filter((x, i) => i > 0 && x === at && xs[i - 1] === at).length;
+    }, 0);
+  };
+
   /** The x = 10 line is where Alpha and Bravo meet. */
   const SHARED_EDGE_X = 10;
 
@@ -976,11 +985,11 @@ describe("country borders", () => {
 
   it("draws nothing on a country's internal edges", async () => {
     // Both are SWE, so their shared edge carries no line — though their
-    // seaward edges are coast and do.
+    // seaward edges are coast and do, right up to the corners of it.
     const { container } = renderBorders({ Alpha: "SWE", Bravo: "SWE" }, ["SWE"]);
     await waitForMapReady(container);
     await waitFor(() => expect(borderPaths(container).length).toBeGreaterThan(0));
-    expect(drawnXs(container)).not.toContain(SHARED_EDGE_X);
+    expect(drawnEdgesAlongX(container, SHARED_EDGE_X)).toBe(0);
   });
 
   it("draws nothing against unclaimed land", async () => {
@@ -989,7 +998,7 @@ describe("country borders", () => {
     const { container } = renderBorders({ Alpha: "SWE" }, ["SWE"]);
     await waitForMapReady(container);
     await waitFor(() => expect(borderPaths(container).length).toBeGreaterThan(0));
-    expect(drawnXs(container)).not.toContain(SHARED_EDGE_X);
+    expect(drawnEdgesAlongX(container, SHARED_EDGE_X)).toBe(0);
   });
 
   it("draws the coastline of player territory", async () => {
