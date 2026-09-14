@@ -32,6 +32,8 @@ export interface DebugData {
   playerPaths: readonly string[];
   /** Ownership across every country; decides where country borders fall. */
   borderOwnership: BorderOwnership;
+  /** Canonical path ids of every uninhabitable location; drives the fill. */
+  wastelandPaths: readonly string[];
   parseTimeMs: number;
   fileSizeMb: number;
 }
@@ -64,13 +66,13 @@ export default function App() {
           ? parseBinarySave(bytes)
           : parseMeltedSave(new TextDecoder().decode(bytes));
 
-        const { config, subjectOverlords, playerPaths, borderOwnership } = exportMapChartConfig(parsed, {
+        const { config, subjectOverlords, playerPaths, borderOwnership, wastelandPaths } = exportMapChartConfig(parsed, {
           playersOnly,
           title,
         });
         const parseTimeMs = performance.now() - t0;
 
-        setDebug({ parsed, config, subjectOverlords, playerPaths, borderOwnership, parseTimeMs, fileSizeMb: sizeMb });
+        setDebug({ parsed, config, subjectOverlords, playerPaths, borderOwnership, wastelandPaths, parseTimeMs, fileSizeMb: sizeMb });
         setStatus("done");
       } catch (e) {
         setError(e instanceof Error ? e.message : String(e));
@@ -150,6 +152,7 @@ export default function App() {
                 subjectOverlords={debug.subjectOverlords}
                 playerPaths={debug.playerPaths}
                 borderOwnership={debug.borderOwnership}
+                wastelandPaths={debug.wastelandPaths}
                 parseTimeMs={debug.parseTimeMs}
                 onCountryClick={handleCountryClick}
                 onReset={handleReset}

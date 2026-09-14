@@ -1,20 +1,28 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
 // The real graph is 718 KB; the point under test is *when* it is fetched.
 const loadAdjacency = vi.hoisted(() => vi.fn(async () => [[1], [0]] as const));
 vi.mock("../../lib/location-adjacency", () => ({ loadAdjacency }));
-import { render, within, waitFor, fireEvent } from "@testing-library/react";
+import { render, within, waitFor, fireEvent, cleanup } from "@testing-library/react";
 import { MapTab } from "../MapTab";
 import type { MapChartConfig } from "../../lib/types";
 
 const mockSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100">
   <path id="Uppland" fill="#d1dbdd" stroke="#000" d="M0,0 L10,10"/>
+  <path id="Kolyma_Wasteland" fill="#d1dbdd" stroke="#000" d="M20,20 L30,30"/>
 </svg>`;
 
 beforeEach(() => {
   vi.spyOn(globalThis, "fetch").mockResolvedValue({
     text: () => Promise.resolve(mockSvg),
   } as Response);
+});
+
+// Vitest runs with globals disabled, so RTL's automatic cleanup never
+// registers: without this every rendered tree stays mounted, the map's path
+// ids appear many times over, and a waitFor poll can never settle.
+afterEach(() => {
+  cleanup();
 });
 
 const baseConfig: MapChartConfig = {
@@ -361,5 +369,109 @@ describe("country borders", () => {
     await waitFor(() => expect(container.querySelector(".map-svg")).toBeInTheDocument());
     setWidth(container, "0.6");
     expect(container.querySelector(".border-layer")).toBeNull();
+  });
+});
+
+// =============================================================================
+// Wasteland fill
+// =============================================================================
+
+describe("MapTab — wasteland fill", () => {
+  const ENG = "#ff0000";
+  const PARCHMENT_DEFAULT = "#e8dcc8";
+
+  /** Uppland (0) touches Kolyma_Wasteland (1), matching the mocked graph. */
+  const IDS = ["Uppland", "Kolyma_Wasteland"];
+
+  const ownership = {
+    ownerByPath: new Map([["Uppland", "ENG"]]),
+    playerTags: new Set(["ENG"]),
+  };
+
+  const renderTab = (props: Record<string, unknown> = {}) =>
+    render(
+      <MapTab
+        config={baseConfig}
+        subjectOverlords={{}}
+        borderOwnership={ownership}
+        wastelandPaths={["Kolyma_Wasteland"]}
+        adjacencyIds={IDS}
+        parseTimeMs={500}
+        onCountryClick={() => {}}
+        onReset={() => {}}
+        {...props}
+      />,
+    );
+
+  const fillOf = (container: HTMLElement, id: string): string =>
+    container.querySelector(`#${id}`)?.getAttribute("fill") ?? "";
+
+  const toggleOf = (container: HTMLElement): HTMLInputElement =>
+    [...container.querySelectorAll(".toolbar-controls input[type=checkbox]")][0] as HTMLInputElement;
+
+  beforeEach(() => {
+    loadAdjacency.mockClear();
+  });
+
+  it("offers the toggle, on by default", () => {
+    const { container } = renderTab();
+    expect(within(container).getByText("Fill wastelands")).toBeTruthy();
+    expect(toggleOf(container).checked).toBe(true);
+  });
+
+  it("paints a wasteland its one neighbour encloses", async () => {
+    const { container } = renderTab();
+    await waitFor(() => {
+      expect(fillOf(container, "Kolyma_Wasteland")).toBe(ENG);
+    });
+  });
+
+  it("returns the wasteland to grey when the toggle is switched off", async () => {
+    const { container } = renderTab();
+    await waitFor(() => {
+      expect(fillOf(container, "Kolyma_Wasteland")).toBe(ENG);
+    });
+
+    fireEvent.click(toggleOf(container));
+    await waitFor(() => {
+      expect(fillOf(container, "Kolyma_Wasteland")).toBe(PARCHMENT_DEFAULT);
+    });
+    // The country's own territory is untouched either way.
+    expect(fillOf(container, "Uppland")).toBe(ENG);
+  });
+
+  it("leaves a wasteland grey when a second country borders it", async () => {
+    const { container } = renderTab({
+      borderOwnership: {
+        ownerByPath: new Map([["Uppland", "ENG"], ["Kolyma_Wasteland", "FRA"]]),
+        playerTags: new Set(["ENG"]),
+      },
+      // Both shapes owned, so nothing is a wasteland to enclose.
+      wastelandPaths: [],
+    });
+    await waitFor(() => {
+      expect(fillOf(container, "Uppland")).toBe(ENG);
+    });
+    expect(fillOf(container, "Kolyma_Wasteland")).toBe(PARCHMENT_DEFAULT);
+  });
+
+  it("fetches the graph for the fill even with the outline width at zero", async () => {
+    const { container } = renderTab();
+    await waitFor(() => expect(loadAdjacency).toHaveBeenCalled());
+    loadAdjacency.mockClear();
+
+    const range = container.querySelector(".style-range-input") as HTMLInputElement;
+    fireEvent.change(range, { target: { value: "0" } });
+
+    // Still painted: the fill does not depend on borders being drawn.
+    await waitFor(() => {
+      expect(fillOf(container, "Kolyma_Wasteland")).toBe(ENG);
+    });
+  });
+
+  it("paints nothing before the graph arrives", () => {
+    const { container } = renderTab();
+    // Synchronous first paint, before the mocked fetch resolves.
+    expect(fillOf(container, "Kolyma_Wasteland")).not.toBe(ENG);
   });
 });
