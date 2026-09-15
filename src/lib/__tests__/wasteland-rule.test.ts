@@ -1,8 +1,9 @@
 import { describe, it, expect } from "vitest";
 import {
   enclosedWastelands,
-  wastelandComponents,
+  claimingTag,
   wastelandPositions,
+  CLAIM_REACH,
   UNENCLOSED,
 } from "../wasteland-rule";
 import type { AdjacencyGraph } from "../location-adjacency";
@@ -74,41 +75,89 @@ describe("wastelandPositions", () => {
   });
 });
 
-describe("wastelandComponents", () => {
-  it("groups wastelands that touch each other", () => {
-    const graph = graphOf([["Waste1", "Waste2"]]);
-    const components = wastelandComponents(
-      wastelandPositions(["Waste1", "Waste2"], IDS),
-      graph,
+describe("claimingTag — how far a claim reaches", () => {
+  const tagFor = (
+    of: string,
+    wastelands: readonly string[],
+    byTag: Record<string, readonly string[]>,
+    pairs: readonly (readonly [string, string])[],
+    reach: number = CLAIM_REACH,
+  ) =>
+    claimingTag(
+      at(of),
+      wastelandPositions(wastelands, IDS),
+      owners(byTag),
+      graphOf(pairs),
+      IDS,
+      reach,
     );
-    expect(components.length).toBe(1);
-    expect([...components[0]].sort()).toEqual([at("Waste1"), at("Waste2")].sort());
+
+  it("reaches through a touching wasteland to the land beyond it", () => {
+    // Waste1 touches no ordinary location of its own; Waste2 carries it.
+    expect(
+      tagFor("Waste1", ["Waste1", "Waste2"], { FRA: ["Alpha"] }, [
+        ["Waste1", "Waste2"],
+        ["Waste2", "Alpha"],
+      ]),
+    ).toBe("FRA");
   });
 
-  it("keeps wastelands that do not touch in separate components", () => {
-    const graph = graphOf([
-      ["Waste1", "Alpha"],
-      ["Waste2", "Bravo"],
-    ]);
-    const components = wastelandComponents(
-      wastelandPositions(["Waste1", "Waste2"], IDS),
-      graph,
-    );
-    expect(components.length).toBe(2);
+  it("does not reach two wastelands deep", () => {
+    // Alpha is two steps away, so nothing is within reach and nothing claims it.
+    expect(
+      tagFor("Waste1", ["Waste1", "Waste2", "Waste3"], { FRA: ["Alpha"] }, [
+        ["Waste1", "Waste2"],
+        ["Waste2", "Waste3"],
+        ["Waste3", "Alpha"],
+      ]),
+    ).toBe(UNENCLOSED);
   });
 
-  it("does not join two wastelands through an owned location between them", () => {
-    // Alpha sits between them: they are neighbours of the same country, not
-    // of each other, and must vote separately.
-    const graph = graphOf([
+  it("lets a far country veto only what it is near", () => {
+    // The shape of the Egyptian deserts: a chain with France at one end and
+    // Spain at the other. Each end is claimed by the country beside it; only
+    // the middle, which is near both, stays grey. Under a whole-component rule
+    // the Spanish end vetoed the French end too.
+    const chain = ["Waste1", "Waste2", "Waste3"] as const;
+    const world = { FRA: ["Alpha"], SPA: ["Delta"] };
+    const pairs = [
       ["Waste1", "Alpha"],
-      ["Alpha", "Waste2"],
-    ]);
-    const components = wastelandComponents(
-      wastelandPositions(["Waste1", "Waste2"], IDS),
-      graph,
-    );
-    expect(components.length).toBe(2);
+      ["Waste1", "Waste2"],
+      ["Waste2", "Waste3"],
+      ["Waste3", "Delta"],
+    ] as const;
+    expect(tagFor("Waste1", chain, world, pairs)).toBe("FRA");
+    expect(tagFor("Waste2", chain, world, pairs)).toBe(UNENCLOSED);
+    expect(tagFor("Waste3", chain, world, pairs)).toBe("SPA");
+  });
+
+  it("keeps two touching wastelands in agreement", () => {
+    // The invariant the reach exists to preserve: A's reach covers B's own
+    // neighbours, so if both are claimed at all they are claimed by the same
+    // country. At reach 0 this pair would come out FRA and SPA.
+    const chain = ["Waste1", "Waste2"] as const;
+    const world = { FRA: ["Alpha"], SPA: ["Delta"] };
+    const pairs = [
+      ["Waste1", "Alpha"],
+      ["Waste1", "Waste2"],
+      ["Waste2", "Delta"],
+    ] as const;
+    expect(tagFor("Waste1", chain, world, pairs)).toBe(UNENCLOSED);
+    expect(tagFor("Waste2", chain, world, pairs)).toBe(UNENCLOSED);
+
+    expect(tagFor("Waste1", chain, world, pairs, 0)).toBe("FRA");
+    expect(tagFor("Waste2", chain, world, pairs, 0)).toBe("SPA");
+  });
+
+  it("is vetoed by unowned land within reach, not beyond it", () => {
+    const chain = ["Waste1", "Waste2"] as const;
+    const pairs = [
+      ["Waste1", "Alpha"],
+      ["Waste1", "Waste2"],
+      ["Waste2", "Echo"],
+    ] as const;
+    // Echo is unowned and one step away, so it counts.
+    expect(tagFor("Waste1", chain, { FRA: ["Alpha"] }, pairs)).toBe(UNENCLOSED);
   });
 });
 
@@ -177,8 +226,9 @@ describe("enclosedWastelands", () => {
   });
 
   it("fills the interior of a chain, which touches no owned location at all", () => {
-    // Waste2's only neighbours are other wastelands. Resolving each member on
-    // its own would leave it a hole in the middle of the filled chain.
+    // Waste2's only neighbours are other wastelands, and the reach is what
+    // carries it: judged on its own neighbours it would be a grey hole in the
+    // middle of a filled chain.
     expect(
       fills(["Waste1", "Waste2", "Waste3"], { FRA: ["Alpha", "Bravo"] }, [
         ["Waste1", "Waste2"],
@@ -189,9 +239,9 @@ describe("enclosedWastelands", () => {
     ).toEqual({ Waste1: "FRA", Waste2: "FRA", Waste3: "FRA" });
   });
 
-  it("leaves a whole chain unfilled when one member touches a second country", () => {
-    // No partial fill: the chain is one unit, so one Spanish neighbour at the
-    // far end disqualifies the French end too.
+  it("leaves both ends grey when a short chain is contested", () => {
+    // Each shape is within reach of both countries, so neither is claimed —
+    // and, importantly, they do not come out different colours.
     expect(
       fills(["Waste1", "Waste2"], { FRA: ["Alpha"], SPA: ["Delta"] }, [
         ["Waste1", "Waste2"],
@@ -201,7 +251,20 @@ describe("enclosedWastelands", () => {
     ).toEqual({});
   });
 
-  it("resolves separate components independently", () => {
+  it("claims the near end of a long chain even when the far end is foreign", () => {
+    // The Egyptian case. Waste1 and Waste3 are each beside one country and out
+    // of reach of the other; Waste2 sits between them and stays grey.
+    expect(
+      fills(["Waste1", "Waste2", "Waste3"], { FRA: ["Alpha"], SPA: ["Delta"] }, [
+        ["Waste1", "Alpha"],
+        ["Waste1", "Waste2"],
+        ["Waste2", "Waste3"],
+        ["Waste3", "Delta"],
+      ]),
+    ).toEqual({ Waste1: "FRA", Waste3: "SPA" });
+  });
+
+  it("resolves shapes out of reach of each other independently", () => {
     expect(
       fills(["Waste1", "Waste2"], { FRA: ["Alpha"], SPA: ["Delta"] }, [
         ["Waste1", "Alpha"],
