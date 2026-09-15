@@ -250,11 +250,11 @@ const rotateToUnmarked = (
  */
 const runsOfRing = (
   ring: readonly Point[],
-  mark: (p: Point) => boolean,
+  marked: readonly boolean[],
   epsilon: number,
   reachPastEnds: boolean,
 ): Polyline[] => {
-  const rotated = rotateToUnmarked(ring, ring.map(mark), epsilon);
+  const rotated = rotateToUnmarked(ring, marked, epsilon);
   const pts = rotated.points;
 
   const result: Polyline[] = [];
@@ -311,7 +311,7 @@ const runsOf = (
   epsilon: number,
   reachPastEnds: boolean = false,
 ): Polyline[] =>
-  rings.flatMap((ring) => runsOfRing(ring, mark, epsilon, reachPastEnds));
+  rings.flatMap((ring) => runsOfRing(ring, ring.map(mark), epsilon, reachPastEnds));
 
 /**
  * The polylines along the border between two shapes.
@@ -349,6 +349,9 @@ export const sharedBorders = (
  * That also keeps an edge facing unclaimed land out of the result, since
  * wilderness is an ordinary land path and shows up among the neighbours.
  *
+ * A ring that is a hole inside the shape and touches no neighbour is a lake,
+ * and is skipped: an inland water body is not part of the realm's outline.
+ *
  * Each run reaches one vertex past both of its ends, so the stretch closes up
  * to the borders on either side of it. The vertex where a land border meets
  * the water is shared with that neighbour, so it counts as border rather than
@@ -366,7 +369,96 @@ export const coastline = (
     /* the shape has geometry — find the edges facing nothing */
   }
 
-  return runsOf(a, (p) => !neighbors.some((near) => near(p)), epsilon, true);
+  const facingNothing = (p: Point) => !neighbors.some((near) => near(p));
+  const boxes = a.length > 1 ? a.map(boxOf) : [];
+
+  return a.flatMap((ring, i) => {
+    const marked = ring.map(facingNothing);
+    // Cheapest test first, and it is already paid for: a hole with a
+    // neighbour anywhere on it is an enclave, not a lake, and only a ring
+    // facing nothing along its whole length can be one.
+    const couldBeLake = a.length > 1 && marked.length > 0 && marked.every((m) => m);
+    if (couldBeLake && isHole(a, boxes, i)) {
+      return [];
+    } else {
+      /* outer perimeter, island, or enclave edge — all real outline */
+    }
+    return runsOfRing(ring, marked, epsilon, true);
+  });
+};
+
+/**
+ * Is the point inside this ring? Ray casting, counting crossings.
+ *
+ * Bounding boxes are not enough to tell a hole from an island: a crescent's
+ * box contains the bay it wraps around, so an island sitting in that bay would
+ * be mistaken for a hole and lose its coastline.
+ */
+const isInsideRing = (p: Point, ring: readonly Point[]): boolean => {
+  let inside = false;
+  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+    const [xi, yi] = ring[i];
+    const [xj, yj] = ring[j];
+    const straddles = (yi > p[1]) !== (yj > p[1]);
+    if (straddles && p[0] < ((xj - xi) * (p[1] - yi)) / (yj - yi) + xi) {
+      inside = !inside;
+    } else {
+      /* the ray misses this edge */
+    }
+  }
+  return inside;
+};
+
+interface Box { readonly x0: number; readonly y0: number; readonly x1: number; readonly y1: number }
+
+const boxOf = (ring: readonly Point[]): Box => {
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  for (const p of ring) {
+    if (p[0] < x0) x0 = p[0];
+    if (p[0] > x1) x1 = p[0];
+    if (p[1] < y0) y0 = p[1];
+    if (p[1] > y1) y1 = p[1];
+  }
+  return { x0, y0, x1, y1 };
+};
+
+const boxWithin = (inner: Box, outer: Box): boolean =>
+  inner.x0 >= outer.x0 && inner.x1 <= outer.x1 && inner.y0 >= outer.y0 && inner.y1 <= outer.y1;
+
+/**
+ * Is this ring a lake rather than a piece of the realm's outline?
+ *
+ * A location containing a lake draws it as a hole in its own polygon. The hole
+ * touches no neighbour — there is no land on the far side of it — so the
+ * complement that defines coastline claims the whole ring and strokes a closed
+ * outline around the lake, in the middle of somebody's territory. 1,896 rings
+ * in the asset are shaped that way.
+ *
+ * The other kind of hole is an enclave: one country sitting wholly inside
+ * another. That one *does* touch its neighbour, and its edges are already
+ * drawn as the border they are, so the touch test keeps the two apart.
+ *
+ * Only holes wholly inside a single location are caught here. A lake lying
+ * between several locations is a gap between them rather than a ring of any
+ * one of them, and nothing local distinguishes it from open sea.
+ */
+const isHole = (rings: Shape, boxes: readonly Box[], index: number): boolean => {
+  const ring = rings[index];
+  if (ring.length === 0) {
+    return false;
+  } else {
+    /* a real ring — is some other ring of this shape wrapped around it? */
+  }
+
+  const probe = ring[0];
+  return rings.some((other, j) => {
+    if (j === index || other.length <= 2) {
+      return false;
+    } else {
+      /* a candidate container — box first, which rejects almost all of them */
+    }
+    return boxWithin(boxes[index], boxes[j]) && isInsideRing(probe, other);
+  });
 };
 
 /** Render a polyline as SVG path data. */

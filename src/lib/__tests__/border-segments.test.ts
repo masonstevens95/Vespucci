@@ -322,6 +322,58 @@ describe("coastline", () => {
   });
 });
 
+describe("coastline — lakes inside a location", () => {
+  const outer = square(0, 0, 20);
+  /** A hole in the middle of it: the shape of a lake in the asset. */
+  const lake = square(8, 8, 4);
+  const onOuterEdge = (p: Point) => p[0] === 0 || p[0] === 20 || p[1] === 0 || p[1] === 20;
+
+  it("does not stroke a hole that touches no neighbour", () => {
+    const lines = coastline([outer, lake], []);
+    expect(lines.length).toBeGreaterThan(0);
+    // Every point drawn belongs to the outer perimeter; none to the lake.
+    expect(lines.flat().every(onOuterEdge)).toBe(true);
+  });
+
+  it("still strokes the outer perimeter in full", () => {
+    const withLake = coastline([outer, lake], []).flat().length;
+    const withoutLake = coastline([outer], []).flat().length;
+    expect(withLake).toBe(withoutLake);
+  });
+
+  it("strokes a separate island, which is not a hole", () => {
+    // Its bounding box lies outside the mainland's, so nothing about it is
+    // enclosed — this is land with a real shore.
+    const island = square(30, 30, 4);
+    const lines = coastline([outer, island], []);
+    const islandPoints = lines.flat().filter((p) => p[0] >= 30 && p[1] >= 30);
+    expect(islandPoints.length).toBeGreaterThan(0);
+  });
+
+  it("strokes an island sitting inside a bay, which a bounding box would call a hole", () => {
+    // A crescent wrapping around open water. The island in the bay is inside
+    // the crescent's box but outside the crescent itself, so ray casting keeps
+    // its coastline where a box test would have dropped it.
+    const crescent: Point[] = [
+      [0, 0], [20, 0], [20, 20], [15, 20], [15, 5], [5, 5], [5, 20], [0, 20], [0, 0],
+    ];
+    const inBay = square(8, 10, 4);
+    const lines = coastline([crescent, inBay], []);
+    const bayPoints = lines.flat().filter((p) => p[0] >= 8 && p[0] <= 12 && p[1] >= 10);
+    expect(bayPoints.length).toBeGreaterThan(0);
+  });
+
+  it("keeps stroking a hole that a neighbour only partly fills", () => {
+    // An enclave against one edge of the hole. The ring is not a lake, so the
+    // stretches facing nothing are still coast.
+    const alongLeftEdge = boundaryIndex([[[8, 8], [8, 12]]]);
+    const lines = coastline([outer, lake], [alongLeftEdge]);
+    const onLakeRing = lines.flat().filter((p) => !onOuterEdge(p));
+    expect(onLakeRing.length).toBeGreaterThan(0);
+    expect(onLakeRing.some((p) => p[0] === 12)).toBe(true);
+  });
+});
+
 describe("polylineToPathData", () => {
   it("starts with a move and continues with linetos", () => {
     expect(polylineToPathData([[1, 2], [3, 4], [5, 6]])).toBe("M1 2L3 4L5 6");
