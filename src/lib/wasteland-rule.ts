@@ -19,11 +19,27 @@
  * lakes have no shape at all — so a coastal wasteland simply has fewer entries
  * in the graph, and touching open water never disqualifies it.
  *
- * Contiguous wastelands resolve as one unit. Chains like Siberian_Wasteland_1..16
- * contain members whose only neighbours are other wastelands; resolving each
- * in isolation would leave every chain interior unfilled and would let two
- * touching wastelands take different colours. The whole connected component is
- * tested against its combined outer border and fills entirely or not at all.
+ * The claim reaches one step into the desert. A wasteland is judged on every
+ * ordinary location that it — or any wasteland touching it — touches. Judging
+ * on its own neighbours alone would leave chain interiors unfilled, since their
+ * only neighbours are other wastelands; judging a whole connected component at
+ * once goes too far the other way.
+ *
+ * Too far, because the asset chains deserts together with corridor shapes
+ * (`Connector_Egypt5`, `Connector_Libya16`, `Horn_Desert_Corridor3`). Those put
+ * the entire Sahara in one component of 125 shapes whose outer border touches
+ * 21 countries, so it could never be unanimous. Egypt's own deserts sat in a
+ * component bordered by the Mamluks on 42 of 49 locations and stayed grey
+ * because of the other seven. A veto a continent away is not a fact about the
+ * shape being painted.
+ *
+ * One step is the smallest reach that keeps touching wastelands in agreement,
+ * which the component rule gave for free. If A and B touch and both fill, then
+ * A's reach includes B's ordinary neighbours, so all of them carry A's tag;
+ * B filling means they all carry B's tag; so the tags are equal. Where B has no
+ * ordinary neighbour at all its tag came from its wasteland neighbours', which
+ * include A's. At reach zero that argument fails, and both sample saves duly
+ * produce a dozen places where two touching deserts take different colours.
  *
  * Ownership arrives as `BorderOwnership.ownerByPath`, which covers every
  * country in the save rather than only the painted ones. Reading it from
@@ -76,102 +92,62 @@ export const wastelandPositions = (
 };
 
 /**
- * Group wastelands into connected components over wasteland-to-wasteland edges.
+ * How far a country's claim reaches into a wasteland, in wasteland steps.
  *
- * Iterative rather than recursive: the longest chains run to dozens of members,
- * and a recursive flood fill would put that depth on the stack for no gain.
+ * One. See the note at the top of this file: zero lets two touching deserts
+ * disagree, and more than one starts letting distant countries veto shapes
+ * they are nowhere near.
  */
-export const wastelandComponents = (
+export const CLAIM_REACH = 1;
+
+/**
+ * The one country claiming a wasteland, or UNENCLOSED.
+ *
+ * Walks out through wasteland neighbours up to `reach` steps and looks at every
+ * ordinary location met on the way. Three ways to fail, and they are the whole
+ * rule: nothing ordinary is within reach (a detached shape, which nothing
+ * encloses), something within reach is unowned (unclaimed frontier or
+ * uncolonized land), or more than one country is within reach.
+ */
+export const claimingTag = (
+  start: number,
   wastelands: ReadonlySet<number>,
-  adjacency: AdjacencyGraph,
-): readonly (readonly number[])[] => {
-  const seen = new Set<number>();
-  const components: number[][] = [];
-
-  for (const start of wastelands) {
-    if (seen.has(start)) {
-      /* already part of a component */
-    } else {
-      const component: number[] = [];
-      const queue = [start];
-      seen.add(start);
-      while (queue.length > 0) {
-        const current = queue.pop() as number;
-        component.push(current);
-        for (const neighbor of adjacency[current] ?? []) {
-          if (wastelands.has(neighbor) && !seen.has(neighbor)) {
-            seen.add(neighbor);
-            queue.push(neighbor);
-          } else {
-            /* not a wasteland, or already in a component */
-          }
-        }
-      }
-      components.push(component);
-    }
-  }
-  return components;
-};
-
-/**
- * The positions bordering a component from outside it.
- *
- * Deduped, so a location touching three members of a chain is one border
- * location rather than three.
- */
-export const outerNeighbors = (
-  component: readonly number[],
-  adjacency: AdjacencyGraph,
-): readonly number[] => {
-  const members = new Set(component);
-  const outer = new Set<number>();
-  for (const member of component) {
-    for (const neighbor of adjacency[member] ?? []) {
-      if (members.has(neighbor)) {
-        /* inside the component — not part of its border */
-      } else {
-        outer.add(neighbor);
-      }
-    }
-  }
-  return [...outer];
-};
-
-/**
- * The one country enclosing a component, or UNENCLOSED.
- *
- * Three ways to fail, and they are the whole rule: nothing borders the
- * component at all (a detached island shape, which nothing encloses), some
- * border location is unowned (unclaimed frontier or uncolonized land), or the
- * border carries more than one owner.
- */
-export const enclosingTag = (
-  component: readonly number[],
   ownerByPath: ReadonlyMap<string, string>,
   adjacency: AdjacencyGraph,
   ids: readonly string[] = CANONICAL_IDS,
+  reach: number = CLAIM_REACH,
 ): string => {
-  const outer = outerNeighbors(component, adjacency);
-  if (outer.length === 0) {
-    return UNENCLOSED;
-  } else {
-    /* something borders it — is it all one country? */
-  }
-
+  const walked = new Set<number>([start]);
+  let frontier: number[] = [start];
   let claimant = UNENCLOSED;
-  for (const position of outer) {
-    const id = ids[position] ?? "";
-    const owner = ownerByPath.get(id) ?? UNENCLOSED;
-    if (owner === UNENCLOSED) {
-      // Unowned land on the border. Whatever this is, it is not an enclave.
-      return UNENCLOSED;
-    } else if (claimant === UNENCLOSED) {
-      claimant = owner;
-    } else if (claimant === owner) {
-      /* still unanimous */
-    } else {
-      return UNENCLOSED;
+
+  for (let step = 0; step <= reach && frontier.length > 0; step++) {
+    const next: number[] = [];
+    for (const current of frontier) {
+      for (const neighbor of adjacency[current] ?? []) {
+        if (wastelands.has(neighbor)) {
+          if (step < reach && !walked.has(neighbor)) {
+            walked.add(neighbor);
+            next.push(neighbor);
+          } else {
+            /* past the reach, or already walked */
+          }
+        } else {
+          const owner = ownerByPath.get(ids[neighbor] ?? "") ?? UNENCLOSED;
+          if (owner === UNENCLOSED) {
+            // Unowned land within reach. Whatever this is, it is not an enclave.
+            return UNENCLOSED;
+          } else if (claimant === UNENCLOSED) {
+            claimant = owner;
+          } else if (claimant === owner) {
+            /* still unanimous */
+          } else {
+            return UNENCLOSED;
+          }
+        }
+      }
     }
+    frontier = next;
   }
   return claimant;
 };
@@ -184,12 +160,16 @@ export const enclosingTag = (
  * authoritative: a location that appears both here and in `ownerByPath` is
  * treated as a wasteland, so contradictory input resolves one way rather than
  * half each.
+ *
+ * Each shape is judged on its own, within the reach — so the far end of a long
+ * chain no longer vetoes the near end.
  */
 export const enclosedWastelands = (
   wastelandPaths: readonly string[],
   ownerByPath: ReadonlyMap<string, string>,
   adjacency: AdjacencyGraph,
   ids: readonly string[] = CANONICAL_IDS,
+  reach: number = CLAIM_REACH,
 ): ReadonlyMap<string, string> => {
   const fills = new Map<string, string>();
   if (adjacency.length === 0 || ownerByPath.size === 0) {
@@ -199,18 +179,16 @@ export const enclosedWastelands = (
   }
 
   const wastelands = wastelandPositions(wastelandPaths, ids);
-  for (const component of wastelandComponents(wastelands, adjacency)) {
-    const tag = enclosingTag(component, ownerByPath, adjacency, ids);
+  for (const position of wastelands) {
+    const tag = claimingTag(position, wastelands, ownerByPath, adjacency, ids, reach);
     if (tag === UNENCLOSED) {
-      /* mixed, unclaimed or detached — leave the whole component grey */
+      /* mixed, unclaimed or out of reach of any land — leave it grey */
     } else {
-      for (const member of component) {
-        const id = ids[member] ?? "";
-        if (id === "") {
-          /* position outside the id list — nothing to paint */
-        } else {
-          fills.set(id, tag);
-        }
+      const id = ids[position] ?? "";
+      if (id === "") {
+        /* position outside the id list — nothing to paint */
+      } else {
+        fills.set(id, tag);
       }
     }
   }
